@@ -117,14 +117,24 @@ export const getMovieBySlug = async (req: Request, res: Response) => {
       const movie = mapMovieDetail(raw);
 
       // Check database VIP flag if movie exists in DB
-      const dbMovie = await prisma.movie.findUnique({ where: { slug } });
+      let dbMovie = null;
+      try {
+        dbMovie = await prisma.movie.findUnique({ where: { slug } });
+      } catch (dbErr) {
+        console.warn('Fallback: Failed to query dbMovie VIP status.', dbErr);
+      }
+
       if (dbMovie?.isVip) {
         let isUserVip = false;
         const authReq = req as any;
         const isAdmin = authReq.user?.role === 'ADMIN';
         if (authReq.user?.id) {
-          const dbUser = await prisma.user.findUnique({ where: { id: authReq.user.id } });
-          isUserVip = dbUser?.isVip || false;
+          try {
+            const dbUser = await prisma.user.findUnique({ where: { id: authReq.user.id } });
+            isUserVip = dbUser?.isVip || false;
+          } catch (dbErr) {
+            console.warn('Fallback: Failed to query dbUser VIP status.', dbErr);
+          }
         }
         const canAccess = isAdmin || isUserVip;
 
