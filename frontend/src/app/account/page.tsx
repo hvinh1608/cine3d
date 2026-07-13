@@ -18,7 +18,7 @@ const PRESET_AVATARS = [
 ];
 
 export default function AccountPage() {
-  const { user, setUser, accessToken, setSession, hasHydrated, favorites, setFavorites, watchHistory, setWatchHistory, watchlist, setWatchlist, logout } = useStore();
+  const { user, setUser, accessToken, setSession, hasHydrated, favorites, setFavorites, watchHistory, setWatchHistory, watchlist, setWatchlist, logout, showToast } = useStore();
 
   // Tab State
   const [activeTab, setActiveTab] = useState<'profile' | 'favorites' | 'watchlist' | 'history'>('profile');
@@ -77,6 +77,7 @@ export default function AccountPage() {
         : { email: email.trim(), username: username.trim(), password };
       const res = await axios.post(endpoint, payload);
       setSession(res.data.user, res.data.accessToken);
+      showToast(isLogin ? 'Đăng nhập thành công!' : 'Đăng ký tài khoản thành công!', 'success');
     } catch (error: any) {
       setErrorMsg(error.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.');
     } finally {
