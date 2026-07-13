@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { Episode, Movie } from '../types/movie';
 
 interface User {
   id: string;
@@ -7,6 +8,7 @@ interface User {
   username: string;
   role: string;
   avatar?: string;
+  isVip?: boolean;
 }
 
 interface WatchHistoryItem {
@@ -22,7 +24,7 @@ interface WatchHistoryItem {
     slug: string;
     backdropUrl: string;
     posterUrl: string;
-    episodes?: any[];
+    episodes?: Episode[];
   };
 }
 
@@ -31,8 +33,8 @@ interface AppState {
   accessToken: string | null;
   refreshToken: string | null;
   hasHydrated: boolean;
-  favorites: any[];
-  watchlist: any[];
+  favorites: Movie[];
+  watchlist: Movie[];
   watchHistory: WatchHistoryItem[];
   reduceMotion: boolean;
   toast: { id: number; message: string; tone: 'info' | 'success' | 'error' } | null;
@@ -41,8 +43,8 @@ interface AppState {
   setAccessToken: (token: string | null) => void;
   setSession: (user: User, accessToken: string, refreshToken?: string) => void;
   setHasHydrated: (hydrated: boolean) => void;
-  setFavorites: (favorites: any[]) => void;
-  setWatchlist: (watchlist: any[]) => void;
+  setFavorites: (favorites: Movie[]) => void;
+  setWatchlist: (watchlist: Movie[]) => void;
   setWatchHistory: (history: WatchHistoryItem[]) => void;
   setReduceMotion: (reduce: boolean) => void;
   showToast: (message: string, tone?: 'info' | 'success' | 'error') => void;

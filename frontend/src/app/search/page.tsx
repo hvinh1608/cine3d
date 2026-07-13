@@ -141,17 +141,13 @@ function SearchPageContent() {
       });
       const currentFavs = [...favorites];
       if (res.data.favorited) {
-        setFavorites([...currentFavs, { id: movieId }]);
+        const movie = movies.find((item) => item.id === movieId);
+        if (movie) setFavorites([...currentFavs, movie]);
       } else {
         setFavorites(currentFavs.filter(f => f.id !== movieId));
       }
-    } catch (e) {
-      const isAlready = favorites.some(f => f.id === movieId);
-      if (isAlready) {
-        setFavorites(favorites.filter(f => f.id !== movieId));
-      } else {
-        setFavorites([...favorites, { id: movieId }]);
-      }
+    } catch {
+      showToast('Không thể cập nhật danh sách yêu thích.', 'error');
     }
   };
 

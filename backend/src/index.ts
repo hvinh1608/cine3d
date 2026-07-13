@@ -3,9 +3,11 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import apiRouter from './routes/api';
+import { prisma } from './lib/prisma';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+app.set('trust proxy', 1);
 const allowedOrigins = new Set([
   'http://localhost:3000',
   'https://cine3d.vercel.app',
@@ -36,8 +38,14 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use('/api', apiRouter);
 
 // Health Check
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date() });
+app.get('/health', async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ status: 'OK', database: 'connected', timestamp: new Date() });
+  } catch (error) {
+    console.error('Database health check failed.', error);
+    res.status(503).json({ status: 'ERROR', database: 'unavailable', timestamp: new Date() });
+  }
 });
 
 // 404 Route handler
@@ -46,18 +54,31 @@ app.use((req, res) => {
 });
 
 // Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Unhandled error:', err);
+  const details = err instanceof Error ? err.message : String(err);
   res.status(500).json({
     message: 'Internal server error.',
-    ...(process.env.NODE_ENV !== 'production' ? { error: err.message } : {}),
+    ...(process.env.NODE_ENV !== 'production' ? { error: details } : {}),
   });
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`===============================================`);
   console.log(`  3D Movie Streaming Backend is running!     `);
   console.log(`  Port: ${PORT}                               `);
   console.log(`  Env: ${process.env.NODE_ENV || 'development'}`);
   console.log(`===============================================`);
 });
+
+async function shutdown(signal: string) {
+  console.log(`${signal} received; shutting down.`);
+  server.close(async () => {
+    await prisma.$disconnect();
+    process.exit(0);
+  });
+  setTimeout(() => process.exit(1), 10_000).unref();
+}
+
+process.on('SIGTERM', () => void shutdown('SIGTERM'));
+process.on('SIGINT', () => void shutdown('SIGINT'));

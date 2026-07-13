@@ -113,39 +113,12 @@ export default function Home() {
       });
       const currentFavs = [...favorites];
       if (res.data.favorited) {
-        const entry = movie
-          ? {
-              id: movie.id,
-              title: movie.title,
-              slug: movie.slug,
-              posterUrl: movie.posterUrl,
-              releaseYear: movie.releaseYear,
-              quality: movie.quality,
-              ratingAvg: movie.ratingAvg,
-            }
-          : { id: movieId };
-        setFavorites([...currentFavs, entry]);
+        if (movie) setFavorites([...currentFavs, movie]);
       } else {
         setFavorites(currentFavs.filter(f => f.id !== movieId));
       }
-    } catch (e) {
-      const isAlready = favorites.some(f => f.id === movieId);
-      if (isAlready) {
-        setFavorites(favorites.filter(f => f.id !== movieId));
-      } else {
-        const entry = movie
-          ? {
-              id: movie.id,
-              title: movie.title,
-              slug: movie.slug,
-              posterUrl: movie.posterUrl,
-              releaseYear: movie.releaseYear,
-              quality: movie.quality,
-              ratingAvg: movie.ratingAvg,
-            }
-          : { id: movieId };
-        setFavorites([...favorites, entry]);
-      }
+    } catch {
+      showToast('Không thể cập nhật danh sách yêu thích.', 'error');
     }
   };
 

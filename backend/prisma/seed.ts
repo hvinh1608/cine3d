@@ -21,36 +21,30 @@ async function main() {
 
   console.log('Roles created: ADMIN and USER.');
 
-  // 2. Create Users
-  const passwordHash = await bcrypt.hash('password123', 10);
-
-  const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@webxemphim.com' },
-    update: {},
-    create: {
-      email: 'admin@webxemphim.com',
-      username: 'admin',
-      password: passwordHash,
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
-      isVerified: true,
-      roleId: adminRole.id,
-    },
-  });
-
-  const regularUser = await prisma.user.upsert({
-    where: { email: 'user@webxemphim.com' },
-    update: {},
-    create: {
-      email: 'user@webxemphim.com',
-      username: 'movie_fan',
-      password: passwordHash,
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80',
-      isVerified: true,
-      roleId: userRole.id,
-    },
-  });
-
-  console.log('Users created: Admin (admin@webxemphim.com) & User (user@webxemphim.com). Password is: password123');
+  // 2. Create an initial admin only when explicit credentials are provided.
+  // Never ship a public, predictable production password.
+  const adminEmail = process.env.SEED_ADMIN_EMAIL?.trim().toLowerCase();
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  if (adminEmail && adminPassword) {
+    if (adminPassword.length < 12) {
+      throw new Error('SEED_ADMIN_PASSWORD must contain at least 12 characters.');
+    }
+    const passwordHash = await bcrypt.hash(adminPassword, 12);
+    await prisma.user.upsert({
+      where: { email: adminEmail },
+      update: { roleId: adminRole.id, password: passwordHash, isVerified: true, isLocked: false },
+      create: {
+        email: adminEmail,
+        username: process.env.SEED_ADMIN_USERNAME?.trim() || 'admin',
+        password: passwordHash,
+        isVerified: true,
+        roleId: adminRole.id,
+      },
+    });
+    console.log(`Initial admin ensured for ${adminEmail}.`);
+  } else {
+    console.log('Skipping initial admin creation; SEED_ADMIN_EMAIL/PASSWORD are not set.');
+  }
 
   // 3. Create Countries
   const countriesData = [

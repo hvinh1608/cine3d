@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shield, Film, ListVideo, AlertTriangle, Users, BarChart3, Plus, Trash2, Edit, X, Check, Lock, Unlock, RefreshCw, Tv, Subtitles, Link2, Eye, Star } from 'lucide-react';
+import { Shield, Film, ListVideo, AlertTriangle, Users, BarChart3, Plus, Trash2, Edit, X, Lock, Unlock, RefreshCw, Tv, Subtitles, Link2, Eye, Star } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 
@@ -96,36 +96,20 @@ export default function AdminPage() {
         setMovieCountry(countriesRes.data[0].id);
       }
     } catch (e) {
-      console.warn('Failed to fetch real admin data, loading seed mockups.', e);
-      // Fallback
+      console.warn('Failed to fetch admin data.', e);
       setStats({
-        totalUsers: 140,
-        totalMovies: 12,
-        totalEpisodes: 45,
-        totalViews: 24500,
-        pendingReports: 1,
-        topMovies: [
-          { id: 'm1', title: 'Ma Trận Hồi Sinh', views: 8900, ratingAvg: 8.5 },
-          { id: 'm2', title: 'Kẻ Kiến Tạo', views: 5400, ratingAvg: 9.2 },
-        ],
-        recentReports: [
-          { id: 'r1', type: 'stream_error', content: 'Server 1 tập 2 bị giật', user: { username: 'watcher' }, status: 'Pending' }
-        ]
+        totalUsers: 0,
+        totalMovies: 0,
+        totalEpisodes: 0,
+        totalViews: 0,
+        pendingReports: 0,
+        topMovies: [],
+        recentReports: [],
       });
-
-      setMovies([
-        { id: 'm1', title: 'Ma Trận Hồi Sinh', slug: 'ma-tran-hoi-sinh', views: 8900, releaseYear: 2021, quality: 'FHD', isSeries: false, movieGenres: [] },
-        { id: 'm2', title: 'Kẻ Kiến Tạo', slug: 'ke-kien-tao', views: 5400, releaseYear: 2010, quality: '4K', isSeries: false, movieGenres: [] },
-      ]);
-
-      setUsers([
-        { id: 'u1', username: 'admin', email: 'admin@webxemphim.com', role: { name: 'ADMIN' }, isLocked: false },
-        { id: 'u2', username: 'movie_fan', email: 'user@webxemphim.com', role: { name: 'USER' }, isLocked: false },
-      ]);
-
-      setReports([
-        { id: 'r1', type: 'stream_error', content: 'Server 1 tập 2 bị giật', user: { username: 'watcher' }, status: 'Pending' }
-      ]);
+      setMovies([]);
+      setUsers([]);
+      setReports([]);
+      showToast('Không tải được dữ liệu quản trị.', 'error');
     } finally {
       setLoading(false);
     }
@@ -352,8 +336,8 @@ export default function AdminPage() {
       });
       showToast(res.data.message, 'success');
       loadAdminData();
-    } catch (e) {
-      setUsers(users.map(u => u.id === userId ? { ...u, isLocked: !u.isLocked } : u));
+    } catch (e: any) {
+      showToast(e.response?.data?.message || 'Không thể thay đổi trạng thái tài khoản.', 'error');
     }
   };
 
@@ -377,8 +361,8 @@ export default function AdminPage() {
       });
       showToast('Báo cáo đã được xử lý!', 'success');
       loadAdminData();
-    } catch (e) {
-      setReports(reports.map(r => r.id === reportId ? { ...r, status: 'Resolved' } : r));
+    } catch (e: any) {
+      showToast(e.response?.data?.message || 'Không thể cập nhật báo cáo.', 'error');
     }
   };
 

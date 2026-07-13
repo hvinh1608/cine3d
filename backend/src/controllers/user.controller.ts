@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { ensureMovieInDb } from '../services/movie.upsert';
+import { internalError } from '../lib/http-error';
 
 
 /** Resolve UUID or KKPhim slug to a DB movie id (upsert from KKPhim if needed). */
@@ -53,7 +54,7 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
       },
     });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error updating profile.', error: error.message });
+    return internalError(res, 'Error updating profile.', error);
   }
 };
 
@@ -64,6 +65,8 @@ export const getFavorites = async (req: AuthenticatedRequest, res: Response) => 
   try {
     const favorites = await prisma.favorite.findMany({
       where: { userId: req.user.id },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
       include: {
         movie: {
           include: {
@@ -76,7 +79,7 @@ export const getFavorites = async (req: AuthenticatedRequest, res: Response) => 
 
     return res.json(favorites.map((f) => f.movie));
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error retrieving favorites.', error: error.message });
+    return internalError(res, 'Error retrieving favorites.', error);
   }
 };
 
@@ -111,7 +114,7 @@ export const toggleFavorite = async (req: AuthenticatedRequest, res: Response) =
       return res.json({ favorited: true, movieId, message: 'Added to favorites.' });
     }
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error updating favorite.', error: error.message });
+    return internalError(res, 'Error updating favorite.', error);
   }
 };
 
@@ -122,6 +125,8 @@ export const getWatchlist = async (req: AuthenticatedRequest, res: Response) => 
   try {
     const watchlist = await prisma.watchlist.findMany({
       where: { userId: req.user.id },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
       include: {
         movie: {
           include: {
@@ -134,7 +139,7 @@ export const getWatchlist = async (req: AuthenticatedRequest, res: Response) => 
 
     return res.json(watchlist.map((w) => w.movie));
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error retrieving watchlist.', error: error.message });
+    return internalError(res, 'Error retrieving watchlist.', error);
   }
 };
 
@@ -169,7 +174,7 @@ export const toggleWatchlist = async (req: AuthenticatedRequest, res: Response) 
       return res.json({ inWatchlist: true, movieId, message: 'Added to watchlist.' });
     }
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error updating watchlist.', error: error.message });
+    return internalError(res, 'Error updating watchlist.', error);
   }
 };
 
@@ -181,6 +186,7 @@ export const getWatchHistory = async (req: AuthenticatedRequest, res: Response) 
     const history = await prisma.watchHistory.findMany({
       where: { userId: req.user.id },
       orderBy: { updatedAt: 'desc' },
+      take: 100,
       include: {
         movie: {
           include: {
@@ -194,7 +200,7 @@ export const getWatchHistory = async (req: AuthenticatedRequest, res: Response) 
 
     return res.json(history);
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error retrieving watch history.', error: error.message });
+    return internalError(res, 'Error retrieving watch history.', error);
   }
 };
 
@@ -209,34 +215,35 @@ export const saveWatchProgress = async (req: AuthenticatedRequest, res: Response
   try {
     const movieId = await resolveMovieId(movieRef);
 
-    const existing = await prisma.watchHistory.findUnique({
-      where: { movieId_userId: { movieId, userId: req.user.id } },
-    });
-
-    if (existing) {
-      const updated = await prisma.watchHistory.update({
-        where: { id: existing.id },
-        data: {
-          episodeId,
-          watchedTime,
-          duration,
-        },
-      });
-      return res.json({ message: 'Watch progress updated.', updated });
-    } else {
-      const created = await prisma.watchHistory.create({
-        data: {
-          userId: req.user.id,
-          movieId,
-          episodeId,
-          watchedTime,
-          duration,
-        },
-      });
-      return res.json({ message: 'Watch progress saved.', created });
+    const parsedTime = Number(watchedTime);
+    const parsedDuration = Number(duration);
+    if (!Number.isFinite(parsedTime) || !Number.isFinite(parsedDuration) || parsedTime < 0 || parsedDuration < 0) {
+      return res.status(400).json({ message: 'watchedTime and duration must be non-negative numbers.' });
     }
+
+    if (episodeId) {
+      const episode = await prisma.episode.findFirst({ where: { id: episodeId, movieId }, select: { id: true } });
+      if (!episode) return res.status(400).json({ message: 'Episode does not belong to this movie.' });
+    }
+
+    const progress = await prisma.watchHistory.upsert({
+      where: { movieId_userId: { movieId, userId: req.user.id } },
+      update: {
+        episodeId: episodeId || null,
+        watchedTime: Math.floor(parsedTime),
+        duration: Math.floor(parsedDuration),
+      },
+      create: {
+        userId: req.user.id,
+        movieId,
+        episodeId: episodeId || null,
+        watchedTime: Math.floor(parsedTime),
+        duration: Math.floor(parsedDuration),
+      },
+    });
+    return res.json({ message: 'Watch progress saved.', progress });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error saving watch progress.', error: error.message });
+    return internalError(res, 'Error saving watch progress.', error);
   }
 };
 
@@ -248,10 +255,11 @@ export const getNotifications = async (req: AuthenticatedRequest, res: Response)
     const notifications = await prisma.notification.findMany({
       where: { userId: req.user.id },
       orderBy: { createdAt: 'desc' },
+      take: 50,
     });
     return res.json(notifications);
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error retrieving notifications.', error: error.message });
+    return internalError(res, 'Error retrieving notifications.', error);
   }
 };
 
@@ -274,7 +282,7 @@ export const markNotificationRead = async (req: AuthenticatedRequest, res: Respo
     });
     return res.json(notification);
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error updating notification status.', error: error.message });
+    return internalError(res, 'Error updating notification status.', error);
   }
 };
 
@@ -297,6 +305,6 @@ export const deleteWatchHistory = async (req: AuthenticatedRequest, res: Respons
 
     return res.json({ message: 'Watch history record deleted.', deletedId: id });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error deleting watch history.', error: error.message });
+    return internalError(res, 'Error deleting watch history.', error);
   }
 };

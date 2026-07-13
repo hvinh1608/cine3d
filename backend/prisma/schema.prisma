@@ -16,21 +16,21 @@ model Role {
 }
 
 model User {
-  id                    String         @id @default(uuid())
-  email                 String         @unique
-  username              String         @unique
-  password              String
-  avatar                String?
-  isVerified            Boolean        @default(false)
-  isLocked              Boolean        @default(false)
-  isVip                 Boolean        @default(false)
-  passwordResetToken    String?
-  passwordResetExpires  DateTime?
-  roleId                String
-  role                  Role           @relation(fields: [roleId], references: [id])
-  createdAt             DateTime       @default(now())
-  updatedAt             DateTime       @updatedAt
-  
+  id                   String    @id @default(uuid())
+  email                String    @unique
+  username             String    @unique
+  password             String
+  avatar               String?
+  isVerified           Boolean   @default(false)
+  isLocked             Boolean   @default(false)
+  isVip                Boolean   @default(false)
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+  roleId               String
+  role                 Role      @relation(fields: [roleId], references: [id])
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
   comments      Comment[]
   commentLikes  CommentLike[]
   ratings       Rating[]
@@ -40,10 +40,12 @@ model User {
   notifications Notification[]
   reports       Report[]
   refreshTokens RefreshToken[]
-  
+
   @@index([email])
   @@index([username])
   @@index([passwordResetToken])
+  @@index([roleId])
+  @@index([isVip])
 }
 
 model Country {
@@ -94,7 +96,7 @@ model Movie {
   posterUrl    String
   trailerUrl   String?
   releaseYear  Int
-  duration     Int      // in minutes
+  duration     Int // in minutes
   quality      String   @default("HD") // HD, FHD, 2K, 4K
   episodeCount Int      @default(1)
   isSeries     Boolean  @default(false) // true = series (phim bộ), false = movie (phim lẻ)
@@ -120,9 +122,13 @@ model Movie {
   watchHistory   WatchHistory[]
   banners        Banner[]
   reports        Report[]
-  
+
   @@index([slug])
   @@index([title])
+  @@index([countryId])
+  @@index([createdAt])
+  @@index([views])
+  @@index([isVip])
 }
 
 model MovieActor {
@@ -135,6 +141,7 @@ model MovieActor {
   updatedAt DateTime @updatedAt
 
   @@unique([movieId, actorId])
+  @@index([actorId])
 }
 
 model MovieGenre {
@@ -147,6 +154,7 @@ model MovieGenre {
   updatedAt DateTime @updatedAt
 
   @@unique([movieId, genreId])
+  @@index([genreId])
 }
 
 model MovieDirector {
@@ -159,20 +167,21 @@ model MovieDirector {
   updatedAt  DateTime @updatedAt
 
   @@unique([movieId, directorId])
+  @@index([directorId])
 }
 
 model Episode {
-  id           String        @id @default(uuid())
+  id           String   @id @default(uuid())
   movieId      String
-  movie        Movie         @relation(fields: [movieId], references: [id], onDelete: Cascade)
-  title        String        // e.g. "Tập 1", "Tập 2", "Full"
-  episodeOrder Int           // e.g. 1, 2, 3
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  
+  movie        Movie    @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  title        String // e.g. "Tập 1", "Tập 2", "Full"
+  episodeOrder Int // e.g. 1, 2, 3
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
   videoSources VideoSource[]
   subtitles    Subtitle[]
-  
+
   @@unique([movieId, episodeOrder])
 }
 
@@ -182,20 +191,24 @@ model VideoSource {
   episode   Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
   server    String   @default("Main Server") // e.g. "Server 1", "Backup Server"
   quality   String   @default("1080p") // 720p, 1080p, 4K
-  url       String   // HLS link (.m3u8) or MP4 link
+  url       String // HLS link (.m3u8) or MP4 link
   type      String   @default("hls") // hls, mp4
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([episodeId])
 }
 
 model Subtitle {
   id        String   @id @default(uuid())
   episodeId String
   episode   Episode  @relation(fields: [episodeId], references: [id], onDelete: Cascade)
-  language  String   // e.g. "Vietnamese", "English"
-  url       String   // Subtitle file URL (vtt or srt)
+  language  String // e.g. "Vietnamese", "English"
+  url       String // Subtitle file URL (vtt or srt)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([episodeId])
 }
 
 model Comment {
@@ -203,7 +216,7 @@ model Comment {
   movieId   String
   userId    String
   content   String
-  parentId  String?  // For threaded replies
+  parentId  String? // For threaded replies
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -212,8 +225,10 @@ model Comment {
   replies      Comment[]     @relation("CommentReplies")
   commentLikes CommentLike[]
   reports      Report[]
-  
-  @@index([movieId])
+
+  @@index([movieId, parentId, createdAt])
+  @@index([userId])
+  @@index([parentId])
 }
 
 model CommentLike {
@@ -226,13 +241,14 @@ model CommentLike {
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([commentId, userId])
+  @@index([userId])
 }
 
 model Rating {
   id        String   @id @default(uuid())
   movieId   String
   userId    String
-  score     Int      // 1-10 scale
+  score     Int // 1-10 scale
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -240,6 +256,7 @@ model Rating {
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([movieId, userId])
+  @@index([userId])
 }
 
 model Favorite {
@@ -252,6 +269,7 @@ model Favorite {
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([movieId, userId])
+  @@index([userId, createdAt])
 }
 
 model Watchlist {
@@ -264,13 +282,14 @@ model Watchlist {
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([movieId, userId])
+  @@index([userId, createdAt])
 }
 
 model WatchHistory {
   id          String   @id @default(uuid())
   movieId     String
   userId      String
-  episodeId   String?  // Active episode
+  episodeId   String? // Active episode
   watchedTime Int      @default(0) // Seconds watched
   duration    Int      @default(0) // Episode duration
   createdAt   DateTime @default(now())
@@ -280,6 +299,7 @@ model WatchHistory {
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([movieId, userId])
+  @@index([userId, updatedAt])
 }
 
 model Notification {
@@ -289,9 +309,11 @@ model Notification {
   title     String
   message   String
   isRead    Boolean  @default(false)
-  url       String?  // Link path to redirect when clicked
+  url       String? // Link path to redirect when clicked
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId, isRead, createdAt])
 }
 
 model Banner {
@@ -300,11 +322,14 @@ model Banner {
   movie       Movie    @relation(fields: [movieId], references: [id], onDelete: Cascade)
   title       String
   description String
-  imageUrl    String   // Parallax image url
+  imageUrl    String // Parallax image url
   isActive    Boolean  @default(true)
   order       Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([movieId])
+  @@index([isActive, order])
 }
 
 model Report {
@@ -312,7 +337,7 @@ model Report {
   userId    String
   movieId   String?
   commentId String?
-  type      String   // e.g. "stream_error", "abusive_comment"
+  type      String // e.g. "stream_error", "abusive_comment"
   content   String
   status    String   @default("Pending") // Pending, Resolved, Ignored
   createdAt DateTime @default(now())
@@ -321,6 +346,11 @@ model Report {
   user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   movie   Movie?   @relation(fields: [movieId], references: [id], onDelete: Cascade)
   comment Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([movieId])
+  @@index([commentId])
 }
 
 model RefreshToken {
@@ -331,5 +361,6 @@ model RefreshToken {
   expiresAt DateTime
   createdAt DateTime @default(now())
 
-  @@index([token])
+  @@index([userId, expiresAt])
+  @@index([expiresAt])
 }

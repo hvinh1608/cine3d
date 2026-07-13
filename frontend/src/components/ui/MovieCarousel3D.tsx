@@ -49,7 +49,7 @@ export default function MovieCarousel3D({ movies, onToggleFavorite, favorites = 
           if (!isVisible) return null;
 
           // Define inline 3D styles based on item position
-          let style: React.CSSProperties = {
+          const style: React.CSSProperties = {
             position: 'absolute',
             width: '240px',
             height: '360px',

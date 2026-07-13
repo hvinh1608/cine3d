@@ -20,7 +20,7 @@ body {
   background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 60px 60px, 60px 60px;
   background-attachment: fixed;
   color: var(--foreground);
-  font-family: 'Outfit', sans-serif;
+  font-family: 'Outfit Variable', 'Outfit', sans-serif;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
 }
@@ -125,4 +125,3 @@ body {
 .animate-seek-right {
   animation: double-tap-seek-right 0.75s cubic-bezier(0.25, 1, 0.5, 1) forwards;
 }
-

@@ -95,19 +95,12 @@ Nếu bạn không chạy Docker, bạn có thể khởi chạy riêng lẻ back
 
 ---
 
-## 🔑 Tài Khoản Đăng Nhập Mẫu
+## 🔑 Khởi tạo tài khoản quản trị
 
-Hệ thống đã được tự động seed các tài khoản để thử nghiệm toàn bộ các tính năng:
-
-* **Tài khoản Administrator (Quản trị viên)**:
-  - **Email**: `admin@webxemphim.com`
-  - **Mật khẩu**: `password123`
-  - **Quyền hạn**: Truy cập Admin Dashboard để xem thống kê, quản lý phim, thêm tập phim, khóa tài khoản, duyệt báo cáo lỗi.
-
-* **Tài khoản Người Dùng (User)**:
-  - **Email**: `user@webxemphim.com`
-  - **Mật khẩu**: `password123`
-  - **Tính năng**: Xem phim, lưu yêu thích, bình luận, chấm điểm đánh giá (1-10 sao), xem lại lịch sử xem.
+Production không tạo tài khoản hoặc mật khẩu mẫu. Nếu cần khởi tạo admin lần đầu, đặt
+`SEED_ADMIN_EMAIL`, `SEED_ADMIN_PASSWORD` (tối thiểu 12 ký tự) và tùy chọn
+`SEED_ADMIN_USERNAME` trước khi chạy seed. Sau khi tài khoản đã được tạo, nên xóa hai
+biến chứa email/mật khẩu khỏi môi trường deploy.
 
 ---
 

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { User, Lock, Mail, Camera, Heart, History, Play, Bookmark, Trash2, LogOut, Check, Save } from 'lucide-react';
+import { User, Lock, Mail, Heart, History, Play, Bookmark, Trash2, LogOut, Check, Save } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 
@@ -39,28 +39,27 @@ export default function AccountPage() {
 
   // Sync edit fields when user logs in
   useEffect(() => {
-    if (user) {
-      setEditUsername(user.username);
-      setEditAvatar(user.avatar || '');
-      fetchUserData();
-    }
-  }, [user]);
-
-  const fetchUserData = async () => {
+    if (!user) return;
+    setEditUsername(user.username);
+    setEditAvatar(user.avatar || '');
     if (!accessToken) return;
-    try {
-      const [favsRes, historyRes, watchlistRes] = await Promise.all([
-        axios.get(`${API_URL}/user/favorites`, { headers: { Authorization: `Bearer ${accessToken}` } }),
-        axios.get(`${API_URL}/user/history`, { headers: { Authorization: `Bearer ${accessToken}` } }),
-        axios.get(`${API_URL}/user/watchlist`, { headers: { Authorization: `Bearer ${accessToken}` } }),
-      ]);
+
+    let active = true;
+    Promise.all([
+      axios.get(`${API_URL}/user/favorites`),
+      axios.get(`${API_URL}/user/history`),
+      axios.get(`${API_URL}/user/watchlist`),
+    ]).then(([favsRes, historyRes, watchlistRes]) => {
+      if (!active) return;
       setFavorites(favsRes.data);
       setWatchHistory(historyRes.data);
       setWatchlist(watchlistRes.data);
-    } catch (e) {
-      console.warn('Không tải được favorites/history/watchlist.', e);
-    }
-  };
+    }).catch((error) => {
+      console.warn('Không tải được favorites/history/watchlist.', error);
+    });
+
+    return () => { active = false; };
+  }, [user, accessToken, setFavorites, setWatchHistory, setWatchlist]);
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

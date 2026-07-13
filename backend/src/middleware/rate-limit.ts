@@ -20,10 +20,11 @@ export function rateLimit(windowMs: number, max: number) {
     res.setHeader('RateLimit-Reset', Math.ceil(bucket.resetAt / 1000));
 
     if (bucket.count > max) {
+      res.setHeader('Retry-After', Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)));
       return res.status(429).json({ message: 'Too many requests. Please try again later.' });
     }
 
-    if (buckets.size > 10_000) {
+    if (buckets.size > 1_000) {
       for (const [bucketKey, value] of buckets) {
         if (value.resetAt <= now) buckets.delete(bucketKey);
       }

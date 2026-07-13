@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { AuthenticatedRequest } from '../middleware/auth';
+import { internalError } from '../lib/http-error';
 
 
 // Comments
@@ -11,6 +12,7 @@ export const getComments = async (req: AuthenticatedRequest, res: Response) => {
     const comments = await prisma.comment.findMany({
       where: { movieId, parentId: null }, // Top level comments
       orderBy: { createdAt: 'desc' },
+      take: 50,
       include: {
         user: {
           select: { id: true, username: true, avatar: true },
@@ -20,11 +22,12 @@ export const getComments = async (req: AuthenticatedRequest, res: Response) => {
             user: {
               select: { id: true, username: true, avatar: true },
             },
-            commentLikes: true,
+            commentLikes: { select: { userId: true } },
           },
           orderBy: { createdAt: 'asc' },
+          take: 20,
         },
-        commentLikes: true,
+        commentLikes: { select: { userId: true } },
       },
     });
 
@@ -35,17 +38,20 @@ export const getComments = async (req: AuthenticatedRequest, res: Response) => {
         ? comment.commentLikes.some((like) => like.userId === currentUserId)
         : false;
 
-      const replies = comment.replies.map((reply) => ({
-        ...reply,
-        likesCount: reply.commentLikes.length,
-        isLiked: currentUserId
-          ? reply.commentLikes.some((like) => like.userId === currentUserId)
-          : false,
-      }));
+      const replies = comment.replies.map((reply) => {
+        const { commentLikes, ...replyData } = reply;
+        return {
+          ...replyData,
+          likesCount: commentLikes.length,
+          isLiked: currentUserId ? commentLikes.some((like) => like.userId === currentUserId) : false,
+        };
+      });
+
+      const { commentLikes, replies: _rawReplies, ...commentData } = comment;
 
       return {
-        ...comment,
-        likesCount: comment.commentLikes.length,
+        ...commentData,
+        likesCount: commentLikes.length,
         isLiked,
         replies,
       };
@@ -53,7 +59,7 @@ export const getComments = async (req: AuthenticatedRequest, res: Response) => {
 
     return res.json(formattedComments);
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error retrieving comments.', error: error.message });
+    return internalError(res, 'Error retrieving comments.', error);
   }
 };
 
@@ -70,6 +76,14 @@ export const createComment = async (req: AuthenticatedRequest, res: Response) =>
   }
 
   try {
+    if (parentId) {
+      const parent = await prisma.comment.findFirst({
+        where: { id: parentId, movieId, parentId: null },
+        select: { id: true },
+      });
+      if (!parent) return res.status(400).json({ message: 'Reply parent must belong to the same movie.' });
+    }
+
     const comment = await prisma.comment.create({
       data: {
         movieId,
@@ -86,7 +100,7 @@ export const createComment = async (req: AuthenticatedRequest, res: Response) =>
 
     return res.status(201).json(comment);
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error posting comment.', error: error.message });
+    return internalError(res, 'Error posting comment.', error);
   }
 };
 
@@ -117,7 +131,7 @@ export const toggleLikeComment = async (req: AuthenticatedRequest, res: Response
       return res.json({ liked: true, message: 'Liked comment.' });
     }
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error updating comment like.', error: error.message });
+    return internalError(res, 'Error updating comment like.', error);
   }
 };
 
@@ -141,7 +155,7 @@ export const deleteComment = async (req: AuthenticatedRequest, res: Response) =>
     await prisma.comment.delete({ where: { id: commentId } });
     return res.json({ message: 'Comment deleted successfully.' });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error deleting comment.', error: error.message });
+    return internalError(res, 'Error deleting comment.', error);
   }
 };
 
@@ -151,44 +165,33 @@ export const rateMovie = async (req: AuthenticatedRequest, res: Response) => {
   const { movieId } = req.params;
   const { score } = req.body; // Scale 1 - 10
 
-  const parsedScore = parseInt(score, 10);
-  if (isNaN(parsedScore) || parsedScore < 1 || parsedScore > 10) {
+  const parsedScore = Number(score);
+  if (!Number.isInteger(parsedScore) || parsedScore < 1 || parsedScore > 10) {
     return res.status(400).json({ message: 'Score must be an integer between 1 and 10.' });
   }
 
   try {
     // 1. Create or update rating
-    await prisma.rating.upsert({
-      where: {
-        movieId_userId: {
-          movieId,
-          userId: req.user.id,
+    const average = await prisma.$transaction(async (tx) => {
+      await tx.rating.upsert({
+        where: {
+          movieId_userId: {
+            movieId,
+            userId: req.user!.id,
+          },
         },
-      },
-      update: { score: parsedScore },
-      create: {
-        movieId,
-        userId: req.user.id,
-        score: parsedScore,
-      },
-    });
-
-    // 2. Re-calculate movie ratingAvg
-    const aggregate = await prisma.rating.aggregate({
-      where: { movieId },
-      _avg: { score: true },
-    });
-
-    const average = aggregate._avg.score ? parseFloat(aggregate._avg.score.toFixed(1)) : 0;
-
-    await prisma.movie.update({
-      where: { id: movieId },
-      data: { ratingAvg: average },
+        update: { score: parsedScore },
+        create: { movieId, userId: req.user!.id, score: parsedScore },
+      });
+      const aggregate = await tx.rating.aggregate({ where: { movieId }, _avg: { score: true } });
+      const nextAverage = aggregate._avg.score ? Number(aggregate._avg.score.toFixed(1)) : 0;
+      await tx.movie.update({ where: { id: movieId }, data: { ratingAvg: nextAverage } });
+      return nextAverage;
     });
 
     return res.json({ message: 'Rating saved.', ratingAvg: average });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error rating movie.', error: error.message });
+    return internalError(res, 'Error rating movie.', error);
   }
 };
 
@@ -197,8 +200,13 @@ export const reportContent = async (req: AuthenticatedRequest, res: Response) =>
   if (!req.user) return res.status(401).json({ message: 'Unauthorized.' });
   const { movieId, commentId, type, content } = req.body;
 
-  if (!type || !content) {
+  const normalizedType = typeof type === 'string' ? type.trim() : '';
+  const normalizedContent = typeof content === 'string' ? content.trim() : '';
+  if (!normalizedType || !normalizedContent) {
     return res.status(400).json({ message: 'Type and content description are required.' });
+  }
+  if (normalizedType.length > 50 || normalizedContent.length > 2000) {
+    return res.status(400).json({ message: 'Report type or content is too long.' });
   }
 
   try {
@@ -207,14 +215,14 @@ export const reportContent = async (req: AuthenticatedRequest, res: Response) =>
         userId: req.user.id,
         movieId: movieId || null,
         commentId: commentId || null,
-        type,
-        content,
+        type: normalizedType,
+        content: normalizedContent,
       },
     });
 
     return res.status(201).json({ message: 'Report submitted successfully.', report });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error reporting content.', error: error.message });
+    return internalError(res, 'Error reporting content.', error);
   }
 };
 export const getMovieRatingByUser = async (req: AuthenticatedRequest, res: Response) => {
@@ -233,6 +241,6 @@ export const getMovieRatingByUser = async (req: AuthenticatedRequest, res: Respo
 
     return res.json({ score: rating ? rating.score : null });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error retrieving user rating.', error: error.message });
+    return internalError(res, 'Error retrieving user rating.', error);
   }
 };

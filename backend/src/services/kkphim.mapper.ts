@@ -13,6 +13,7 @@ export type AppEpisode = {
   title: string;
   episodeOrder: number;
   videoSources: AppVideoSource[];
+  subtitles?: { id: string; language: string; url: string }[];
 };
 
 export type AppMovie = {

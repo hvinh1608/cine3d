@@ -111,15 +111,6 @@ function WatchPageContent() {
         }
         const res = await axios.get(`${API_URL}/movies/${slug}`, { headers });
         setMovie(res.data);
-        
-        // Find corresponding episode
-        const episodes = res.data.episodes || [];
-        const ep = episodes.find((e: any) => e.episodeOrder === activeEpOrder) || episodes[0];
-        setActiveEpisode(ep);
-
-        if (ep && ep.videoSources && ep.videoSources.length > 0) {
-          setActiveSource(ep.videoSources[0]);
-        }
       } catch (error) {
         console.warn('Failed to load movie for playback.', error);
         setMovie(null);
@@ -131,7 +122,15 @@ function WatchPageContent() {
     if (slug) {
       fetchMovie();
     }
-  }, [slug, activeEpOrder, accessToken]);
+  }, [slug, accessToken]);
+
+  // Selecting another episode must not refetch and resync the entire movie.
+  useEffect(() => {
+    const episodes = movie?.episodes || [];
+    const episode = episodes.find((item: any) => item.episodeOrder === activeEpOrder) || episodes[0] || null;
+    setActiveEpisode(episode);
+    setActiveSource(episode?.videoSources?.[0] || null);
+  }, [movie, activeEpOrder]);
 
   // Load Video source HLS / MP4
   useEffect(() => {
@@ -152,14 +151,16 @@ function WatchPageContent() {
     setQualities([]);
     setCurrentQualityIndex(-1);
 
+    let hls: Hls | null = null;
     if (activeSource.type === 'hls') {
       if (Hls.isSupported()) {
-        const hls = new Hls();
-        hls.loadSource(activeSource.url);
-        hls.attachMedia(video);
+        const instance = new Hls();
+        hls = instance;
+        instance.loadSource(activeSource.url);
+        instance.attachMedia(video);
         
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          const loadedLevels = hls.levels.map((lvl: any, index: number) => ({
+        instance.on(Hls.Events.MANIFEST_PARSED, () => {
+          const loadedLevels = instance.levels.map((lvl: any, index: number) => ({
             index,
             height: lvl.height,
             bitrate: lvl.bitrate,
@@ -168,7 +169,7 @@ function WatchPageContent() {
           setQualities(loadedLevels);
         });
 
-        hlsRef.current = hls;
+        hlsRef.current = instance;
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = activeSource.url;
       }
@@ -198,23 +199,38 @@ function WatchPageContent() {
     setPlaying(false);
     setActiveSubTrack('none');
     setPlaybackRate(1);
+
+    return () => {
+      if (hls) {
+        hls.destroy();
+        if (hlsRef.current === hls) hlsRef.current = null;
+      }
+    };
   }, [activeSource, movie, activeEpisode, user, accessToken]);
 
   // Save progress helper
-  const saveProgress = useCallback(() => {
+  const saveProgress = useCallback((keepalive = false) => {
     if (!user || !accessToken || !movie || !activeEpisode || !videoRef.current) return;
     const time = Math.floor(videoRef.current.currentTime);
     const dur = Math.floor(videoRef.current.duration || 0);
     if (time <= 2) return; // avoid saving if practically at start
 
-    axios.post(`${API_URL}/user/history`, {
+    const payload = {
       movieId: movie.id,
       episodeId: activeEpisode.id,
       watchedTime: time,
       duration: dur,
-    }, {
-      headers: { Authorization: `Bearer ${accessToken}` }
-    }).catch(() => {});
+    };
+    if (keepalive) {
+      void fetch(`${API_URL}/user/history`, {
+        method: 'POST',
+        keepalive: true,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify(payload),
+      }).catch(() => undefined);
+      return;
+    }
+    axios.post(`${API_URL}/user/history`, payload).catch(() => {});
   }, [user, accessToken, movie?.id, activeEpisode?.id]);
 
   // Periodic Save History (every 10 seconds of play) and immediate save on pause/unload
@@ -224,10 +240,10 @@ function WatchPageContent() {
       return;
     }
 
-    const interval = setInterval(saveProgress, 10000);
+    const interval = window.setInterval(() => saveProgress(), 30_000);
 
     return () => {
-      clearInterval(interval);
+      window.clearInterval(interval);
       saveProgress(); // save immediately when pausing or switching episodes
     };
   }, [playing, saveProgress]);
@@ -235,7 +251,7 @@ function WatchPageContent() {
   // Tab unload / reload tab save backup
   useEffect(() => {
     const handleBeforeUnload = () => {
-      saveProgress();
+      saveProgress(true);
     };
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
@@ -285,7 +301,7 @@ function WatchPageContent() {
       }
     };
 
-    intervalId = setInterval(analyzeFrame, 400);
+    intervalId = setInterval(analyzeFrame, 1000);
     return () => clearInterval(intervalId);
   }, [playing, activeSource]);
 

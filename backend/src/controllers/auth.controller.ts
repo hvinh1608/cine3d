@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
 import { AuthenticatedRequest } from '../middleware/auth';
+import { internalError } from '../lib/http-error';
 
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
@@ -22,6 +23,7 @@ type SessionUser = {
   email: string;
   username: string;
   avatar: string | null;
+  isVip: boolean;
   role: { name: string };
 };
 
@@ -40,13 +42,16 @@ async function createSession(user: SessionUser) {
     { expiresIn: '7d' }
   );
 
-  await prisma.refreshToken.create({
-    data: {
-      token: refreshToken,
-      userId: user.id,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    },
-  });
+  await prisma.$transaction([
+    prisma.refreshToken.deleteMany({ where: { expiresAt: { lt: new Date() } } }),
+    prisma.refreshToken.create({
+      data: {
+        token: hashToken(refreshToken),
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+    }),
+  ]);
 
   return {
     accessToken,
@@ -54,6 +59,7 @@ async function createSession(user: SessionUser) {
     user: {
       ...payload,
       avatar: user.avatar,
+      isVip: user.isVip,
     },
   };
 }
@@ -64,8 +70,19 @@ function getCookie(req: AuthenticatedRequest, name: string): string | undefined 
   return entry ? decodeURIComponent(entry.trim().slice(name.length + 1)) : undefined;
 }
 
+function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
 if (!JWT_ACCESS_SECRET || !JWT_REFRESH_SECRET) {
   throw new Error('JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must be set in environment variables.');
+}
+if (
+  process.env.NODE_ENV === 'production' &&
+  (JWT_ACCESS_SECRET.length < 32 || JWT_REFRESH_SECRET.length < 32 ||
+    JWT_ACCESS_SECRET.includes('change_me') || JWT_REFRESH_SECRET.includes('change_me'))
+) {
+  throw new Error('Production JWT secrets must be unique and contain at least 32 characters.');
 }
 
 export const register = async (req: AuthenticatedRequest, res: Response) => {
@@ -128,7 +145,7 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
       user: session.user,
     });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Internal server error.', error: error.message });
+    return internalError(res, 'Internal server error.', error);
   }
 };
 
@@ -166,7 +183,7 @@ export const login = async (req: AuthenticatedRequest, res: Response) => {
       user: session.user,
     });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Internal server error.', error: error.message });
+    return internalError(res, 'Internal server error.', error);
   }
 };
 
@@ -179,7 +196,7 @@ export const refresh = async (req: AuthenticatedRequest, res: Response) => {
 
   try {
     const storedToken = await prisma.refreshToken.findUnique({
-      where: { token: refreshToken },
+      where: { token: hashToken(refreshToken) },
       include: { user: { include: { role: true } } },
     });
 
@@ -221,7 +238,7 @@ export const refresh = async (req: AuthenticatedRequest, res: Response) => {
       prisma.refreshToken.delete({ where: { id: storedToken.id } }),
       prisma.refreshToken.create({
         data: {
-          token: newRefreshToken,
+          token: hashToken(newRefreshToken),
           userId: storedToken.user.id,
           expiresAt,
         },
@@ -237,10 +254,11 @@ export const refresh = async (req: AuthenticatedRequest, res: Response) => {
         username: storedToken.user.username,
         avatar: storedToken.user.avatar,
         role: storedToken.user.role.name,
+        isVip: storedToken.user.isVip,
       },
     });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Internal server error.', error: error.message });
+    return internalError(res, 'Internal server error.', error);
   }
 };
 
@@ -249,13 +267,13 @@ export const logout = async (req: AuthenticatedRequest, res: Response) => {
 
   try {
     if (refreshToken) {
-      await prisma.refreshToken.deleteMany({ where: { token: refreshToken } });
+      await prisma.refreshToken.deleteMany({ where: { token: hashToken(refreshToken) } });
     }
 
     res.clearCookie(REFRESH_COOKIE, { ...cookieOptions, maxAge: undefined });
     return res.json({ message: 'Logged out successfully.' });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Internal server error.', error: error.message });
+    return internalError(res, 'Internal server error.', error);
   }
 };
 
@@ -273,6 +291,7 @@ export const getProfile = async (req: AuthenticatedRequest, res: Response) => {
         username: true,
         avatar: true,
         isVerified: true,
+        isVip: true,
         role: { select: { name: true } },
       },
     });
@@ -288,11 +307,12 @@ export const getProfile = async (req: AuthenticatedRequest, res: Response) => {
         username: user.username,
         avatar: user.avatar,
         isVerified: user.isVerified,
+        isVip: user.isVip,
         role: user.role.name,
       },
     });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Internal server error.', error: error.message });
+    return internalError(res, 'Internal server error.', error);
   }
 };
 
@@ -327,7 +347,7 @@ export const forgotPassword = async (req: AuthenticatedRequest, res: Response) =
 
     return res.json({ message: genericMessage });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Internal server error.', error: error.message });
+    return internalError(res, 'Internal server error.', error);
   }
 };
 
@@ -368,6 +388,6 @@ export const resetPassword = async (req: AuthenticatedRequest, res: Response) =>
 
     return res.json({ message: 'Password updated successfully.' });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Internal server error.', error: error.message });
+    return internalError(res, 'Internal server error.', error);
   }
 };

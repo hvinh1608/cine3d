@@ -9,6 +9,7 @@ import {
 } from '../services/kkphim.client';
 import { mapListItem, mapMovieDetail, extractListPagination } from '../services/kkphim.mapper';
 import { ensureMovieInDb } from '../services/movie.upsert';
+import { internalError } from '../lib/http-error';
 
 
 function resolveTypeList(type?: string): string {
@@ -71,7 +72,7 @@ export const getMovies = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     const status = error instanceof KkphimError ? error.status : 500;
-    return res.status(status).json({ message: 'Error retrieving movies.', error: error.message });
+    return internalError(res, 'Error retrieving movies.', error, status);
   }
 };
 
@@ -88,8 +89,8 @@ export const getMovieBySlug = async (req: Request, res: Response) => {
     const isAdmin = authReq.user?.role === 'ADMIN';
 
     if (authReq.user?.id) {
-      const dbUser = await prisma.user.findUnique({ where: { id: authReq.user.id } });
-      isUserVip = dbUser?.isVip || false;
+      const dbUser = await prisma.user.findUnique({ where: { id: authReq.user.id }, select: { isVip: true, isLocked: true } });
+      isUserVip = !!dbUser?.isVip && !dbUser.isLocked;
     }
 
     const canAccess = isAdmin || isUserVip;
@@ -122,6 +123,7 @@ export const getMovieBySlug = async (req: Request, res: Response) => {
         dbMovie = await prisma.movie.findUnique({ where: { slug } });
       } catch (dbErr) {
         console.warn('Fallback: Failed to query dbMovie VIP status.', dbErr);
+        return res.status(503).json({ message: 'Movie service is temporarily unavailable.' });
       }
 
       if (dbMovie?.isVip) {
@@ -130,8 +132,8 @@ export const getMovieBySlug = async (req: Request, res: Response) => {
         const isAdmin = authReq.user?.role === 'ADMIN';
         if (authReq.user?.id) {
           try {
-            const dbUser = await prisma.user.findUnique({ where: { id: authReq.user.id } });
-            isUserVip = dbUser?.isVip || false;
+            const dbUser = await prisma.user.findUnique({ where: { id: authReq.user.id }, select: { isVip: true, isLocked: true } });
+            isUserVip = !!dbUser?.isVip && !dbUser.isLocked;
           } catch (dbErr) {
             console.warn('Fallback: Failed to query dbUser VIP status.', dbErr);
           }
@@ -155,10 +157,7 @@ export const getMovieBySlug = async (req: Request, res: Response) => {
       return res.json(movie);
     } catch (inner: any) {
       const status = inner instanceof KkphimError ? inner.status : 500;
-      return res.status(status).json({
-        message: 'Error retrieving movie details.',
-        error: inner.message || error.message,
-      });
+      return internalError(res, 'Error retrieving movie details.', inner, status);
     }
   }
 };
@@ -185,12 +184,12 @@ export const incrementViews = async (req: Request, res: Response) => {
 
     return res.json({ id: movie.id, views: movie.views });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error incrementing view count.', error: error.message });
+    return internalError(res, 'Error incrementing view count.', error);
   }
 };
 
 export const getTrending = async (req: Request, res: Response) => {
-  const limit = parseInt((req.query.limit as string) || '12', 10);
+  const limit = Math.min(64, Math.max(1, parseInt((req.query.limit as string) || '12', 10) || 12));
   try {
     const raw = await fetchMovieList('phim-le', {
       page: 1,
@@ -207,15 +206,12 @@ export const getTrending = async (req: Request, res: Response) => {
     return res.json(movies);
   } catch (error: any) {
     const status = error instanceof KkphimError ? error.status : 500;
-    return res.status(status).json({
-      message: 'Error retrieving trending movies.',
-      error: error.message,
-    });
+    return internalError(res, 'Error retrieving trending movies.', error, status);
   }
 };
 
 export const getProposed = async (req: Request, res: Response) => {
-  const limit = parseInt((req.query.limit as string) || '12', 10);
+  const limit = Math.min(64, Math.max(1, parseInt((req.query.limit as string) || '12', 10) || 12));
   try {
     const raw = await fetchMovieList('phim-bo', { page: 1, limit });
     const { items, cdn } = extractListPagination(raw);
@@ -226,10 +222,7 @@ export const getProposed = async (req: Request, res: Response) => {
     return res.json(movies);
   } catch (error: any) {
     const status = error instanceof KkphimError ? error.status : 500;
-    return res.status(status).json({
-      message: 'Error retrieving proposed movies.',
-      error: error.message,
-    });
+    return internalError(res, 'Error retrieving proposed movies.', error, status);
   }
 };
 
@@ -252,7 +245,7 @@ export const getBanners = async (req: Request, res: Response) => {
     return res.json(banners);
   } catch (error: any) {
     const status = error instanceof KkphimError ? error.status : 500;
-    return res.status(status).json({ message: 'Error retrieving banners.', error: error.message });
+    return internalError(res, 'Error retrieving banners.', error, status);
   }
 };
 
@@ -293,6 +286,6 @@ export const getHome = async (_req: Request, res: Response) => {
     });
   } catch (error: any) {
     const status = error instanceof KkphimError ? error.status : 500;
-    return res.status(status).json({ message: 'Error retrieving home movies.', error: error.message });
+    return internalError(res, 'Error retrieving home movies.', error, status);
   }
 };

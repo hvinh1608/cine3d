@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
+import { internalError } from '../lib/http-error';
+import { AuthenticatedRequest } from '../middleware/auth';
 
 
 // Get Dashboard Stats
@@ -50,7 +52,7 @@ export const getStats = async (req: Request, res: Response) => {
       recentReports,
     });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error retrieving stats.', error: error.message });
+    return internalError(res, 'Error retrieving stats.', error);
   }
 };
 
@@ -61,13 +63,14 @@ export const getLocalMovies = async (req: Request, res: Response) => {
       include: {
         country: true,
         movieGenres: { include: { genre: true } },
-        episodes: true,
+        episodes: { include: { videoSources: true, subtitles: true }, orderBy: { episodeOrder: 'asc' } },
       },
       orderBy: { createdAt: 'desc' },
+      take: 200,
     });
     return res.json(movies);
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error retrieving local movies.', error: error.message });
+    return internalError(res, 'Error retrieving local movies.', error);
   }
 };
 
@@ -138,7 +141,7 @@ export const createMovie = async (req: Request, res: Response) => {
 
     return res.status(201).json({ message: 'Movie created successfully.', movie });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error creating movie.', error: error.message });
+    return internalError(res, 'Error creating movie.', error);
   }
 };
 
@@ -215,7 +218,7 @@ export const updateMovie = async (req: Request, res: Response) => {
 
     return res.json({ message: 'Movie updated successfully.', movie });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error updating movie.', error: error.message });
+    return internalError(res, 'Error updating movie.', error);
   }
 };
 
@@ -229,7 +232,7 @@ export const deleteMovie = async (req: Request, res: Response) => {
     await prisma.movie.delete({ where: { id } });
     return res.json({ message: 'Movie deleted successfully.' });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error deleting movie.', error: error.message });
+    return internalError(res, 'Error deleting movie.', error);
   }
 };
 
@@ -273,7 +276,7 @@ export const createEpisode = async (req: Request, res: Response) => {
 
     return res.status(201).json({ message: 'Episode created successfully.', episode });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error creating episode.', error: error.message });
+    return internalError(res, 'Error creating episode.', error);
   }
 };
 
@@ -315,7 +318,7 @@ export const updateEpisode = async (req: Request, res: Response) => {
 
     return res.json({ message: 'Episode updated successfully.', episode });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error updating episode.', error: error.message });
+    return internalError(res, 'Error updating episode.', error);
   }
 };
 
@@ -338,7 +341,7 @@ export const deleteEpisode = async (req: Request, res: Response) => {
 
     return res.json({ message: 'Episode deleted successfully.' });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error deleting episode.', error: error.message });
+    return internalError(res, 'Error deleting episode.', error);
   }
 };
 
@@ -359,15 +362,17 @@ export const getUsers = async (req: Request, res: Response) => {
         role: { select: { id: true, name: true } },
       },
       orderBy: { createdAt: 'desc' },
+      take: 200,
     });
     return res.json(users);
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error retrieving users.', error: error.message });
+    return internalError(res, 'Error retrieving users.', error);
   }
 };
 
-export const toggleUserLock = async (req: Request, res: Response) => {
+export const toggleUserLock = async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
+  if (req.user?.id === id) return res.status(400).json({ message: 'You cannot lock your own account.' });
 
   try {
     const user = await prisma.user.findUnique({ where: { id } });
@@ -388,7 +393,7 @@ export const toggleUserLock = async (req: Request, res: Response) => {
       isLocked: updatedUser.isLocked,
     });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error toggling user lock status.', error: error.message });
+    return internalError(res, 'Error toggling user lock status.', error);
   }
 };
 
@@ -409,7 +414,7 @@ export const toggleUserVip = async (req: Request, res: Response) => {
       isVip: updatedUser.isVip,
     });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error toggling user VIP status.', error: error.message });
+    return internalError(res, 'Error toggling user VIP status.', error);
   }
 };
 
@@ -418,6 +423,7 @@ export const getReports = async (req: Request, res: Response) => {
   try {
     const reports = await prisma.report.findMany({
       orderBy: { createdAt: 'desc' },
+      take: 200,
       include: {
         user: { select: { id: true, username: true, email: true } },
         movie: { select: { id: true, title: true } },
@@ -426,13 +432,16 @@ export const getReports = async (req: Request, res: Response) => {
     });
     return res.json(reports);
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error retrieving reports.', error: error.message });
+    return internalError(res, 'Error retrieving reports.', error);
   }
 };
 
 export const resolveReport = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { status } = req.body; // Resolved, Ignored, Pending
+  if (!['Resolved', 'Ignored', 'Pending'].includes(status)) {
+    return res.status(400).json({ message: 'Invalid report status.' });
+  }
 
   try {
     const report = await prisma.report.update({
@@ -441,6 +450,6 @@ export const resolveReport = async (req: Request, res: Response) => {
     });
     return res.json({ message: 'Report status updated.', report });
   } catch (error: any) {
-    return res.status(500).json({ message: 'Error updating report.', error: error.message });
+    return internalError(res, 'Error updating report.', error);
   }
 };

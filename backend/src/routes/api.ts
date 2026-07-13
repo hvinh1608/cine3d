@@ -58,12 +58,14 @@ import {
 import { fetchGenres, fetchCountries, KkphimError } from '../services/kkphim.client';
 import { extractMetaItems } from '../services/kkphim.mapper';
 import { rateLimit } from '../middleware/rate-limit';
+import { internalError } from '../lib/http-error';
 
 const router = Router();
 
 // --- Auth Routes ---
 const authLimiter = rateLimit(15 * 60 * 1000, 20);
 const resetLimiter = rateLimit(60 * 60 * 1000, 5);
+const interactionLimiter = rateLimit(60 * 1000, 60);
 router.post('/auth/register', authLimiter, register);
 router.post('/auth/login', authLimiter, login);
 router.post('/auth/refresh', rateLimit(60 * 1000, 30), refresh);
@@ -79,7 +81,7 @@ router.get('/movies/trending', getTrending);
 router.get('/movies/proposed', getProposed);
 router.get('/movies/banners', getBanners);
 router.get('/movies/:slug', optionalAuthenticate as any, getMovieBySlug);
-router.post('/movies/:id/view', incrementViews);
+router.post('/movies/:id/view', rateLimit(60 * 1000, 20), incrementViews);
 
 // --- User Routes ---
 router.put('/user/profile', authenticateToken as any, updateProfile as any);
@@ -95,12 +97,12 @@ router.put('/user/notifications/:id/read', authenticateToken as any, markNotific
 
 // --- Community / Interaction Routes ---
 router.get('/movies/:movieId/comments', optionalAuthenticate as any, getComments as any);
-router.post('/movies/:movieId/comments', authenticateToken as any, createComment as any);
-router.post('/comments/:commentId/like', authenticateToken as any, toggleLikeComment as any);
+router.post('/movies/:movieId/comments', interactionLimiter, authenticateToken as any, createComment as any);
+router.post('/comments/:commentId/like', interactionLimiter, authenticateToken as any, toggleLikeComment as any);
 router.delete('/comments/:commentId', authenticateToken as any, deleteComment as any);
 router.post('/movies/:movieId/ratings', authenticateToken as any, rateMovie as any);
 router.get('/movies/:movieId/ratings/me', authenticateToken as any, getMovieRatingByUser as any);
-router.post('/reports', authenticateToken as any, reportContent as any);
+router.post('/reports', rateLimit(60 * 60 * 1000, 10), authenticateToken as any, reportContent as any);
 
 // --- Helper Filter Routes ---
 router.get('/genres', async (_req: Request, res: Response) => {
@@ -108,7 +110,7 @@ router.get('/genres', async (_req: Request, res: Response) => {
     const genres = await prisma.genre.findMany({ orderBy: { name: 'asc' } });
     return res.json(genres);
   } catch (error: any) {
-    return res.status(500).json({ error: error.message });
+    return internalError(res, 'Error retrieving genres.', error);
   }
 });
 
@@ -118,7 +120,7 @@ router.get('/countries', async (_req: Request, res: Response) => {
     return res.json(extractMetaItems(raw));
   } catch (error: any) {
     const status = error instanceof KkphimError ? error.status : 500;
-    return res.status(status).json({ error: error.message });
+    return internalError(res, 'Error retrieving countries.', error, status);
   }
 });
 
@@ -127,7 +129,7 @@ router.get('/actors', async (req: Request, res: Response) => {
     const actors = await prisma.actor.findMany({ orderBy: { name: 'asc' } });
     return res.json(actors);
   } catch (error: any) {
-    return res.status(500).json({ error: error.message });
+    return internalError(res, 'Error retrieving actors.', error);
   }
 });
 
@@ -136,7 +138,7 @@ router.get('/directors', async (req: Request, res: Response) => {
     const directors = await prisma.director.findMany({ orderBy: { name: 'asc' } });
     return res.json(directors);
   } catch (error: any) {
-    return res.status(500).json({ error: error.message });
+    return internalError(res, 'Error retrieving directors.', error);
   }
 });
 

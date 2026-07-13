@@ -120,33 +120,12 @@ export default function MovieDetail() {
       });
       const currentFavs = [...favorites];
       if (res.data.favorited) {
-        setFavorites([...currentFavs, {
-          id: movie.id,
-          title: movie.title,
-          slug: movie.slug,
-          posterUrl: movie.posterUrl,
-          releaseYear: movie.releaseYear,
-          quality: movie.quality,
-          ratingAvg: movie.ratingAvg,
-        }]);
+        setFavorites([...currentFavs, movie]);
       } else {
         setFavorites(currentFavs.filter(f => f.id !== movie.id));
       }
-    } catch (e) {
-      const isAlready = favorites.some(f => f.id === movie.id);
-      if (isAlready) {
-        setFavorites(favorites.filter(f => f.id !== movie.id));
-      } else {
-        setFavorites([...favorites, {
-          id: movie.id,
-          title: movie.title,
-          slug: movie.slug,
-          posterUrl: movie.posterUrl,
-          releaseYear: movie.releaseYear,
-          quality: movie.quality,
-          ratingAvg: movie.ratingAvg,
-        }]);
-      }
+    } catch {
+      showToast('Không thể cập nhật danh sách yêu thích.', 'error');
     }
   };
 
