@@ -17,6 +17,47 @@ const cookieOptions = {
   path: '/api/auth',
 };
 
+type SessionUser = {
+  id: string;
+  email: string;
+  username: string;
+  avatar: string | null;
+  role: { name: string };
+};
+
+async function createSession(user: SessionUser) {
+  const payload = {
+    id: user.id,
+    email: user.email,
+    username: user.username,
+    role: user.role.name,
+  };
+
+  const accessToken = jwt.sign(payload, JWT_ACCESS_SECRET!, { expiresIn: '15m' });
+  const refreshToken = jwt.sign(
+    { ...payload, jti: crypto.randomUUID() },
+    JWT_REFRESH_SECRET!,
+    { expiresIn: '7d' }
+  );
+
+  await prisma.refreshToken.create({
+    data: {
+      token: refreshToken,
+      userId: user.id,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    },
+  });
+
+  return {
+    accessToken,
+    refreshToken,
+    user: {
+      ...payload,
+      avatar: user.avatar,
+    },
+  };
+}
+
 function getCookie(req: AuthenticatedRequest, name: string): string | undefined {
   const cookies = req.headers.cookie?.split(';') || [];
   const entry = cookies.find((cookie) => cookie.trim().startsWith(`${name}=`));
@@ -78,14 +119,13 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
       include: { role: true },
     });
 
+    const session = await createSession(user);
+    res.cookie(REFRESH_COOKIE, session.refreshToken, cookieOptions);
+
     return res.status(201).json({
       message: 'User registered successfully.',
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        role: user.role.name,
-      },
+      accessToken: session.accessToken,
+      user: session.user,
     });
   } catch (error: any) {
     return res.status(500).json({ message: 'Internal server error.', error: error.message });
@@ -119,42 +159,11 @@ export const login = async (req: AuthenticatedRequest, res: Response) => {
       return res.status(401).json({ message: 'Invalid credentials.' });
     }
 
-    const payload = {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      role: user.role.name,
-    };
-
-    const accessToken = jwt.sign(payload, JWT_ACCESS_SECRET!, { expiresIn: '15m' });
-    const refreshToken = jwt.sign(
-      { ...payload, jti: crypto.randomUUID() },
-      JWT_REFRESH_SECRET!,
-      { expiresIn: '7d' }
-    );
-
-    // Save refresh token to db
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7);
-
-    await prisma.refreshToken.create({
-      data: {
-        token: refreshToken,
-        userId: user.id,
-        expiresAt,
-      },
-    });
-
-    res.cookie(REFRESH_COOKIE, refreshToken, cookieOptions);
+    const session = await createSession(user);
+    res.cookie(REFRESH_COOKIE, session.refreshToken, cookieOptions);
     return res.json({
-      accessToken,
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        role: user.role.name,
-        avatar: user.avatar,
-      },
+      accessToken: session.accessToken,
+      user: session.user,
     });
   } catch (error: any) {
     return res.status(500).json({ message: 'Internal server error.', error: error.message });

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { User, Lock, Mail, Camera, Heart, History, Play, Bookmark, Trash2, LogOut, Check, Save } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
@@ -29,6 +29,8 @@ export default function AccountPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   // Profile Edit States
   const [editUsername, setEditUsername] = useState('');
@@ -62,22 +64,24 @@ export default function AccountPage() {
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingRef.current) return;
+
+    submittingRef.current = true;
+    setIsSubmitting(true);
     setErrorMsg('');
 
     try {
-      if (isLogin) {
-        // Login Request
-        const res = await axios.post(`${API_URL}/auth/login`, { email, password });
-        setSession(res.data.user, res.data.accessToken, res.data.refreshToken);
-      } else {
-        // Register Request
-        await axios.post(`${API_URL}/auth/register`, { email, username, password });
-        // Auto login on successful register
-        const res = await axios.post(`${API_URL}/auth/login`, { email, password });
-        setSession(res.data.user, res.data.accessToken, res.data.refreshToken);
-      }
+      const endpoint = isLogin ? '/auth/login' : '/auth/register';
+      const payload = isLogin
+        ? { email: email.trim(), password }
+        : { email: email.trim(), username: username.trim(), password };
+      const res = await axios.post(endpoint, payload);
+      setSession(res.data.user, res.data.accessToken);
     } catch (error: any) {
       setErrorMsg(error.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.');
+    } finally {
+      submittingRef.current = false;
+      setIsSubmitting(false);
     }
   };
 
@@ -203,9 +207,10 @@ export default function AccountPage() {
 
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-red-600 to-purple-600 hover:from-red-700 hover:to-purple-700 text-white text-xs md:text-sm font-black py-3.5 rounded-xl transition-all shadow-lg active:scale-98"
+              disabled={isSubmitting}
+              className="w-full bg-gradient-to-r from-red-600 to-purple-600 hover:from-red-700 hover:to-purple-700 disabled:cursor-not-allowed disabled:opacity-60 text-white text-xs md:text-sm font-black py-3.5 rounded-xl transition-all shadow-lg active:scale-98"
             >
-              {isLogin ? 'Đăng Nhập' : 'Tạo Tài Khoản'}
+              {isSubmitting ? 'Đang xử lý...' : isLogin ? 'Đăng Nhập' : 'Tạo Tài Khoản'}
             </button>
           </form>
 
