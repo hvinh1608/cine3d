@@ -102,3 +102,27 @@ body {
 .movie-row::-webkit-scrollbar {
   display: none;
 }
+
+/* Double Tap Seek Feedback Animations */
+@keyframes double-tap-seek-left {
+  0% { opacity: 0; transform: scale(0.85) translateX(0); }
+  15% { opacity: 0.85; transform: scale(1) translateX(-8px); }
+  85% { opacity: 0.85; transform: scale(1) translateX(-8px); }
+  100% { opacity: 0; transform: scale(0.9) translateX(0); }
+}
+
+@keyframes double-tap-seek-right {
+  0% { opacity: 0; transform: scale(0.85) translateX(0); }
+  15% { opacity: 0.85; transform: scale(1) translateX(8px); }
+  85% { opacity: 0.85; transform: scale(1) translateX(8px); }
+  100% { opacity: 0; transform: scale(0.9) translateX(0); }
+}
+
+.animate-seek-left {
+  animation: double-tap-seek-left 0.75s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+.animate-seek-right {
+  animation: double-tap-seek-right 0.75s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+

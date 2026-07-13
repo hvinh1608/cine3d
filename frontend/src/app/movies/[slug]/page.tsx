@@ -541,12 +541,12 @@ export default function MovieDetail() {
             {/* Rate Movie Box */}
             <div className="flex flex-col space-y-2 pt-4 border-t border-white/5">
               <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Đánh giá của bạn:</span>
-              <div className="flex space-x-1.5 items-center">
+              <div className="flex flex-wrap gap-1 md:gap-1.5 items-center">
                 {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((star) => (
                   <button
                     key={star}
                     onClick={() => handleRate(star)}
-                    className="hover:scale-125 transition-transform"
+                    className="hover:scale-125 transition-transform cursor-pointer"
                   >
                     <Star
                       className={`w-5 h-5 ${
