@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shield, Film, ListVideo, AlertTriangle, Users, BarChart3, Plus, Trash2, Lock, Unlock, RefreshCw } from 'lucide-react';
+import { Shield, Film, ListVideo, AlertTriangle, Users, BarChart3, Plus, Trash2, Edit, X, Check, Lock, Unlock, RefreshCw, Tv, Subtitles, Link2, Eye, Star } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 
@@ -38,25 +38,34 @@ export default function AdminPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [countries, setCountries] = useState<any[]>([]);
+  const [genres, setGenres] = useState<any[]>([]);
   
-  // Movie Add Form States
+  // Movie Form States (Create & Edit)
+  const [editingMovieId, setEditingMovieId] = useState<string | null>(null);
   const [movieTitle, setMovieTitle] = useState('');
+  const [movieEnglishTitle, setMovieEnglishTitle] = useState('');
   const [movieSlug, setMovieSlug] = useState('');
   const [movieDesc, setMovieDesc] = useState('');
   const [moviePoster, setMoviePoster] = useState('');
   const [movieBackdrop, setMovieBackdrop] = useState('');
+  const [movieTrailerUrl, setMovieTrailerUrl] = useState('');
   const [movieYear, setMovieYear] = useState('2026');
   const [movieDuration, setMovieDuration] = useState('120');
   const [movieCountry, setMovieCountry] = useState('');
   const [movieQuality, setMovieQuality] = useState('FHD');
   const [movieIsSeries, setMovieIsSeries] = useState(false);
+  const [movieStatus, setMovieStatus] = useState('Completed');
+  const [movieIsFeatured, setMovieIsFeatured] = useState(false);
+  const [movieIsTrending, setMovieIsTrending] = useState(false);
+  const [movieIsProposed, setMovieIsProposed] = useState(false);
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
 
   // Episode Add Form States
-  const [epMovieId, setEpMovieId] = useState('');
+  const [selectedMovieId, setSelectedMovieId] = useState<string>('');
   const [epTitle, setEpTitle] = useState('');
   const [epOrder, setEpOrder] = useState('1');
-  const [epVideoUrl, setEpVideoUrl] = useState('');
-  const [epServer, setEpServer] = useState('Main Server');
+  const [videoSources, setVideoSources] = useState<any[]>([{ server: 'Main Server', quality: '1080p', url: '', type: 'hls' }]);
+  const [subtitles, setSubtitles] = useState<any[]>([{ language: 'Vietnamese', url: '' }]);
 
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -66,25 +75,28 @@ export default function AdminPage() {
     if (!accessToken) return;
     setLoading(true);
     try {
-      const [statsRes, moviesRes, usersRes, reportsRes, countriesRes] = await Promise.all([
+      const [statsRes, moviesRes, usersRes, reportsRes, countriesRes, genresRes] = await Promise.all([
         axios.get(`${API_URL}/admin/stats`, { headers: { Authorization: `Bearer ${accessToken}` } }),
-        axios.get(`${API_URL}/movies`),
+        axios.get(`${API_URL}/admin/movies`, { headers: { Authorization: `Bearer ${accessToken}` } }),
         axios.get(`${API_URL}/admin/users`, { headers: { Authorization: `Bearer ${accessToken}` } }),
         axios.get(`${API_URL}/admin/reports`, { headers: { Authorization: `Bearer ${accessToken}` } }),
         axios.get(`${API_URL}/countries`),
+        axios.get(`${API_URL}/genres`),
       ]);
 
       setStats(statsRes.data);
-      setMovies(moviesRes.data?.movies || []);
-      setUsers(usersRes.data);
-      setReports(reportsRes.data);
+      setMovies(moviesRes.data || []);
+      setUsers(usersRes.data || []);
+      setReports(reportsRes.data || []);
       setCountries(countriesRes.data || []);
+      setGenres(genresRes.data || []);
+
       if (!movieCountry && countriesRes.data?.[0]?.id) {
         setMovieCountry(countriesRes.data[0].id);
       }
     } catch (e) {
-      console.warn('Backend unavailable, rendering mock statistics.');
-      // Standalone mockup
+      console.warn('Failed to fetch real admin data, loading seed mockups.', e);
+      // Fallback
       setStats({
         totalUsers: 140,
         totalMovies: 12,
@@ -101,8 +113,8 @@ export default function AdminPage() {
       });
 
       setMovies([
-        { id: 'm1', title: 'Ma Trận Hồi Sinh', slug: 'ma-tran-hoi-sinh', views: 8900, releaseYear: 2021, quality: 'FHD' },
-        { id: 'm2', title: 'Kẻ Kiến Tạo', slug: 'ke-kien-tao', views: 5400, releaseYear: 2010, quality: '4K' },
+        { id: 'm1', title: 'Ma Trận Hồi Sinh', slug: 'ma-tran-hoi-sinh', views: 8900, releaseYear: 2021, quality: 'FHD', isSeries: false, movieGenres: [] },
+        { id: 'm2', title: 'Kẻ Kiến Tạo', slug: 'ke-kien-tao', views: 5400, releaseYear: 2010, quality: '4K', isSeries: false, movieGenres: [] },
       ]);
 
       setUsers([
@@ -122,66 +134,192 @@ export default function AdminPage() {
     loadAdminData();
   }, [accessToken]);
 
-  // Auth Guard Rendering check
+  // Handle auto-calculating episode order and title
+  useEffect(() => {
+    if (selectedMovieId) {
+      const movie = movies.find(m => m.id === selectedMovieId);
+      const eps = movie?.episodes || [];
+      const nextOrder = eps.length > 0 ? Math.max(...eps.map((e: any) => e.episodeOrder || 0)) + 1 : 1;
+      setEpOrder(String(nextOrder));
+      setEpTitle(movie?.isSeries ? `Tập ${nextOrder}` : 'Full Movie');
+    } else {
+      setEpOrder('1');
+      setEpTitle('');
+    }
+  }, [selectedMovieId, movies]);
+
+  // Auth Guard check
   if (!user || user.role !== 'ADMIN') {
     return null;
   }
 
-  const handleCreateMovie = async (e: React.FormEvent) => {
+  // Movie CRUD Form Handling
+  const handleStartEditMovie = (movie: any) => {
+    setEditingMovieId(movie.id);
+    setMovieTitle(movie.title);
+    setMovieEnglishTitle(movie.englishTitle || '');
+    setMovieSlug(movie.slug);
+    setMovieDesc(movie.description || '');
+    setMoviePoster(movie.posterUrl || '');
+    setMovieBackdrop(movie.backdropUrl || '');
+    setMovieTrailerUrl(movie.trailerUrl || '');
+    setMovieYear(String(movie.releaseYear || 2026));
+    setMovieDuration(String(movie.duration || 120));
+    setMovieCountry(movie.countryId);
+    setMovieQuality(movie.quality || 'FHD');
+    setMovieIsSeries(movie.isSeries || false);
+    setMovieStatus(movie.status || 'Completed');
+    setMovieIsFeatured(movie.isFeatured || false);
+    setMovieIsTrending(movie.isTrending || false);
+    setMovieIsProposed(movie.isProposed || false);
+    
+    // Set checked genres
+    const gIds = movie.movieGenres?.map((mg: any) => mg.genreId) || [];
+    setSelectedGenres(gIds);
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEditMovie = () => {
+    setEditingMovieId(null);
+    setMovieTitle('');
+    setMovieEnglishTitle('');
+    setMovieSlug('');
+    setMovieDesc('');
+    setMoviePoster('');
+    setMovieBackdrop('');
+    setMovieTrailerUrl('');
+    setMovieYear('2026');
+    setMovieDuration('120');
+    setMovieCountry(countries[0]?.id || '');
+    setMovieQuality('FHD');
+    setMovieIsSeries(false);
+    setMovieStatus('Completed');
+    setMovieIsFeatured(false);
+    setMovieIsTrending(false);
+    setMovieIsProposed(false);
+    setSelectedGenres([]);
+  };
+
+  const handleCreateOrUpdateMovie = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!movieCountry) {
       showToast('Vui lòng chọn quốc gia.', 'info');
       return;
     }
     setActionLoading(true);
+
+    const payload = {
+      title: movieTitle,
+      englishTitle: movieEnglishTitle,
+      slug: movieSlug,
+      description: movieDesc,
+      posterUrl: moviePoster,
+      backdropUrl: movieBackdrop,
+      trailerUrl: movieTrailerUrl,
+      releaseYear: parseInt(movieYear, 10),
+      duration: parseInt(movieDuration, 10),
+      quality: movieQuality,
+      isSeries: movieIsSeries,
+      status: movieStatus,
+      countryId: movieCountry,
+      isFeatured: movieIsFeatured,
+      isTrending: movieIsTrending,
+      isProposed: movieIsProposed,
+      genreIds: selectedGenres,
+    };
+
     try {
-      await axios.post(`${API_URL}/admin/movies`, {
-        title: movieTitle,
-        slug: movieSlug,
-        description: movieDesc,
-        posterUrl: moviePoster,
-        backdropUrl: movieBackdrop,
-        releaseYear: movieYear,
-        duration: movieDuration,
-        quality: movieQuality,
-        isSeries: movieIsSeries,
-        countryId: movieCountry,
-      }, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-
-      showToast('Tạo phim mới thành công!', 'success');
+      if (editingMovieId) {
+        await axios.put(`${API_URL}/admin/movies/${editingMovieId}`, payload, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        showToast('Cập nhật phim thành công!', 'success');
+      } else {
+        await axios.post(`${API_URL}/admin/movies`, payload, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        showToast('Tạo phim mới thành công!', 'success');
+      }
+      
+      handleCancelEditMovie();
       loadAdminData();
-
-      // Reset
-      setMovieTitle('');
-      setMovieSlug('');
-      setMovieDesc('');
-      setMoviePoster('');
-      setMovieBackdrop('');
     } catch (e: any) {
-      showToast(e.response?.data?.message || 'Lỗi thêm phim.', 'error');
+      showToast(e.response?.data?.message || 'Thao tác phim thất bại.', 'error');
     } finally {
       setActionLoading(false);
     }
   };
 
+  const handleMovieDelete = async (movieId: string) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa phim này?')) return;
+    try {
+      await axios.delete(`${API_URL}/admin/movies/${movieId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      showToast('Xóa phim thành công!', 'success');
+      loadAdminData();
+    } catch (e: any) {
+      showToast(e.response?.data?.message || 'Xóa phim thất bại.', 'error');
+    }
+  };
+
+  // Video Sources Array actions
+  const handleAddSource = () => {
+    setVideoSources([...videoSources, { server: `Backup Server ${videoSources.length + 1}`, quality: '1080p', url: '', type: 'hls' }]);
+  };
+
+  const handleRemoveSource = (index: number) => {
+    setVideoSources(videoSources.filter((_, i) => i !== index));
+  };
+
+  const handleSourceChange = (index: number, field: string, value: any) => {
+    const updated = [...videoSources];
+    updated[index][field] = value;
+    setVideoSources(updated);
+  };
+
+  // Subtitles Array actions
+  const handleAddSubtitle = () => {
+    setSubtitles([...subtitles, { language: 'English', url: '' }]);
+  };
+
+  const handleRemoveSubtitle = (index: number) => {
+    setSubtitles(subtitles.filter((_, i) => i !== index));
+  };
+
+  const handleSubtitleChange = (index: number, field: string, value: any) => {
+    const updated = [...subtitles];
+    updated[index][field] = value;
+    setSubtitles(updated);
+  };
+
+  // Episode creation and deletion
   const handleCreateEpisode = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedMovieId) {
+      showToast('Vui lòng chọn phim liên kết.', 'info');
+      return;
+    }
     setActionLoading(true);
     try {
       await axios.post(`${API_URL}/admin/episodes`, {
-        movieId: epMovieId,
+        movieId: selectedMovieId,
         title: epTitle,
         episodeOrder: epOrder,
-        videoSources: [{ server: epServer, quality: '1080p', url: epVideoUrl, type: 'hls' }],
+        videoSources,
+        subtitles: subtitles.filter(sub => sub.url.trim() !== ''),
       }, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
 
       showToast('Thêm tập phim thành công!', 'success');
+      loadAdminData();
+      
+      // Reset forms
       setEpTitle('');
-      setEpVideoUrl('');
+      setVideoSources([{ server: 'Main Server', quality: '1080p', url: '', type: 'hls' }]);
+      setSubtitles([{ language: 'Vietnamese', url: '' }]);
     } catch (e: any) {
       showToast(e.response?.data?.message || 'Lỗi thêm tập.', 'error');
     } finally {
@@ -189,6 +327,20 @@ export default function AdminPage() {
     }
   };
 
+  const handleEpisodeDelete = async (episodeId: string) => {
+    if (!confirm('Bạn có chắc chắn muốn xóa tập phim này?')) return;
+    try {
+      await axios.delete(`${API_URL}/admin/episodes/${episodeId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      showToast('Xóa tập phim thành công!', 'success');
+      loadAdminData();
+    } catch (e: any) {
+      showToast(e.response?.data?.message || 'Lỗi xóa tập.', 'error');
+    }
+  };
+
+  // User Actions
   const handleToggleLock = async (userId: string) => {
     try {
       const res = await axios.put(`${API_URL}/admin/users/${userId}/lock`, {}, {
@@ -201,23 +353,13 @@ export default function AdminPage() {
     }
   };
 
-  const handleMovieDelete = async (movieId: string) => {
-    if (!confirm('Bạn có chắc chắn muốn xóa phim này?')) return;
-    try {
-      await axios.delete(`${API_URL}/admin/movies/${movieId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-      loadAdminData();
-    } catch (e) {
-      setMovies(movies.filter(m => m.id !== movieId));
-    }
-  };
-
+  // Report Actions
   const handleResolveReport = async (reportId: string) => {
     try {
       await axios.put(`${API_URL}/admin/reports/${reportId}/resolve`, { status: 'Resolved' }, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
+      showToast('Báo cáo đã được xử lý!', 'success');
       loadAdminData();
     } catch (e) {
       setReports(reports.map(r => r.id === reportId ? { ...r, status: 'Resolved' } : r));
@@ -239,12 +381,12 @@ export default function AdminPage() {
       <div className="w-full md:w-64 shrink-0 flex flex-col space-y-2">
         <div className="flex items-center space-x-2 px-3 py-4 border-b border-white/5">
           <Shield className="w-6 h-6 text-purple-400" />
-          <span className="font-black text-sm uppercase tracking-wider text-purple-400">Admin Panel</span>
+          <span className="font-black text-sm uppercase tracking-wider text-purple-400">Admin Dashboard</span>
         </div>
 
         <button
           onClick={() => setActiveTab('stats')}
-          className={`flex items-center space-x-2.5 px-4 py-3 rounded-xl text-xs md:text-sm font-bold transition-all ${
+          className={`flex items-center space-x-2.5 px-4 py-3 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
             activeTab === 'stats' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'
           }`}
         >
@@ -254,7 +396,7 @@ export default function AdminPage() {
 
         <button
           onClick={() => setActiveTab('movies')}
-          className={`flex items-center space-x-2.5 px-4 py-3 rounded-xl text-xs md:text-sm font-bold transition-all ${
+          className={`flex items-center space-x-2.5 px-4 py-3 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
             activeTab === 'movies' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'
           }`}
         >
@@ -264,7 +406,7 @@ export default function AdminPage() {
 
         <button
           onClick={() => setActiveTab('episodes')}
-          className={`flex items-center space-x-2.5 px-4 py-3 rounded-xl text-xs md:text-sm font-bold transition-all ${
+          className={`flex items-center space-x-2.5 px-4 py-3 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
             activeTab === 'episodes' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'
           }`}
         >
@@ -274,7 +416,7 @@ export default function AdminPage() {
 
         <button
           onClick={() => setActiveTab('users')}
-          className={`flex items-center space-x-2.5 px-4 py-3 rounded-xl text-xs md:text-sm font-bold transition-all ${
+          className={`flex items-center space-x-2.5 px-4 py-3 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
             activeTab === 'users' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'
           }`}
         >
@@ -284,7 +426,7 @@ export default function AdminPage() {
 
         <button
           onClick={() => setActiveTab('reports')}
-          className={`flex items-center space-x-2.5 px-4 py-3 rounded-xl text-xs md:text-sm font-bold transition-all relative ${
+          className={`flex items-center space-x-2.5 px-4 py-3 rounded-xl text-xs md:text-sm font-bold transition-all relative cursor-pointer ${
             activeTab === 'reports' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'
           }`}
         >
@@ -296,61 +438,109 @@ export default function AdminPage() {
             </span>
           )}
         </button>
+
+        <button
+          onClick={loadAdminData}
+          className="flex items-center space-x-2.5 px-4 py-3 text-xs md:text-sm font-bold text-slate-500 hover:text-slate-300 transition-colors mt-4 text-left cursor-pointer"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          <span>Tải Lại Dữ Liệu</span>
+        </button>
       </div>
 
       {/* Main Panel Content Area */}
-      <div className="flex-grow glass-panel p-6 md:p-8 rounded-3xl shadow-2xl">
+      <div className="flex-grow glass-panel p-5 md:p-8 rounded-3xl shadow-2xl overflow-hidden min-w-0">
         
-        {/* STATS OVERVIEW TAB */}
+        {/* STATS TAB */}
         {activeTab === 'stats' && (
           <div className="space-y-8 animate-fade-in">
-            <h2 className="text-xl font-black uppercase tracking-wide">Thống kê nền tảng</h2>
+            <h2 className="text-xl font-black uppercase tracking-wide flex items-center text-purple-400">
+              <BarChart3 className="w-5 h-5 mr-2" /> Thống kê hệ thống
+            </h2>
             
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-slate-900/60 border border-white/5 p-5 rounded-2xl">
-                <span className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Thành viên</span>
-                <span className="text-2xl font-black text-white">{stats.totalUsers}</span>
+              <div className="bg-slate-900/60 border border-white/5 p-5 rounded-2xl relative group overflow-hidden shadow-lg hover:border-purple-500/20 transition-all duration-300">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-purple-600/5 blur-2xl rounded-full group-hover:scale-125 transition-transform" />
+                <span className="text-[10px] text-slate-500 font-black uppercase tracking-wider block mb-1">Thành viên</span>
+                <span className="text-2xl font-black text-white flex items-baseline">
+                  {stats.totalUsers} <span className="text-[10px] text-slate-500 font-bold ml-1">user</span>
+                </span>
               </div>
-              <div className="bg-slate-900/60 border border-white/5 p-5 rounded-2xl">
-                <span className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Số lượng phim</span>
-                <span className="text-2xl font-black text-white">{stats.totalMovies}</span>
+
+              <div className="bg-slate-900/60 border border-white/5 p-5 rounded-2xl relative group overflow-hidden shadow-lg hover:border-cyan-500/20 transition-all duration-300">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-600/5 blur-2xl rounded-full group-hover:scale-125 transition-transform" />
+                <span className="text-[10px] text-slate-500 font-black uppercase tracking-wider block mb-1">Số lượng phim</span>
+                <span className="text-2xl font-black text-white flex items-baseline">
+                  {stats.totalMovies} <span className="text-[10px] text-slate-500 font-bold ml-1">phim</span>
+                </span>
               </div>
-              <div className="bg-slate-900/60 border border-white/5 p-5 rounded-2xl">
-                <span className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Tổng lượt xem</span>
-                <span className="text-2xl font-black text-cyan-400">{stats.totalViews}</span>
+
+              <div className="bg-slate-900/60 border border-white/5 p-5 rounded-2xl relative group overflow-hidden shadow-lg hover:border-amber-500/20 transition-all duration-300">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-amber-600/5 blur-2xl rounded-full group-hover:scale-125 transition-transform" />
+                <span className="text-[10px] text-slate-500 font-black uppercase tracking-wider block mb-1">Tổng lượt xem</span>
+                <span className="text-2xl font-black text-cyan-400">{stats.totalViews.toLocaleString()}</span>
               </div>
-              <div className="bg-slate-900/60 border border-white/5 p-5 rounded-2xl">
-                <span className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Báo cáo chưa xử lý</span>
-                <span className="text-2xl font-black text-red-500">{stats.pendingReports}</span>
+
+              <div className="bg-slate-900/60 border border-white/5 p-5 rounded-2xl relative group overflow-hidden shadow-lg hover:border-red-500/20 transition-all duration-300">
+                <div className="absolute top-0 right-0 w-24 h-24 bg-red-600/5 blur-2xl rounded-full group-hover:scale-125 transition-transform" />
+                <span className="text-[10px] text-slate-500 font-black uppercase tracking-wider block mb-1">Báo cáo chưa xử lý</span>
+                <span className={`text-2xl font-black ${stats.pendingReports > 0 ? 'text-red-500 animate-pulse' : 'text-slate-400'}`}>
+                  {stats.pendingReports}
+                </span>
               </div>
             </div>
 
-            {/* List of top movies */}
+            {/* List of top movies with progress bars */}
             <div className="bg-slate-900/40 p-5 rounded-2xl border border-white/5 space-y-4">
-              <h3 className="text-sm font-bold uppercase text-slate-300">Phim xem nhiều nhất</h3>
-              <div className="space-y-3 text-xs md:text-sm">
-                {stats.topMovies.map((movie: any, idx: number) => (
-                  <div key={movie.id} className="flex justify-between items-center py-2 border-b border-white/5 last:border-b-0">
-                    <span className="font-bold text-slate-200">{idx + 1}. {movie.title}</span>
-                    <span className="text-slate-400">{movie.views} lượt xem</span>
-                  </div>
-                ))}
+              <h3 className="text-sm font-bold uppercase text-slate-300 tracking-wider flex items-center">
+                <Film className="w-4 h-4 text-cyan-400 mr-2" /> Top 5 Phim Có Lượt Xem Cao Nhất
+              </h3>
+              <div className="space-y-4 text-xs md:text-sm">
+                {stats.topMovies.map((movie: any, idx: number) => {
+                  const maxViews = stats.topMovies[0]?.views || 1;
+                  const pct = Math.min(100, Math.floor((movie.views / maxViews) * 100));
+                  return (
+                    <div key={movie.id} className="space-y-1.5 text-left">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-bold text-slate-200">{idx + 1}. {movie.title}</span>
+                        <span className="text-slate-400 font-semibold">{movie.views.toLocaleString()} lượt xem</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden">
+                        <div
+                          style={{ width: `${pct}%` }}
+                          className="h-full bg-gradient-to-r from-purple-500 to-cyan-400 rounded-full"
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
         )}
 
-        {/* MOVIES CRUD TAB */}
+        {/* MOVIES TAB */}
         {activeTab === 'movies' && (
           <div className="space-y-8 animate-fade-in">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-black uppercase tracking-wide">Quản lý phim</h2>
-            </div>
+            <h2 className="text-xl font-black uppercase tracking-wide flex items-center text-purple-400">
+              <Film className="w-5 h-5 mr-2" /> {editingMovieId ? 'Chỉnh sửa phim' : 'Thêm phim mới'}
+            </h2>
 
-            {/* Create Movie Form */}
-            <form onSubmit={handleCreateMovie} className="bg-slate-900/40 border border-white/5 p-5 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
-              <h3 className="col-span-full text-xs font-bold text-purple-400 uppercase tracking-widest flex items-center">
-                <Plus className="w-4 h-4 mr-1" /> Thêm phim mới
+            {/* Create & Edit Movie Form */}
+            <form onSubmit={handleCreateOrUpdateMovie} className="bg-slate-900/40 border border-white/5 p-5 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
+              <h3 className="col-span-full text-xs font-bold text-purple-400 uppercase tracking-widest flex items-center justify-between">
+                <span className="flex items-center">
+                  <Plus className="w-4 h-4 mr-1" /> {editingMovieId ? `Đang sửa: ${movieTitle}` : 'Nhập thông tin phim'}
+                </span>
+                {editingMovieId && (
+                  <button
+                    type="button"
+                    onClick={handleCancelEditMovie}
+                    className="text-[10px] font-black bg-red-600/20 text-red-400 border border-red-500/20 px-3 py-1 rounded-lg hover:bg-red-600 hover:text-white transition-colors cursor-pointer"
+                  >
+                    Hủy sửa
+                  </button>
+                )}
               </h3>
 
               <input
@@ -359,6 +549,14 @@ export default function AdminPage() {
                 value={movieTitle}
                 onChange={(e) => setMovieTitle(e.target.value)}
                 placeholder="Tên phim (Tiếng Việt)"
+                className="bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs md:text-sm outline-none"
+              />
+
+              <input
+                type="text"
+                value={movieEnglishTitle}
+                onChange={(e) => setMovieEnglishTitle(e.target.value)}
+                placeholder="Tên Tiếng Anh (không bắt buộc)"
                 className="bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs md:text-sm outline-none"
               />
 
@@ -376,7 +574,7 @@ export default function AdminPage() {
                 required
                 value={moviePoster}
                 onChange={(e) => setMoviePoster(e.target.value)}
-                placeholder="URL hình Poster (2:3)"
+                placeholder="URL hình Poster (Khung tỷ lệ dọc 2:3)"
                 className="bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs md:text-sm outline-none"
               />
 
@@ -385,7 +583,15 @@ export default function AdminPage() {
                 required
                 value={movieBackdrop}
                 onChange={(e) => setMovieBackdrop(e.target.value)}
-                placeholder="URL hình Backdrop (16:9)"
+                placeholder="URL hình nền Backdrop (Tỷ lệ ngang 16:9)"
+                className="bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs md:text-sm outline-none"
+              />
+
+              <input
+                type="text"
+                value={movieTrailerUrl}
+                onChange={(e) => setMovieTrailerUrl(e.target.value)}
+                placeholder="URL Video Trailer (Youtube link)"
                 className="bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs md:text-sm outline-none"
               />
 
@@ -393,10 +599,11 @@ export default function AdminPage() {
                 required
                 value={movieDesc}
                 onChange={(e) => setMovieDesc(e.target.value)}
-                placeholder="Mô tả cốt truyện chi tiết..."
+                placeholder="Mô tả tóm tắt nội dung phim..."
                 className="col-span-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs md:text-sm outline-none h-24"
               />
 
+              {/* Country Selection */}
               <div className="flex flex-col space-y-1">
                 <span className="text-[9px] text-slate-500 uppercase font-black tracking-wider">Quốc gia:</span>
                 <select
@@ -414,8 +621,24 @@ export default function AdminPage() {
                 </select>
               </div>
 
+              {/* Status Select */}
               <div className="flex flex-col space-y-1">
-                <span className="text-[9px] text-slate-500 uppercase font-black tracking-wider">Năm / Thời lượng / Chất lượng:</span>
+                <span className="text-[9px] text-slate-500 uppercase font-black tracking-wider">Trạng thái phát hành:</span>
+                <select
+                  value={movieStatus}
+                  onChange={(e) => setMovieStatus(e.target.value)}
+                  required
+                  className="bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-xs md:text-sm text-white"
+                >
+                  <option value="Completed">Hoàn thành (Completed)</option>
+                  <option value="Ongoing">Đang phát sóng (Ongoing)</option>
+                  <option value="Upcoming">Sắp ra mắt (Upcoming)</option>
+                </select>
+              </div>
+
+              {/* Year, Duration, Quality */}
+              <div className="flex flex-col space-y-1 col-span-full">
+                <span className="text-[9px] text-slate-500 uppercase font-black tracking-wider">Năm sản xuất / Thời lượng (phút) / Chất lượng:</span>
                 <div className="grid grid-cols-3 gap-2">
                   <input
                     type="number"
@@ -446,51 +669,136 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <label className="col-span-full flex items-center gap-2 text-xs text-slate-300">
-                <input
-                  type="checkbox"
-                  checked={movieIsSeries}
-                  onChange={(e) => setMovieIsSeries(e.target.checked)}
-                  className="rounded"
-                />
-                Đây là phim bộ (series)
-              </label>
+              {/* Genre Checklist (NEW Multi-select Grid) */}
+              <div className="flex flex-col space-y-1.5 col-span-full">
+                <span className="text-[9px] text-slate-500 uppercase font-black tracking-wider">Thể loại phim:</span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2 bg-slate-950 p-4 rounded-xl border border-white/5 max-h-36 overflow-y-auto">
+                  {genres.map((g) => (
+                    <label key={g.id} className="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer hover:text-white">
+                      <input
+                        type="checkbox"
+                        checked={selectedGenres.includes(g.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedGenres([...selectedGenres, g.id]);
+                          } else {
+                            setSelectedGenres(selectedGenres.filter(id => id !== g.id));
+                          }
+                        }}
+                        className="rounded border-white/10 text-purple-600 focus:ring-0 cursor-pointer"
+                      />
+                      <span className="truncate">{g.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Series and Banner Flags */}
+              <div className="col-span-full flex flex-wrap gap-x-6 gap-y-2 bg-slate-950/45 p-4 rounded-xl border border-white/5">
+                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={movieIsSeries}
+                    onChange={(e) => setMovieIsSeries(e.target.checked)}
+                    className="rounded text-purple-600 focus:ring-0"
+                  />
+                  Đây là phim bộ (Series)
+                </label>
+
+                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={movieIsFeatured}
+                    onChange={(e) => setMovieIsFeatured(e.target.checked)}
+                    className="rounded text-purple-600 focus:ring-0"
+                  />
+                  Ghim Trang Chủ (Featured)
+                </label>
+
+                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={movieIsTrending}
+                    onChange={(e) => setMovieIsTrending(e.target.checked)}
+                    className="rounded text-purple-600 focus:ring-0"
+                  />
+                  Phim Xu Hướng (Trending)
+                </label>
+
+                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={movieIsProposed}
+                    onChange={(e) => setMovieIsProposed(e.target.checked)}
+                    className="rounded text-purple-600 focus:ring-0"
+                  />
+                  Đề xuất cao (Proposed)
+                </label>
+              </div>
 
               <button
                 type="submit"
                 disabled={actionLoading}
-                className="col-span-full bg-purple-600 hover:bg-purple-700 text-white text-xs md:text-sm font-black py-3 rounded-xl transition-all shadow-lg"
+                className="col-span-full bg-purple-600 hover:bg-purple-700 text-white text-xs md:text-sm font-black py-3 rounded-xl transition-all shadow-lg cursor-pointer"
               >
-                {actionLoading ? 'Đang lưu...' : 'Thêm Phim Vào Hệ Thống'}
+                {actionLoading ? 'Đang lưu dữ liệu...' : editingMovieId ? 'Cập Nhật Thông Tin Phim' : 'Thêm Phim Vào Cơ Sở Dữ Liệu'}
               </button>
             </form>
 
             {/* Movies List Table */}
             <div className="space-y-3">
-              <h3 className="text-sm font-bold uppercase text-slate-300">Danh sách phim hiện tại</h3>
+              <h3 className="text-sm font-bold uppercase text-slate-300 tracking-wider">Danh sách phim hiện tại ({movies.length})</h3>
               <div className="overflow-x-auto text-xs md:text-sm">
                 <table className="w-full text-left">
                   <thead>
                     <tr className="border-b border-white/10 text-slate-500">
-                      <th className="py-2">Tên phim</th>
-                      <th className="py-2">Năm</th>
-                      <th className="py-2">Chất lượng</th>
-                      <th className="py-2 text-right">Thao tác</th>
+                      <th className="py-2.5">Tên phim</th>
+                      <th className="py-2.5">Kiểu</th>
+                      <th className="py-2.5">Năm</th>
+                      <th className="py-2.5">Chất lượng</th>
+                      <th className="py-2.5">Số tập</th>
+                      <th className="py-2.5 text-right">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
                     {movies.map((m) => (
-                      <tr key={m.id} className="border-b border-white/5 text-slate-300">
-                        <td className="py-3 font-bold">{m.title}</td>
+                      <tr key={m.id} className="border-b border-white/5 text-slate-300 hover:bg-white/[0.02] transition-colors">
+                        <td className="py-3 font-bold text-slate-100">{m.title}</td>
+                        <td className="py-3 text-xs">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${m.isSeries ? 'bg-cyan-500/10 text-cyan-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                            {m.isSeries ? 'Bộ' : 'Lẻ'}
+                          </span>
+                        </td>
                         <td className="py-3">{m.releaseYear}</td>
                         <td className="py-3">{m.quality}</td>
+                        <td className="py-3 font-semibold text-cyan-400">{m.episodes?.length || m.episodeCount || 0} tập</td>
                         <td className="py-3 text-right">
-                          <button
-                            onClick={() => handleMovieDelete(m.id)}
-                            className="p-1.5 bg-red-600/20 text-red-500 hover:bg-red-600 hover:text-white rounded-lg transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="inline-flex space-x-1.5">
+                            <button
+                              onClick={() => {
+                                setSelectedMovieId(m.id);
+                                setActiveTab('episodes');
+                              }}
+                              className="p-1.5 bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600 hover:text-white rounded-lg transition-colors cursor-pointer"
+                              title="Xem danh sách tập"
+                            >
+                              <ListVideo className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleStartEditMovie(m)}
+                              className="p-1.5 bg-yellow-600/20 text-yellow-400 hover:bg-yellow-600 hover:text-white rounded-lg transition-colors cursor-pointer"
+                              title="Sửa thông tin phim"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleMovieDelete(m.id)}
+                              className="p-1.5 bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white rounded-lg transition-colors cursor-pointer"
+                              title="Xóa phim"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -501,108 +809,299 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* EPISODES MANAGEMENT TAB */}
+        {/* EPISODES TAB */}
         {activeTab === 'episodes' && (
           <div className="space-y-8 animate-fade-in">
-            <h2 className="text-xl font-black uppercase tracking-wide">Quản lý tập phim</h2>
+            <h2 className="text-xl font-black uppercase tracking-wide flex items-center text-purple-400">
+              <ListVideo className="w-5 h-5 mr-2" /> Quản lý tập phim
+            </h2>
 
-            <form onSubmit={handleCreateEpisode} className="bg-slate-900/40 border border-white/5 p-5 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
-              <h3 className="col-span-full text-xs font-bold text-cyan-400 uppercase tracking-widest flex items-center">
-                <Plus className="w-4 h-4 mr-1" /> Thêm tập phim mới
-              </h3>
-
+            {/* Select Movie Selector */}
+            <div className="bg-slate-900/40 p-5 rounded-2xl border border-white/5 space-y-4">
               <div className="flex flex-col space-y-1">
-                <span className="text-[9px] text-slate-500 uppercase font-black tracking-wider">Chọn phim:</span>
+                <span className="text-[10px] text-slate-500 uppercase font-black tracking-wider">Chọn phim để quản lý tập:</span>
                 <select
-                  value={epMovieId}
-                  onChange={(e) => setEpMovieId(e.target.value)}
-                  required
-                  className="bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-xs md:text-sm text-white"
+                  value={selectedMovieId}
+                  onChange={(e) => setSelectedMovieId(e.target.value)}
+                  className="bg-slate-950 border border-white/10 rounded-xl px-3 py-2.5 text-xs md:text-sm text-white w-full outline-none focus:border-purple-500"
                 >
-                  <option value="">-- Chọn phim liên kết --</option>
+                  <option value="">-- Click chọn bộ phim --</option>
                   {movies.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.title}
+                      {m.title} ({m.isSeries ? 'Phim bộ' : 'Phim lẻ'})
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div className="flex flex-col space-y-1">
-                <span className="text-[9px] text-slate-500 uppercase font-black tracking-wider">Số tập (order):</span>
-                <input
-                  type="number"
-                  required
-                  value={epOrder}
-                  onChange={(e) => setEpOrder(e.target.value)}
-                  placeholder="e.g. 1, 2"
-                  className="bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs md:text-sm outline-none"
-                />
-              </div>
+              {/* Render Existing Episodes of Selected Movie */}
+              {selectedMovieId && (() => {
+                const selectedMovie = movies.find(m => m.id === selectedMovieId);
+                const episodes = selectedMovie?.episodes || [];
+                return (
+                  <div className="space-y-3 pt-2">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-slate-300">
+                        Danh sách tập của: <span className="text-cyan-400">{selectedMovie?.title}</span>
+                      </h4>
+                      <span className="bg-purple-600/10 text-purple-400 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider">
+                        {episodes.length} tập
+                      </span>
+                    </div>
 
-              <input
-                type="text"
-                required
-                value={epTitle}
-                onChange={(e) => setEpTitle(e.target.value)}
-                placeholder="Tiêu đề tập (e.g. Tập 1, Full Movie)"
-                className="bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs md:text-sm outline-none"
-              />
+                    <div className="overflow-x-auto text-xs md:text-sm">
+                      <table className="w-full text-left">
+                        <thead>
+                          <tr className="border-b border-white/10 text-slate-500">
+                            <th className="py-2">Thứ tự</th>
+                            <th className="py-2">Tên tập</th>
+                            <th className="py-2">Nguồn phát</th>
+                            <th className="py-2 text-right">Hành động</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {episodes.map((ep: any) => (
+                            <tr key={ep.id} className="border-b border-white/5 text-slate-300">
+                              <td className="py-2.5 font-bold">#{ep.episodeOrder}</td>
+                              <td className="py-2.5">{ep.title}</td>
+                              <td className="py-2.5 text-[10px] text-slate-400 truncate max-w-[250px]">
+                                {ep.videoSources?.map((s: any) => `${s.server} (${s.quality})`).join(', ') || 'HLS URL'}
+                              </td>
+                              <td className="py-2.5 text-right">
+                                <button
+                                  onClick={() => handleEpisodeDelete(ep.id)}
+                                  className="p-1 bg-red-600/20 text-red-500 hover:bg-red-600 hover:text-white rounded-lg transition-colors cursor-pointer"
+                                  title="Xóa tập"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                          {episodes.length === 0 && (
+                            <tr>
+                              <td colSpan={4} className="py-4 text-center text-slate-500 text-xs">
+                                Phim này chưa có tập nào trong cơ sở dữ liệu.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
 
-              <input
-                type="text"
-                required
-                value={epVideoUrl}
-                onChange={(e) => setEpVideoUrl(e.target.value)}
-                placeholder="Đường dẫn nguồn phim (.m3u8 hoặc .mp4)"
-                className="bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs md:text-sm outline-none"
-              />
+            {/* Create Episode Form (Only visible when a movie is selected) */}
+            {selectedMovieId && (
+              <form onSubmit={handleCreateEpisode} className="bg-slate-900/40 border border-white/5 p-5 rounded-2xl grid grid-cols-1 md:grid-cols-2 gap-4">
+                <h3 className="col-span-full text-xs font-bold text-cyan-400 uppercase tracking-widest flex items-center">
+                  <Plus className="w-4 h-4 mr-1" /> Thêm tập phim mới vào phim đã chọn
+                </h3>
 
-              <button
-                type="submit"
-                disabled={actionLoading}
-                className="col-span-full bg-cyan-600 hover:bg-cyan-700 text-white text-xs md:text-sm font-black py-3 rounded-xl transition-all shadow-lg"
-              >
-                {actionLoading ? 'Đang lưu...' : 'Thêm Tập Phim'}
-              </button>
-            </form>
+                <div className="flex flex-col space-y-1">
+                  <span className="text-[9px] text-slate-500 uppercase font-black tracking-wider">Thứ tự tập (order):</span>
+                  <input
+                    type="number"
+                    required
+                    value={epOrder}
+                    onChange={(e) => setEpOrder(e.target.value)}
+                    placeholder="Số tập (e.g. 1, 2, 3)"
+                    className="bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs md:text-sm outline-none"
+                  />
+                </div>
+
+                <div className="flex flex-col space-y-1">
+                  <span className="text-[9px] text-slate-500 uppercase font-black tracking-wider">Tên tập phim:</span>
+                  <input
+                    type="text"
+                    required
+                    value={epTitle}
+                    onChange={(e) => setEpTitle(e.target.value)}
+                    placeholder="Tiêu đề tập (e.g. Tập 1, Tập đặc biệt, Full Movie)"
+                    className="bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs md:text-sm outline-none"
+                  />
+                </div>
+
+                {/* Multiple Video Sources Sub-form (NEW array editor) */}
+                <div className="col-span-full space-y-3 pt-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center">
+                      <Tv className="w-4 h-4 mr-1.5 text-cyan-400" /> Nguồn Video Phát (Video Sources):
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleAddSource}
+                      className="flex items-center text-[10px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2.5 py-1 rounded-lg hover:bg-cyan-500 hover:text-white transition-all cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-0.5" /> Thêm nguồn phát
+                    </button>
+                  </div>
+                  
+                  {videoSources.map((src, index) => (
+                    <div key={index} className="grid grid-cols-1 sm:grid-cols-4 gap-2 bg-slate-950 p-4 rounded-xl border border-white/5 relative">
+                      <div className="flex flex-col space-y-1">
+                        <span className="text-[9px] text-slate-500 font-bold uppercase">Tên Server</span>
+                        <input
+                          type="text"
+                          required
+                          value={src.server}
+                          onChange={(e) => handleSourceChange(index, 'server', e.target.value)}
+                          placeholder="e.g. Server VIP, HLS 1"
+                          className="bg-slate-900 border border-white/10 rounded-lg px-3 py-1.5 text-xs outline-none"
+                        />
+                      </div>
+                      <div className="flex flex-col space-y-1">
+                        <span className="text-[9px] text-slate-500 font-bold uppercase">Độ phân giải</span>
+                        <input
+                          type="text"
+                          required
+                          value={src.quality}
+                          onChange={(e) => handleSourceChange(index, 'quality', e.target.value)}
+                          placeholder="e.g. 1080p, 720p"
+                          className="bg-slate-900 border border-white/10 rounded-lg px-3 py-1.5 text-xs outline-none"
+                        />
+                      </div>
+                      <div className="flex flex-col space-y-1 sm:col-span-2 pr-8">
+                        <span className="text-[9px] text-slate-500 font-bold uppercase">Đường dẫn nguồn phim (.m3u8 hoặc .mp4)</span>
+                        <input
+                          type="text"
+                          required
+                          value={src.url}
+                          onChange={(e) => handleSourceChange(index, 'url', e.target.value)}
+                          placeholder="Link url phát video..."
+                          className="bg-slate-900 border border-white/10 rounded-lg px-3 py-1.5 text-xs outline-none w-full"
+                        />
+                      </div>
+                      
+                      {videoSources.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSource(index)}
+                          className="absolute top-2 right-2 text-red-500 hover:text-red-400 p-1 cursor-pointer"
+                          title="Xóa nguồn này"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Subtitles dynamic array list (NEW sub-form) */}
+                <div className="col-span-full space-y-3 pt-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center">
+                      <Subtitles className="w-4 h-4 mr-1.5 text-green-400" /> Phụ đề đính kèm (Subtitles - không bắt buộc):
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleAddSubtitle}
+                      className="flex items-center text-[10px] font-bold bg-green-500/10 text-green-400 border border-green-500/20 px-2.5 py-1 rounded-lg hover:bg-green-500 hover:text-white transition-all cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5 mr-0.5" /> Thêm phụ đề
+                    </button>
+                  </div>
+                  
+                  {subtitles.map((sub, index) => (
+                    <div key={index} className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-950 p-4 rounded-xl border border-white/5 relative">
+                      <div className="flex flex-col space-y-1">
+                        <span className="text-[9px] text-slate-500 font-bold uppercase">Ngôn ngữ</span>
+                        <input
+                          type="text"
+                          value={sub.language}
+                          onChange={(e) => handleSubtitleChange(index, 'language', e.target.value)}
+                          placeholder="e.g. Vietnamese, English"
+                          className="bg-slate-900 border border-white/10 rounded-lg px-3 py-1.5 text-xs outline-none"
+                        />
+                      </div>
+                      <div className="flex flex-col space-y-1 pr-8">
+                        <span className="text-[9px] text-slate-500 font-bold uppercase">Đường dẫn tệp phụ đề (.vtt)</span>
+                        <input
+                          type="text"
+                          value={sub.url}
+                          onChange={(e) => handleSubtitleChange(index, 'url', e.target.value)}
+                          placeholder="Link url phụ đề (.vtt)..."
+                          className="bg-slate-900 border border-white/10 rounded-lg px-3 py-1.5 text-xs outline-none w-full"
+                        />
+                      </div>
+                      
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSubtitle(index)}
+                        className="absolute top-2 right-2 text-red-500 hover:text-red-400 p-1 cursor-pointer"
+                        title="Xóa phụ đề này"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="col-span-full bg-cyan-600 hover:bg-cyan-700 text-white text-xs md:text-sm font-black py-3 rounded-xl transition-all shadow-lg cursor-pointer"
+                >
+                  {actionLoading ? 'Đang thêm tập...' : 'Tạo Tập Phim Vào Cơ Sở Dữ Liệu'}
+                </button>
+              </form>
+            )}
           </div>
         )}
 
-        {/* USERS MANAGEMENT TAB */}
+        {/* USERS TAB */}
         {activeTab === 'users' && (
           <div className="space-y-8 animate-fade-in">
-            <h2 className="text-xl font-black uppercase tracking-wide">Quản lý thành viên</h2>
+            <h2 className="text-xl font-black uppercase tracking-wide flex items-center text-purple-400">
+              <Users className="w-5 h-5 mr-2" /> Quản lý thành viên
+            </h2>
             
             <div className="overflow-x-auto text-xs md:text-sm">
               <table className="w-full text-left">
                 <thead>
                   <tr className="border-b border-white/10 text-slate-500">
-                    <th className="py-2">Tên tài khoản</th>
-                    <th className="py-2">Email</th>
-                    <th className="py-2">Quyền</th>
-                    <th className="py-2 text-right">Trạng thái</th>
+                    <th className="py-2.5">Tên tài khoản</th>
+                    <th className="py-2.5">Email</th>
+                    <th className="py-2.5">Quyền</th>
+                    <th className="py-2.5 text-right">Trạng thái khóa</th>
                   </tr>
                 </thead>
                 <tbody>
                   {users.map((u) => (
-                    <tr key={u.id} className="border-b border-white/5 text-slate-300">
-                      <td className="py-3 font-bold">{u.username}</td>
+                    <tr key={u.id} className="border-b border-white/5 text-slate-300 hover:bg-white/[0.02] transition-colors">
+                      <td className="py-3 font-bold text-slate-100">{u.username}</td>
                       <td className="py-3">{u.email}</td>
-                      <td className="py-3">{u.role?.name}</td>
+                      <td className="py-3">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${u.role?.name === 'ADMIN' ? 'bg-red-600/10 text-red-500 border border-red-500/20' : 'bg-slate-800 text-slate-400'}`}>
+                          {u.role?.name}
+                        </span>
+                      </td>
                       <td className="py-3 text-right">
-                        {u.role?.name !== 'ADMIN' && (
+                        {u.role?.name !== 'ADMIN' ? (
                           <button
                             onClick={() => handleToggleLock(u.id)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer ${
                               u.isLocked
                                 ? 'bg-red-600/20 text-red-500 hover:bg-red-600 hover:text-white'
                                 : 'bg-green-600/20 text-green-500 hover:bg-green-600 hover:text-white'
                             }`}
                           >
-                            {u.isLocked ? <Lock className="w-3.5 h-3.5 inline mr-1" /> : <Unlock className="w-3.5 h-3.5 inline mr-1" />}
-                            {u.isLocked ? 'Đã Khóa' : 'Đang Hoạt Động'}
+                            {u.isLocked ? (
+                              <>
+                                <Lock className="w-3.5 h-3.5 inline mr-1" />
+                                Đã Khóa
+                              </>
+                            ) : (
+                              <>
+                                <Unlock className="w-3.5 h-3.5 inline mr-1" />
+                                Hoạt Động
+                              </>
+                            )}
                           </button>
+                        ) : (
+                          <span className="text-[10px] text-slate-500 italic font-medium">Bảo vệ hệ thống</span>
                         )}
                       </td>
                     </tr>
@@ -613,31 +1112,41 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* ERROR REPORTS TAB */}
+        {/* REPORTS TAB */}
         {activeTab === 'reports' && (
           <div className="space-y-8 animate-fade-in">
-            <h2 className="text-xl font-black uppercase tracking-wide">Danh sách báo cáo lỗi</h2>
+            <h2 className="text-xl font-black uppercase tracking-wide flex items-center text-purple-400">
+              <AlertTriangle className="w-5 h-5 mr-2" /> Báo cáo lỗi từ thành viên
+            </h2>
             
             <div className="space-y-4">
               {reports.map((r) => (
-                <div key={r.id} className="bg-slate-900/60 p-5 rounded-2xl border border-white/5 flex items-center justify-between">
-                  <div className="space-y-1.5 text-left">
-                    <div className="flex items-center space-x-2">
-                      <span className="bg-red-600/20 text-red-500 border border-red-500/20 px-2 py-0.5 rounded text-[10px] uppercase font-black">
+                <div key={r.id} className="bg-slate-900/60 p-5 rounded-2xl border border-white/5 flex items-center justify-between hover:border-red-500/10 transition-colors shadow">
+                  <div className="space-y-2 text-left">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="bg-red-600/20 text-red-400 border border-red-500/20 px-2 py-0.5 rounded text-[9px] uppercase font-black tracking-wider">
                         {r.type}
                       </span>
-                      <span className="text-xs text-slate-400">Gửi bởi: {r.user?.username}</span>
+                      <span className="text-xs text-slate-500 font-bold">Người gửi: {r.user?.username}</span>
+                      {r.movie && (
+                        <span className="text-xs text-slate-500 font-bold flex items-center">
+                          <Film className="w-3.5 h-3.5 text-cyan-400 mr-1" /> {r.movie.title}
+                        </span>
+                      )}
                     </div>
                     <p className="text-slate-200 text-xs md:text-sm">{r.content}</p>
+                    <span className="text-[10px] text-slate-500 font-semibold block">
+                      Gửi ngày: {new Date(r.createdAt).toLocaleString('vi-VN')}
+                    </span>
                   </div>
 
                   <button
                     onClick={() => handleResolveReport(r.id)}
                     disabled={r.status === 'Resolved'}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 ml-4 ${
                       r.status === 'Resolved'
                         ? 'bg-green-600/20 text-green-500 border border-green-500/20 cursor-not-allowed'
-                        : 'bg-white text-black hover:bg-slate-200 active:scale-95'
+                        : 'bg-white text-black hover:bg-slate-200 active:scale-95 cursor-pointer'
                     }`}
                   >
                     {r.status === 'Resolved' ? 'Đã Xử Lý' : 'Giải Quyết'}

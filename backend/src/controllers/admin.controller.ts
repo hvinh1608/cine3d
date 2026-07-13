@@ -55,6 +55,22 @@ export const getStats = async (req: Request, res: Response) => {
 };
 
 // CRUD: Manage Movies
+export const getLocalMovies = async (req: Request, res: Response) => {
+  try {
+    const movies = await prisma.movie.findMany({
+      include: {
+        country: true,
+        movieGenres: { include: { genre: true } },
+        episodes: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return res.json(movies);
+  } catch (error: any) {
+    return res.status(500).json({ message: 'Error retrieving local movies.', error: error.message });
+  }
+};
+
 export const createMovie = async (req: Request, res: Response) => {
   const {
     title,
@@ -73,6 +89,9 @@ export const createMovie = async (req: Request, res: Response) => {
     genreIds, // string[]
     actorIds, // string[]
     directorIds, // string[]
+    isFeatured,
+    isTrending,
+    isProposed,
   } = req.body;
 
   if (!title || !slug || !description || !backdropUrl || !posterUrl || !countryId) {
@@ -99,6 +118,9 @@ export const createMovie = async (req: Request, res: Response) => {
         quality: quality || 'HD',
         isSeries: !!isSeries,
         status: status || 'Completed',
+        isFeatured: isFeatured !== undefined ? !!isFeatured : false,
+        isTrending: isTrending !== undefined ? !!isTrending : false,
+        isProposed: isProposed !== undefined ? !!isProposed : false,
         countryId,
         movieGenres: {
           create: (genreIds || []).map((id: string) => ({ genreId: id })),
@@ -137,6 +159,9 @@ export const updateMovie = async (req: Request, res: Response) => {
     genreIds,
     actorIds,
     directorIds,
+    isFeatured,
+    isTrending,
+    isProposed,
   } = req.body;
 
   try {
@@ -159,6 +184,9 @@ export const updateMovie = async (req: Request, res: Response) => {
         quality,
         isSeries,
         status,
+        isFeatured: isFeatured !== undefined ? !!isFeatured : undefined,
+        isTrending: isTrending !== undefined ? !!isTrending : undefined,
+        isProposed: isProposed !== undefined ? !!isProposed : undefined,
         countryId,
         movieGenres: genreIds
           ? {
