@@ -51,6 +51,7 @@ import {
   deleteEpisode,
   getUsers,
   toggleUserLock,
+  toggleUserVip,
   getReports,
   resolveReport,
 } from '../controllers/admin.controller';
@@ -77,7 +78,7 @@ router.get('/movies/home', getHome);
 router.get('/movies/trending', getTrending);
 router.get('/movies/proposed', getProposed);
 router.get('/movies/banners', getBanners);
-router.get('/movies/:slug', getMovieBySlug);
+router.get('/movies/:slug', optionalAuthenticate as any, getMovieBySlug);
 router.post('/movies/:id/view', incrementViews);
 
 // --- User Routes ---
@@ -150,6 +151,7 @@ router.put('/admin/episodes/:id', authenticateToken as any, requireAdmin as any,
 router.delete('/admin/episodes/:id', authenticateToken as any, requireAdmin as any, deleteEpisode);
 router.get('/admin/users', authenticateToken as any, requireAdmin as any, getUsers);
 router.put('/admin/users/:id/lock', authenticateToken as any, requireAdmin as any, toggleUserLock);
+router.put('/admin/users/:id/vip', authenticateToken as any, requireAdmin as any, toggleUserVip);
 router.get('/admin/reports', authenticateToken as any, requireAdmin as any, getReports);
 router.put('/admin/reports/:id/resolve', authenticateToken as any, requireAdmin as any, resolveReport);
 

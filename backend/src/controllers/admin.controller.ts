@@ -92,6 +92,7 @@ export const createMovie = async (req: Request, res: Response) => {
     isFeatured,
     isTrending,
     isProposed,
+    isVip,
   } = req.body;
 
   if (!title || !slug || !description || !backdropUrl || !posterUrl || !countryId) {
@@ -121,6 +122,7 @@ export const createMovie = async (req: Request, res: Response) => {
         isFeatured: isFeatured !== undefined ? !!isFeatured : false,
         isTrending: isTrending !== undefined ? !!isTrending : false,
         isProposed: isProposed !== undefined ? !!isProposed : false,
+        isVip: isVip !== undefined ? !!isVip : false,
         countryId,
         movieGenres: {
           create: (genreIds || []).map((id: string) => ({ genreId: id })),
@@ -162,6 +164,7 @@ export const updateMovie = async (req: Request, res: Response) => {
     isFeatured,
     isTrending,
     isProposed,
+    isVip,
   } = req.body;
 
   try {
@@ -187,6 +190,7 @@ export const updateMovie = async (req: Request, res: Response) => {
         isFeatured: isFeatured !== undefined ? !!isFeatured : undefined,
         isTrending: isTrending !== undefined ? !!isTrending : undefined,
         isProposed: isProposed !== undefined ? !!isProposed : undefined,
+        isVip: isVip !== undefined ? !!isVip : undefined,
         countryId,
         movieGenres: genreIds
           ? {
@@ -349,6 +353,7 @@ export const getUsers = async (req: Request, res: Response) => {
         avatar: true,
         isVerified: true,
         isLocked: true,
+        isVip: true,
         createdAt: true,
         updatedAt: true,
         role: { select: { id: true, name: true } },
@@ -384,6 +389,27 @@ export const toggleUserLock = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     return res.status(500).json({ message: 'Error toggling user lock status.', error: error.message });
+  }
+};
+
+export const toggleUserVip = async (req: Request, res: Response) => {
+  const { id } = req.params;
+
+  try {
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: { isVip: !user.isVip },
+    });
+
+    return res.json({
+      message: updatedUser.isVip ? 'User upgraded to VIP successfully.' : 'User downgraded from VIP successfully.',
+      isVip: updatedUser.isVip,
+    });
+  } catch (error: any) {
+    return res.status(500).json({ message: 'Error toggling user VIP status.', error: error.message });
   }
 };
 

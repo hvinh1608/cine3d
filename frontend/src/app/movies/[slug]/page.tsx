@@ -428,6 +428,11 @@ export default function MovieDetail() {
             style={{ transformStyle: 'preserve-3d', perspective: '1000px' }}
           >
             <img src={movie.posterUrl} alt={movie.title} className="w-full h-full object-cover" />
+            {movie.isVip && (
+              <div className="absolute top-3 left-3 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black text-[9px] px-2.5 py-1 rounded-md uppercase tracking-wider shadow-lg">
+                Phim VIP
+              </div>
+            )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex flex-col justify-end p-6">
               <span className="self-start bg-red-600 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider mb-2">
                 {movie.quality}
@@ -498,7 +503,14 @@ export default function MovieDetail() {
           {/* Main Info Glass Panel */}
           <div className="glass-panel p-6 md:p-8 rounded-3xl space-y-6 text-left shadow-2xl">
             <div className="space-y-2">
-              <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white">{movie.title}</h1>
+              <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white flex flex-wrap items-center gap-3">
+                {movie.title}
+                {movie.isVip && (
+                  <span className="bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black text-xs px-2.5 py-1 rounded-full uppercase tracking-widest shadow-[0_0_15px_rgba(245,158,11,0.4)]">
+                    VIP
+                  </span>
+                )}
+              </h1>
               {movie.englishTitle && <p className="text-slate-400 text-lg font-medium">{movie.englishTitle}</p>}
             </div>
 

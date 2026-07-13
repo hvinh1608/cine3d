@@ -35,6 +35,8 @@ export type AppMovie = {
   isFeatured: boolean;
   isTrending: boolean;
   isProposed: boolean;
+  isVip?: boolean;
+  requiresVip?: boolean;
   country: { name: string; slug: string } | null;
   movieGenres: { genre: { name: string; slug: string } }[];
   movieActors: { actor: { name: string } }[];

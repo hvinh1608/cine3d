@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, ChevronRight, ChevronLeft, ListVideo, Server, LightbulbOff, ArrowLeft, Subtitles, Gauge, Tv, Settings, Maximize2 } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, ChevronRight, ChevronLeft, ListVideo, Server, LightbulbOff, ArrowLeft, Subtitles, Gauge, Tv, Settings, Maximize2, Lock } from 'lucide-react';
 import { useStore } from '../../../hooks/useStore';
 import axios from '../../../lib/api';
 import Hls from 'hls.js';
@@ -105,7 +105,11 @@ function WatchPageContent() {
   useEffect(() => {
     const fetchMovie = async () => {
       try {
-        const res = await axios.get(`${API_URL}/movies/${slug}`);
+        const headers: any = {};
+        if (accessToken) {
+          headers.Authorization = `Bearer ${accessToken}`;
+        }
+        const res = await axios.get(`${API_URL}/movies/${slug}`, { headers });
         setMovie(res.data);
         
         // Find corresponding episode
@@ -127,7 +131,7 @@ function WatchPageContent() {
     if (slug) {
       fetchMovie();
     }
-  }, [slug, activeEpOrder]);
+  }, [slug, activeEpOrder, accessToken]);
 
   // Load Video source HLS / MP4
   useEffect(() => {
@@ -491,397 +495,440 @@ function WatchPageContent() {
               />
             )}
 
-            {/* Video core */}
-            <video
-              key={activeEpisode?.id || 'default'}
-              ref={videoRef}
-              onTimeUpdate={handleTimeUpdate}
-              onLoadedMetadata={handleLoadedMetadata}
-              className={`w-full h-full object-contain cursor-pointer object-${aspectRatio}`}
-            >
-              {activeEpisode.subtitles?.map((sub: any) => (
-                <track
-                  key={sub.id}
-                  src={sub.url}
-                  kind="subtitles"
-                  srcLang={sub.language === 'Vietnamese' ? 'vi' : 'en'}
-                  label={sub.language}
-                  default={sub.language === 'Vietnamese'}
-                />
-              ))}
-            </video>
-
-            {/* Tap gesture overlay */}
-            <div onClick={handleOverlayClick} className="absolute inset-0 z-10 cursor-pointer" />
-
-            {/* Double Tap Ripple/Indicator Feedback */}
-            {doubleTapFeedback === 'backward' && (
-              <div className="absolute inset-y-0 left-0 w-1/3 flex items-center justify-center bg-gradient-to-r from-black/50 to-transparent pointer-events-none z-20 rounded-l-2xl">
-                <div className="flex flex-col items-center space-y-1 text-white animate-seek-left">
-                  <div className="p-3 bg-black/40 rounded-full">
-                    <RotateCcw className="w-8 h-8 text-red-500 fill-current" />
-                  </div>
-                  <span className="text-xs font-extrabold tracking-wider text-red-500 text-glow-red">-10 giây</span>
+            {movie.requiresVip ? (
+              <div className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 text-center space-y-4 z-20">
+                <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center border border-amber-500/30 shadow-[0_0_20px_rgba(245,158,11,0.2)] animate-pulse">
+                  <Lock className="w-7 h-7 text-amber-400" />
                 </div>
-              </div>
-            )}
-            {doubleTapFeedback === 'forward' && (
-              <div className="absolute inset-y-0 right-0 w-1/3 flex items-center justify-center bg-gradient-to-l from-black/50 to-transparent pointer-events-none z-20 rounded-r-2xl">
-                <div className="flex flex-col items-center space-y-1 text-white animate-seek-right">
-                  <div className="p-3 bg-black/40 rounded-full">
-                    <RotateCcw className="w-8 h-8 text-red-500 fill-current transform rotate-180" />
-                  </div>
-                  <span className="text-xs font-extrabold tracking-wider text-red-500 text-glow-red">+10 giây</span>
-                </div>
-              </div>
-            )}
-
-            {/* Large Central Controls Overlay (for easy mobile touch) */}
-            {showControls && (
-              <div className="absolute inset-0 flex items-center justify-center space-x-6 pointer-events-none z-20">
-                <button 
-                  onClick={skipBackward} 
-                  className="p-3 rounded-full bg-black/60 text-white hover:bg-black/80 transition-all pointer-events-auto hover:scale-110 active:scale-95 flex items-center justify-center cursor-pointer border border-white/5"
-                  title="-10 giây"
-                >
-                  <RotateCcw className="w-6 h-6" />
-                </button>
-                <button 
-                  onClick={togglePlay} 
-                  className="p-4 rounded-full bg-red-600/90 text-white hover:bg-red-700 transition-all pointer-events-auto hover:scale-110 active:scale-95 flex items-center justify-center shadow-lg cursor-pointer border border-white/10"
-                >
-                  {playing ? <Pause className="w-8 h-8 fill-current" /> : <Play className="w-8 h-8 fill-current ml-1" />}
-                </button>
-                <button 
-                  onClick={skipForward} 
-                  className="p-3 rounded-full bg-black/60 text-white hover:bg-black/80 transition-all pointer-events-auto hover:scale-110 active:scale-95 flex items-center justify-center cursor-pointer border border-white/5"
-                  title="+10 giây"
-                >
-                  <RotateCcw className="w-6 h-6 transform rotate-180" />
-                </button>
-              </div>
-            )}
-
-            {/* Unified Settings Panel Menu */}
-            {showControls && showSettings && (
-              <div className="absolute bottom-16 right-4 w-72 bg-slate-950/95 border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-3 flex flex-col z-40 text-sm animate-fade-in">
                 
-                {/* Tab: Main Menu */}
-                {settingsTab === 'main' && (
-                  <div className="flex flex-col space-y-1 text-left">
-                    <div className="text-xs font-bold text-slate-500 px-3 py-1 border-b border-white/5 uppercase tracking-wider mb-1">
-                      Cài đặt trình phát
+                <div className="space-y-1.5 max-w-md">
+                  <h3 className="text-lg md:text-xl font-black text-amber-400 uppercase tracking-widest">Nội dung giới hạn VIP</h3>
+                  <p className="text-xs md:text-sm text-slate-300">
+                    Bộ phim <span className="text-white font-bold">"{movie.title}"</span> hiện chỉ dành riêng cho thành viên Premium VIP. Vui lòng đăng nhập tài khoản VIP hoặc liên hệ Quản trị viên để nâng cấp.
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                  {!user ? (
+                    <Link
+                      href="/account"
+                      className="bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black text-xs md:text-sm px-6 py-2.5 rounded-full hover:scale-105 transition-transform active:scale-95 shadow-lg"
+                    >
+                      Đăng nhập ngay
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => showToast('Vui lòng liên hệ Admin để nâng cấp tài khoản VIP!', 'info')}
+                      className="bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black text-xs md:text-sm px-6 py-2.5 rounded-full hover:scale-105 transition-transform active:scale-95 shadow-lg cursor-pointer"
+                    >
+                      Nâng cấp VIP ngay
+                    </button>
+                  )}
+                  
+                  <Link
+                    href={`/movies/${movie.slug}`}
+                    className="bg-slate-900 border border-white/10 text-slate-300 font-bold text-xs md:text-sm px-6 py-2.5 rounded-full hover:bg-white/10 hover:text-white transition-colors"
+                  >
+                    Xem thông tin phim
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Video core */}
+                <video
+                  key={activeEpisode?.id || 'default'}
+                  ref={videoRef}
+                  onTimeUpdate={handleTimeUpdate}
+                  onLoadedMetadata={handleLoadedMetadata}
+                  className={`w-full h-full object-contain cursor-pointer object-${aspectRatio}`}
+                >
+                  {activeEpisode.subtitles?.map((sub: any) => (
+                    <track
+                      key={sub.id}
+                      src={sub.url}
+                      kind="subtitles"
+                      srcLang={sub.language === 'Vietnamese' ? 'vi' : 'en'}
+                      label={sub.language}
+                      default={sub.language === 'Vietnamese'}
+                    />
+                  ))}
+                </video>
+
+                {/* Tap gesture overlay */}
+                <div onClick={handleOverlayClick} className="absolute inset-0 z-10 cursor-pointer" />
+
+                {/* Double Tap Ripple/Indicator Feedback */}
+                {doubleTapFeedback === 'backward' && (
+                  <div className="absolute inset-y-0 left-0 w-1/3 flex items-center justify-center bg-gradient-to-r from-black/50 to-transparent pointer-events-none z-20 rounded-l-2xl">
+                    <div className="flex flex-col items-center space-y-1 text-white animate-seek-left">
+                      <div className="p-3 bg-black/40 rounded-full">
+                        <RotateCcw className="w-8 h-8 text-red-500 fill-current" />
+                      </div>
+                      <span className="text-xs font-extrabold tracking-wider text-red-500 text-glow-red">-10 giây</span>
                     </div>
-                    
-                    {/* Quality Row */}
-                    <button
-                      onClick={() => setSettingsTab('quality')}
-                      className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-white/5 transition-colors cursor-pointer text-left w-full"
+                  </div>
+                )}
+                {doubleTapFeedback === 'forward' && (
+                  <div className="absolute inset-y-0 right-0 w-1/3 flex items-center justify-center bg-gradient-to-l from-black/50 to-transparent pointer-events-none z-20 rounded-r-2xl">
+                    <div className="flex flex-col items-center space-y-1 text-white animate-seek-right">
+                      <div className="p-3 bg-black/40 rounded-full">
+                        <RotateCcw className="w-8 h-8 text-red-500 fill-current transform rotate-180" />
+                      </div>
+                      <span className="text-xs font-extrabold tracking-wider text-red-500 text-glow-red">+10 giây</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Large Central Controls Overlay (for easy mobile touch) */}
+                {showControls && (
+                  <div className="absolute inset-0 flex items-center justify-center space-x-6 pointer-events-none z-20">
+                    <button 
+                      onClick={skipBackward} 
+                      className="p-3 rounded-full bg-black/60 text-white hover:bg-black/80 transition-all pointer-events-auto hover:scale-110 active:scale-95 flex items-center justify-center cursor-pointer border border-white/5"
+                      title="-10 giây"
                     >
-                      <span className="flex items-center text-slate-300">
-                        <Tv className="w-4 h-4 mr-2 text-cyan-400" />
-                        Nguồn phát / Phân giải
-                      </span>
-                      <span className="text-xs font-bold text-yellow-500 flex items-center">
-                        {currentQualityIndex === -1 
-                          ? (qualities.length > 0 ? 'Tự động' : activeSource?.quality || 'Mặc định') 
-                          : qualities[currentQualityIndex]?.name || `${qualities[currentQualityIndex]?.height}p`
-                        }
-                        <ChevronRight className="w-3.5 h-3.5 ml-1 text-slate-500" />
-                      </span>
+                      <RotateCcw className="w-6 h-6" />
                     </button>
-
-                    {/* Playback Speed Row */}
-                    <button
-                      onClick={() => setSettingsTab('speed')}
-                      className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-white/5 transition-colors cursor-pointer text-left w-full"
+                    <button 
+                      onClick={togglePlay} 
+                      className="p-4 rounded-full bg-red-600/90 text-white hover:bg-red-700 transition-all pointer-events-auto hover:scale-110 active:scale-95 flex items-center justify-center shadow-lg cursor-pointer border border-white/10"
                     >
-                      <span className="flex items-center text-slate-300">
-                        <Gauge className="w-4 h-4 mr-2 text-purple-400" />
-                        Tốc độ phát
-                      </span>
-                      <span className="text-xs font-bold text-yellow-500 flex items-center">
-                        {playbackRate === 1 ? 'Chuẩn' : `${playbackRate}x`}
-                        <ChevronRight className="w-3.5 h-3.5 ml-1 text-slate-500" />
-                      </span>
+                      {playing ? <Pause className="w-8 h-8 fill-current" /> : <Play className="w-8 h-8 fill-current ml-1" />}
                     </button>
-
-                    {/* Subtitle Row */}
-                    {activeEpisode.subtitles && activeEpisode.subtitles.length > 0 && (
-                      <button
-                        onClick={() => setSettingsTab('subtitle')}
-                        className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-white/5 transition-colors cursor-pointer text-left w-full"
-                      >
-                        <span className="flex items-center text-slate-300">
-                          <Subtitles className="w-4 h-4 mr-2 text-green-400" />
-                          Phụ đề
-                        </span>
-                        <span className="text-xs font-bold text-yellow-500 flex items-center">
-                          {activeSubTrack === 'none' ? 'Tắt' : activeSubTrack}
-                          <ChevronRight className="w-3.5 h-3.5 ml-1 text-slate-500" />
-                        </span>
-                      </button>
-                    )}
-
-                    {/* Aspect Ratio Row */}
-                    <button
-                      onClick={() => setSettingsTab('ratio')}
-                      className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-white/5 transition-colors cursor-pointer text-left w-full"
+                    <button 
+                      onClick={skipForward} 
+                      className="p-3 rounded-full bg-black/60 text-white hover:bg-black/80 transition-all pointer-events-auto hover:scale-110 active:scale-95 flex items-center justify-center cursor-pointer border border-white/5"
+                      title="+10 giây"
                     >
-                      <span className="flex items-center text-slate-300">
-                        <Maximize2 className="w-4 h-4 mr-2 text-amber-400" />
-                        Thu phóng màn hình
-                      </span>
-                      <span className="text-xs font-bold text-yellow-500 flex items-center">
-                        {aspectRatio === 'contain' ? 'Gốc (Contain)' : aspectRatio === 'cover' ? 'Đầy (Cover)' : 'Giãn (Fill)'}
-                        <ChevronRight className="w-3.5 h-3.5 ml-1 text-slate-500" />
-                      </span>
+                      <RotateCcw className="w-6 h-6 transform rotate-180" />
                     </button>
                   </div>
                 )}
 
-                {/* Tab: Quality Selection */}
-                {settingsTab === 'quality' && (
-                  <div className="flex flex-col space-y-1 text-left">
-                    <button
-                      onClick={() => setSettingsTab('main')}
-                      className="flex items-center text-xs font-bold text-slate-400 hover:text-white px-2 py-1.5 border-b border-white/5 mb-1 cursor-pointer w-full text-left"
-                    >
-                      <ChevronLeft className="w-4 h-4 mr-1" /> Trở lại cài đặt
-                    </button>
+                {/* Unified Settings Panel Menu */}
+                {showControls && showSettings && (
+                  <div className="absolute bottom-16 right-4 w-72 bg-slate-950/95 border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-3 flex flex-col z-40 text-sm animate-fade-in">
                     
-                    {qualities.length > 0 ? (
-                      <>
+                    {/* Tab: Main Menu */}
+                    {settingsTab === 'main' && (
+                      <div className="flex flex-col space-y-1 text-left">
+                        <div className="text-xs font-bold text-slate-500 px-3 py-1 border-b border-white/5 uppercase tracking-wider mb-1">
+                          Cài đặt trình phát
+                        </div>
+                        
+                        {/* Quality Row */}
                         <button
-                          onClick={() => handleQualityChange(-1)}
-                          className={`py-2 px-3 rounded-lg hover:bg-white/5 text-left transition-colors font-semibold cursor-pointer w-full ${
-                            currentQualityIndex === -1 ? 'text-yellow-500 bg-white/5' : 'text-slate-300'
-                          }`}
+                          onClick={() => setSettingsTab('quality')}
+                          className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-white/5 transition-colors cursor-pointer text-left w-full"
                         >
-                          Tự động (HLS)
+                          <span className="flex items-center text-slate-300">
+                            <Tv className="w-4 h-4 mr-2 text-cyan-400" />
+                            Nguồn phát / Phân giải
+                          </span>
+                          <span className="text-xs font-bold text-yellow-500 flex items-center">
+                            {currentQualityIndex === -1 
+                              ? (qualities.length > 0 ? 'Tự động' : activeSource?.quality || 'Mặc định') 
+                              : qualities[currentQualityIndex]?.name || `${qualities[currentQualityIndex]?.height}p`
+                            }
+                            <ChevronRight className="w-3.5 h-3.5 ml-1 text-slate-500" />
+                          </span>
                         </button>
-                        {qualities.map((lvl) => (
+
+                        {/* Playback Speed Row */}
+                        <button
+                          onClick={() => setSettingsTab('speed')}
+                          className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-white/5 transition-colors cursor-pointer text-left w-full"
+                        >
+                          <span className="flex items-center text-slate-300">
+                            <Gauge className="w-4 h-4 mr-2 text-purple-400" />
+                            Tốc độ phát
+                          </span>
+                          <span className="text-xs font-bold text-yellow-500 flex items-center">
+                            {playbackRate === 1 ? 'Chuẩn' : `${playbackRate}x`}
+                            <ChevronRight className="w-3.5 h-3.5 ml-1 text-slate-500" />
+                          </span>
+                        </button>
+
+                        {/* Subtitle Row */}
+                        {activeEpisode.subtitles && activeEpisode.subtitles.length > 0 && (
                           <button
-                            key={lvl.index}
-                            onClick={() => handleQualityChange(lvl.index)}
+                            onClick={() => setSettingsTab('subtitle')}
+                            className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-white/5 transition-colors cursor-pointer text-left w-full"
+                          >
+                            <span className="flex items-center text-slate-300">
+                              <Subtitles className="w-4 h-4 mr-2 text-green-400" />
+                              Phụ đề
+                            </span>
+                            <span className="text-xs font-bold text-yellow-500 flex items-center">
+                              {activeSubTrack === 'none' ? 'Tắt' : activeSubTrack}
+                              <ChevronRight className="w-3.5 h-3.5 ml-1 text-slate-500" />
+                            </span>
+                          </button>
+                        )}
+
+                        {/* Aspect Ratio Row */}
+                        <button
+                          onClick={() => setSettingsTab('ratio')}
+                          className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-white/5 transition-colors cursor-pointer text-left w-full"
+                        >
+                          <span className="flex items-center text-slate-300">
+                            <Maximize2 className="w-4 h-4 mr-2 text-amber-400" />
+                            Thu phóng màn hình
+                          </span>
+                          <span className="text-xs font-bold text-yellow-500 flex items-center">
+                            {aspectRatio === 'contain' ? 'Gốc (Contain)' : aspectRatio === 'cover' ? 'Đầy (Cover)' : 'Giãn (Fill)'}
+                            <ChevronRight className="w-3.5 h-3.5 ml-1 text-slate-500" />
+                          </span>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Tab: Quality Selection */}
+                    {settingsTab === 'quality' && (
+                      <div className="flex flex-col space-y-1 text-left">
+                        <button
+                          onClick={() => setSettingsTab('main')}
+                          className="flex items-center text-xs font-bold text-slate-400 hover:text-white px-2 py-1.5 border-b border-white/5 mb-1 cursor-pointer w-full text-left"
+                        >
+                          <ChevronLeft className="w-4 h-4 mr-1" /> Trở lại cài đặt
+                        </button>
+                        
+                        {qualities.length > 0 ? (
+                          <>
+                            <button
+                              onClick={() => handleQualityChange(-1)}
+                              className={`py-2 px-3 rounded-lg hover:bg-white/5 text-left transition-colors font-semibold cursor-pointer w-full ${
+                                currentQualityIndex === -1 ? 'text-yellow-500 bg-white/5' : 'text-slate-300'
+                              }`}
+                            >
+                              Tự động (HLS)
+                            </button>
+                            {qualities.map((lvl) => (
+                              <button
+                                key={lvl.index}
+                                onClick={() => handleQualityChange(lvl.index)}
+                                className={`py-2 px-3 rounded-lg hover:bg-white/5 text-left transition-colors font-semibold cursor-pointer w-full ${
+                                  currentQualityIndex === lvl.index ? 'text-yellow-500 bg-white/5' : 'text-slate-300'
+                                }`}
+                              >
+                                {lvl.name}
+                              </button>
+                            ))}
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-[10px] text-slate-500 px-3 py-1 font-bold">CHỌN SERVER / PHÂN GIẢI</div>
+                            {activeEpisode.videoSources?.map((src: any) => (
+                              <button
+                                key={src.id}
+                                onClick={() => {
+                                  setActiveSource(src);
+                                  setShowSettings(false);
+                                  setSettingsTab('main');
+                                }}
+                                className={`py-2 px-3 rounded-lg hover:bg-white/5 text-left transition-colors font-semibold cursor-pointer flex justify-between items-center w-full ${
+                                  activeSource?.id === src.id ? 'text-yellow-500 bg-white/5' : 'text-slate-300'
+                                }`}
+                              >
+                                <span>{src.server}</span>
+                                <span className="text-xs text-slate-500 font-bold">{src.quality}</span>
+                              </button>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Tab: Playback Speed Selection */}
+                    {settingsTab === 'speed' && (
+                      <div className="flex flex-col space-y-1 text-left">
+                        <button
+                          onClick={() => setSettingsTab('main')}
+                          className="flex items-center text-xs font-bold text-slate-400 hover:text-white px-2 py-1.5 border-b border-white/5 mb-1 cursor-pointer w-full text-left"
+                        >
+                          <ChevronLeft className="w-4 h-4 mr-1" /> Trở lại cài đặt
+                        </button>
+                        {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
+                          <button
+                            key={rate}
+                            onClick={() => handleSpeedChange(rate)}
                             className={`py-2 px-3 rounded-lg hover:bg-white/5 text-left transition-colors font-semibold cursor-pointer w-full ${
-                              currentQualityIndex === lvl.index ? 'text-yellow-500 bg-white/5' : 'text-slate-300'
+                              playbackRate === rate ? 'text-yellow-500 bg-white/5' : 'text-slate-300'
                             }`}
                           >
-                            {lvl.name}
+                            {rate === 1 ? 'Bình thường (1.0x)' : `${rate}x`}
                           </button>
                         ))}
-                      </>
-                    ) : (
-                      <>
-                        <div className="text-[10px] text-slate-500 px-3 py-1 font-bold">CHỌN SERVER / PHÂN GIẢI</div>
-                        {activeEpisode.videoSources?.map((src: any) => (
+                      </div>
+                    )}
+
+                    {/* Tab: Subtitle Selection */}
+                    {settingsTab === 'subtitle' && (
+                      <div className="flex flex-col space-y-1 text-left">
+                        <button
+                          onClick={() => setSettingsTab('main')}
+                          className="flex items-center text-xs font-bold text-slate-400 hover:text-white px-2 py-1.5 border-b border-white/5 mb-1 cursor-pointer w-full text-left"
+                        >
+                          <ChevronLeft className="w-4 h-4 mr-1" /> Trở lại cài đặt
+                        </button>
+                        <button
+                          onClick={() => handleSubtitleChange('none')}
+                          className={`py-2 px-3 rounded-lg hover:bg-white/5 text-left transition-colors font-semibold cursor-pointer w-full ${
+                            activeSubTrack === 'none' ? 'text-yellow-500 bg-white/5' : 'text-slate-300'
+                          }`}
+                        >
+                          Tắt phụ đề
+                        </button>
+                        {activeEpisode.subtitles?.map((sub: any) => (
                           <button
-                            key={src.id}
+                            key={sub.id}
+                            onClick={() => handleSubtitleChange(sub.language)}
+                            className={`py-2 px-3 rounded-lg hover:bg-white/5 text-left transition-colors font-semibold cursor-pointer w-full ${
+                              activeSubTrack === sub.language ? 'text-yellow-500 bg-white/5' : 'text-slate-300'
+                            }`}
+                          >
+                            {sub.language}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Tab: Aspect Ratio Selection */}
+                    {settingsTab === 'ratio' && (
+                      <div className="flex flex-col space-y-1 text-left">
+                        <button
+                          onClick={() => setSettingsTab('main')}
+                          className="flex items-center text-xs font-bold text-slate-400 hover:text-white px-2 py-1.5 border-b border-white/5 mb-1 cursor-pointer w-full text-left"
+                        >
+                          <ChevronLeft className="w-4 h-4 mr-1" /> Trở lại cài đặt
+                        </button>
+                        {[
+                          { key: 'contain', name: 'Tự nhiên / Gốc (Fit)', desc: 'Hiện đầy đủ khung hình gốc' },
+                          { key: 'cover', name: 'Đầy màn hình (Zoom/Cover)', desc: 'Phóng to lấp đầy màn hình, cắt nhẹ' },
+                          { key: 'fill', name: 'Giãn màn hình (Stretch/Fill)', desc: 'Co giãn video vừa khít màn hình' }
+                        ].map((item) => (
+                          <button
+                            key={item.key}
                             onClick={() => {
-                              setActiveSource(src);
+                              setAspectRatio(item.key as any);
                               setShowSettings(false);
                               setSettingsTab('main');
                             }}
-                            className={`py-2 px-3 rounded-lg hover:bg-white/5 text-left transition-colors font-semibold cursor-pointer flex justify-between items-center w-full ${
-                              activeSource?.id === src.id ? 'text-yellow-500 bg-white/5' : 'text-slate-300'
+                            className={`py-2 px-3 rounded-lg hover:bg-white/5 text-left transition-colors cursor-pointer flex flex-col w-full ${
+                              aspectRatio === item.key ? 'text-yellow-500 bg-white/5' : 'text-slate-300'
                             }`}
                           >
-                            <span>{src.server}</span>
-                            <span className="text-xs text-slate-500 font-bold">{src.quality}</span>
+                            <span className="font-semibold">{item.name}</span>
+                            <span className="text-[10px] text-slate-500">{item.desc}</span>
                           </button>
                         ))}
-                      </>
+                      </div>
                     )}
                   </div>
                 )}
 
-                {/* Tab: Playback Speed Selection */}
-                {settingsTab === 'speed' && (
-                  <div className="flex flex-col space-y-1 text-left">
-                    <button
-                      onClick={() => setSettingsTab('main')}
-                      className="flex items-center text-xs font-bold text-slate-400 hover:text-white px-2 py-1.5 border-b border-white/5 mb-1 cursor-pointer w-full text-left"
-                    >
-                      <ChevronLeft className="w-4 h-4 mr-1" /> Trở lại cài đặt
-                    </button>
-                    {[0.5, 0.75, 1, 1.25, 1.5, 2].map((rate) => (
-                      <button
-                        key={rate}
-                        onClick={() => handleSpeedChange(rate)}
-                        className={`py-2 px-3 rounded-lg hover:bg-white/5 text-left transition-colors font-semibold cursor-pointer w-full ${
-                          playbackRate === rate ? 'text-yellow-500 bg-white/5' : 'text-slate-300'
-                        }`}
-                      >
-                        {rate === 1 ? 'Bình thường (1.0x)' : `${rate}x`}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Tab: Subtitle Selection */}
-                {settingsTab === 'subtitle' && (
-                  <div className="flex flex-col space-y-1 text-left">
-                    <button
-                      onClick={() => setSettingsTab('main')}
-                      className="flex items-center text-xs font-bold text-slate-400 hover:text-white px-2 py-1.5 border-b border-white/5 mb-1 cursor-pointer w-full text-left"
-                    >
-                      <ChevronLeft className="w-4 h-4 mr-1" /> Trở lại cài đặt
-                    </button>
-                    <button
-                      onClick={() => handleSubtitleChange('none')}
-                      className={`py-2 px-3 rounded-lg hover:bg-white/5 text-left transition-colors font-semibold cursor-pointer w-full ${
-                        activeSubTrack === 'none' ? 'text-yellow-500 bg-white/5' : 'text-slate-300'
-                      }`}
-                    >
-                      Tắt phụ đề
-                    </button>
-                    {activeEpisode.subtitles?.map((sub: any) => (
-                      <button
-                        key={sub.id}
-                        onClick={() => handleSubtitleChange(sub.language)}
-                        className={`py-2 px-3 rounded-lg hover:bg-white/5 text-left transition-colors font-semibold cursor-pointer w-full ${
-                          activeSubTrack === sub.language ? 'text-yellow-500 bg-white/5' : 'text-slate-300'
-                        }`}
-                      >
-                        {sub.language}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Tab: Aspect Ratio Selection */}
-                {settingsTab === 'ratio' && (
-                  <div className="flex flex-col space-y-1 text-left">
-                    <button
-                      onClick={() => setSettingsTab('main')}
-                      className="flex items-center text-xs font-bold text-slate-400 hover:text-white px-2 py-1.5 border-b border-white/5 mb-1 cursor-pointer w-full text-left"
-                    >
-                      <ChevronLeft className="w-4 h-4 mr-1" /> Trở lại cài đặt
-                    </button>
-                    {[
-                      { key: 'contain', name: 'Tự nhiên / Gốc (Fit)', desc: 'Hiện đầy đủ khung hình gốc' },
-                      { key: 'cover', name: 'Đầy màn hình (Zoom/Cover)', desc: 'Phóng to lấp đầy màn hình, cắt nhẹ' },
-                      { key: 'fill', name: 'Giãn màn hình (Stretch/Fill)', desc: 'Co giãn video vừa khít màn hình' }
-                    ].map((item) => (
-                      <button
-                        key={item.key}
-                        onClick={() => {
-                          setAspectRatio(item.key as any);
-                          setShowSettings(false);
-                          setSettingsTab('main');
-                        }}
-                        className={`py-2 px-3 rounded-lg hover:bg-white/5 text-left transition-colors cursor-pointer flex flex-col w-full ${
-                          aspectRatio === item.key ? 'text-yellow-500 bg-white/5' : 'text-slate-300'
-                        }`}
-                      >
-                        <span className="font-semibold">{item.name}</span>
-                        <span className="text-[10px] text-slate-500">{item.desc}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Custom Control Overlay */}
-            <div className={`absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col space-y-3 z-30 transition-opacity duration-300 ${
-              showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
-            }`}>
-              
-              {/* Progress Slider */}
-              <div className="flex items-center space-x-3 w-full">
-                <span className="text-[10px] md:text-xs font-semibold text-slate-300">{formatTime(currentTime)}</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={duration || 100}
-                  value={currentTime}
-                  onChange={handleProgressChange}
-                  className="flex-grow accent-red-600 h-1.5 bg-slate-700/60 rounded-full cursor-pointer hover:scale-y-125 transition-transform"
-                />
-                <span className="text-[10px] md:text-xs font-semibold text-slate-300">{formatTime(duration)}</span>
-              </div>
-
-              {/* Action Buttons Row */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <button onClick={togglePlay} className="text-white hover:text-red-500 transition-colors cursor-pointer sm:hidden">
-                    {playing ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
-                  </button>
-                  <button onClick={skipBackward} className="text-slate-300 hover:text-white transition-colors cursor-pointer sm:hidden" title="-10 giây">
-                    <RotateCcw className="w-4 h-4" />
-                  </button>
-                  <button onClick={skipForward} className="text-slate-300 hover:text-white transition-colors cursor-pointer sm:hidden" title="+10 giây">
-                    <RotateCcw className="w-4 h-4 transform rotate-180" />
-                  </button>
-
-                  {/* Volume Control */}
-                  <div className="flex items-center space-x-1.5">
-                    <button onClick={toggleMute} className="text-slate-300 hover:text-white transition-colors cursor-pointer">
-                      {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                    </button>
+                {/* Custom Control Overlay */}
+                <div className={`absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col space-y-3 z-30 transition-opacity duration-300 ${
+                  showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                }`}>
+                  
+                  {/* Progress Slider */}
+                  <div className="flex items-center space-x-3 w-full">
+                    <span className="text-[10px] md:text-xs font-semibold text-slate-300">{formatTime(currentTime)}</span>
                     <input
                       type="range"
                       min={0}
-                      max={1}
-                      step={0.05}
-                      value={volume}
-                      onChange={handleVolumeChange}
-                      className="hidden sm:block w-16 accent-white h-1 bg-slate-700 rounded-full cursor-pointer"
+                      max={duration || 100}
+                      value={currentTime}
+                      onChange={handleProgressChange}
+                      className="flex-grow accent-red-600 h-1.5 bg-slate-700/60 rounded-full cursor-pointer hover:scale-y-125 transition-transform"
                     />
+                    <span className="text-[10px] md:text-xs font-semibold text-slate-300">{formatTime(duration)}</span>
+                  </div>
+
+                  {/* Action Buttons Row */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <button onClick={togglePlay} className="text-white hover:text-red-500 transition-colors cursor-pointer sm:hidden">
+                        {playing ? <Pause className="w-5 h-5 fill-current" /> : <Play className="w-5 h-5 fill-current" />}
+                      </button>
+                      <button onClick={skipBackward} className="text-slate-300 hover:text-white transition-colors cursor-pointer sm:hidden" title="-10 giây">
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                      <button onClick={skipForward} className="text-slate-300 hover:text-white transition-colors cursor-pointer sm:hidden" title="+10 giây">
+                        <RotateCcw className="w-4 h-4 transform rotate-180" />
+                      </button>
+
+                      {/* Volume Control */}
+                      <div className="flex items-center space-x-1.5">
+                        <button onClick={toggleMute} className="text-slate-300 hover:text-white transition-colors cursor-pointer">
+                          {muted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+                        </button>
+                        <input
+                          type="range"
+                          min={0}
+                          max={1}
+                          step={0.05}
+                          value={volume}
+                          onChange={handleVolumeChange}
+                          className="hidden sm:block w-16 accent-white h-1 bg-slate-700 rounded-full cursor-pointer"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Settings & Screen Modes */}
+                    <div className="flex items-center space-x-3.5">
+                      {/* Settings gear button toggling showSettings */}
+                      <button
+                        onClick={() => {
+                          setShowSettings(!showSettings);
+                          setSettingsTab('main');
+                          triggerControls();
+                        }}
+                        className={`p-1.5 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${
+                          showSettings ? 'text-yellow-500' : 'text-slate-300 hover:text-white'
+                        }`}
+                        title="Cài đặt"
+                      >
+                        <Settings className={`w-4.5 h-4.5 ${showSettings ? 'animate-spin' : ''}`} />
+                      </button>
+
+                      <button
+                        onClick={() => setLightsOff(!lightsOff)}
+                        className={`transition-colors cursor-pointer ${lightsOff ? 'text-red-500' : 'text-slate-300 hover:text-white'}`}
+                        title="Chế độ rạp chiếu (Tắt đèn)"
+                      >
+                        <LightbulbOff className="w-4.5 h-4.5" />
+                      </button>
+
+                      <button
+                        onClick={() => setTheaterMode(!theaterMode)}
+                        className={`hidden sm:inline-block text-xs md:text-sm font-semibold px-2 py-0.5 rounded border border-white/20 transition-all cursor-pointer ${
+                          theaterMode ? 'bg-red-600 border-transparent text-white' : 'text-slate-300 hover:bg-white/10'
+                        }`}
+                        title="Chế độ Rạp phim lớn"
+                      >
+                        Rạp phim
+                      </button>
+
+                      <button
+                        onClick={handleCast}
+                        className="text-slate-300 hover:text-white transition-colors cursor-pointer"
+                        title="Truyền lên TV (Cast)"
+                      >
+                        <Tv className="w-4.5 h-4.5" />
+                      </button>
+
+                      <button onClick={handleFullscreen} className="text-slate-300 hover:text-white transition-colors cursor-pointer" title="Toàn màn hình">
+                        <Maximize className="w-4.5 h-4.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                {/* Settings & Screen Modes */}
-                <div className="flex items-center space-x-3.5">
-                  {/* Settings gear button toggling showSettings */}
-                  <button
-                    onClick={() => {
-                      setShowSettings(!showSettings);
-                      setSettingsTab('main');
-                      triggerControls();
-                    }}
-                    className={`p-1.5 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${
-                      showSettings ? 'text-yellow-500' : 'text-slate-300 hover:text-white'
-                    }`}
-                    title="Cài đặt"
-                  >
-                    <Settings className={`w-4.5 h-4.5 ${showSettings ? 'animate-spin' : ''}`} />
-                  </button>
-
-                  <button
-                    onClick={() => setLightsOff(!lightsOff)}
-                    className={`transition-colors cursor-pointer ${lightsOff ? 'text-red-500' : 'text-slate-300 hover:text-white'}`}
-                    title="Chế độ rạp chiếu (Tắt đèn)"
-                  >
-                    <LightbulbOff className="w-4.5 h-4.5" />
-                  </button>
-
-                  <button
-                    onClick={() => setTheaterMode(!theaterMode)}
-                    className={`hidden sm:inline-block text-xs md:text-sm font-semibold px-2 py-0.5 rounded border border-white/20 transition-all cursor-pointer ${
-                      theaterMode ? 'bg-red-600 border-transparent text-white' : 'text-slate-300 hover:bg-white/10'
-                    }`}
-                    title="Chế độ Rạp phim lớn"
-                  >
-                    Rạp phim
-                  </button>
-
-                  <button
-                    onClick={handleCast}
-                    className="text-slate-300 hover:text-white transition-colors cursor-pointer"
-                    title="Truyền lên TV (Cast)"
-                  >
-                    <Tv className="w-4.5 h-4.5" />
-                  </button>
-
-                  <button onClick={handleFullscreen} className="text-slate-300 hover:text-white transition-colors cursor-pointer" title="Toàn màn hình">
-                    <Maximize className="w-4.5 h-4.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
+              </>
+            )}
           </div>
         </div>
 
@@ -895,19 +942,23 @@ function WatchPageContent() {
                 <Server className="w-4.5 h-4.5 text-cyan-400 mr-2" /> Chọn Server Phát
               </h4>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-2">
-                {activeEpisode.videoSources?.map((src: any) => (
-                  <button
-                    key={src.id}
-                    onClick={() => setActiveSource(src)}
-                    className={`w-full py-2.5 px-4 text-xs font-bold rounded-lg border text-left transition-all cursor-pointer ${
-                      activeSource?.id === src.id
-                        ? 'bg-cyan-500/10 border-cyan-500 text-cyan-400'
-                        : 'bg-slate-900 border-white/5 text-slate-400 hover:bg-white/5'
-                    }`}
-                  >
-                    {src.server} ({src.quality})
-                  </button>
-                )) || <p className="text-slate-500 text-xs">Đang tải server...</p>}
+                {movie.requiresVip ? (
+                  <p className="text-amber-400 text-xs font-bold py-2">Nguồn phát bị khóa (Yêu cầu VIP)</p>
+                ) : (
+                  activeEpisode.videoSources?.map((src: any) => (
+                    <button
+                      key={src.id}
+                      onClick={() => setActiveSource(src)}
+                      className={`w-full py-2.5 px-4 text-xs font-bold rounded-lg border text-left transition-all cursor-pointer ${
+                        activeSource?.id === src.id
+                          ? 'bg-cyan-500/10 border-cyan-500 text-cyan-400'
+                          : 'bg-slate-900 border-white/5 text-slate-400 hover:bg-white/5'
+                      }`}
+                    >
+                      {src.server} ({src.quality})
+                    </button>
+                  )) || <p className="text-slate-500 text-xs">Đang tải server...</p>
+                )}
               </div>
             </div>
 

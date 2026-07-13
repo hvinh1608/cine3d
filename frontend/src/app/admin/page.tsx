@@ -58,6 +58,7 @@ export default function AdminPage() {
   const [movieIsFeatured, setMovieIsFeatured] = useState(false);
   const [movieIsTrending, setMovieIsTrending] = useState(false);
   const [movieIsProposed, setMovieIsProposed] = useState(false);
+  const [movieIsVip, setMovieIsVip] = useState(false);
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
 
   // Episode Add Form States
@@ -172,6 +173,7 @@ export default function AdminPage() {
     setMovieIsFeatured(movie.isFeatured || false);
     setMovieIsTrending(movie.isTrending || false);
     setMovieIsProposed(movie.isProposed || false);
+    setMovieIsVip(movie.isVip || false);
     
     // Set checked genres
     const gIds = movie.movieGenres?.map((mg: any) => mg.genreId) || [];
@@ -198,6 +200,7 @@ export default function AdminPage() {
     setMovieIsFeatured(false);
     setMovieIsTrending(false);
     setMovieIsProposed(false);
+    setMovieIsVip(false);
     setSelectedGenres([]);
   };
 
@@ -226,6 +229,7 @@ export default function AdminPage() {
       isFeatured: movieIsFeatured,
       isTrending: movieIsTrending,
       isProposed: movieIsProposed,
+      isVip: movieIsVip,
       genreIds: selectedGenres,
     };
 
@@ -350,6 +354,18 @@ export default function AdminPage() {
       loadAdminData();
     } catch (e) {
       setUsers(users.map(u => u.id === userId ? { ...u, isLocked: !u.isLocked } : u));
+    }
+  };
+
+  const handleToggleVip = async (userId: string) => {
+    try {
+      const res = await axios.put(`${API_URL}/admin/users/${userId}/vip`, {}, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      showToast(res.data.message, 'success');
+      loadAdminData();
+    } catch (e: any) {
+      showToast(e.response?.data?.message || 'Không thể thay đổi trạng thái VIP.', 'error');
     }
   };
 
@@ -734,6 +750,16 @@ export default function AdminPage() {
                   />
                   Đề xuất cao (Proposed)
                 </label>
+
+                <label className="flex items-center gap-2 text-xs text-amber-400 font-extrabold cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={movieIsVip}
+                    onChange={(e) => setMovieIsVip(e.target.checked)}
+                    className="rounded text-amber-500 focus:ring-0"
+                  />
+                  Phim VIP (isVip)
+                </label>
               </div>
 
               <button
@@ -763,7 +789,14 @@ export default function AdminPage() {
                   <tbody>
                     {movies.map((m) => (
                       <tr key={m.id} className="border-b border-white/5 text-slate-300 hover:bg-white/[0.02] transition-colors">
-                        <td className="py-3 font-bold text-slate-100">{m.title}</td>
+                        <td className="py-3 font-bold text-slate-100">
+                          {m.title}
+                          {m.isVip && (
+                            <span className="ml-1.5 bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">
+                              VIP
+                            </span>
+                          )}
+                        </td>
                         <td className="py-3 text-xs">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${m.isSeries ? 'bg-cyan-500/10 text-cyan-400' : 'bg-amber-500/10 text-amber-400'}`}>
                             {m.isSeries ? 'Bộ' : 'Lẻ'}
@@ -1065,6 +1098,7 @@ export default function AdminPage() {
                     <th className="py-2.5">Tên tài khoản</th>
                     <th className="py-2.5">Email</th>
                     <th className="py-2.5">Quyền</th>
+                    <th className="py-2.5">Loại tài khoản</th>
                     <th className="py-2.5 text-right">Trạng thái khóa</th>
                   </tr>
                 </thead>
@@ -1077,6 +1111,25 @@ export default function AdminPage() {
                         <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${u.role?.name === 'ADMIN' ? 'bg-red-600/10 text-red-500 border border-red-500/20' : 'bg-slate-800 text-slate-400'}`}>
                           {u.role?.name}
                         </span>
+                      </td>
+                      <td className="py-3">
+                        {u.role?.name !== 'ADMIN' ? (
+                          <button
+                            onClick={() => handleToggleVip(u.id)}
+                            className={`px-3 py-1 rounded-lg text-xs font-black transition-colors cursor-pointer ${
+                              u.isVip
+                                ? 'bg-amber-500/20 text-amber-500 border border-amber-500/20 hover:bg-amber-500 hover:text-white'
+                                : 'bg-slate-800 text-slate-400 border border-transparent hover:bg-amber-500/20 hover:text-amber-400'
+                            }`}
+                          >
+                            <Star className="w-3 h-3 inline mr-1" />
+                            {u.isVip ? 'VIP' : 'Thường'}
+                          </button>
+                        ) : (
+                          <span className="text-[10px] text-amber-400 font-extrabold uppercase flex items-center">
+                            <Star className="w-3 h-3 mr-1" /> Premium Admin
+                          </span>
+                        )}
                       </td>
                       <td className="py-3 text-right">
                         {u.role?.name !== 'ADMIN' ? (

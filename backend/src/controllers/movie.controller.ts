@@ -81,6 +81,31 @@ export const getMovieBySlug = async (req: Request, res: Response) => {
   try {
     // Upsert into DB so favorites/comments get a stable UUID
     const movie = await ensureMovieInDb(slug);
+
+    // Check VIP Gating
+    let isUserVip = false;
+    const authReq = req as any;
+    const isAdmin = authReq.user?.role === 'ADMIN';
+
+    if (authReq.user?.id) {
+      const dbUser = await prisma.user.findUnique({ where: { id: authReq.user.id } });
+      isUserVip = dbUser?.isVip || false;
+    }
+
+    const canAccess = isAdmin || isUserVip;
+
+    if (movie.isVip && !canAccess) {
+      const gatedMovie = {
+        ...movie,
+        requiresVip: true,
+        episodes: movie.episodes.map((ep: any) => ({
+          ...ep,
+          videoSources: [], // Strip video sources for non-VIP
+        })),
+      };
+      return res.json(gatedMovie);
+    }
+
     return res.json(movie);
   } catch (error: any) {
     // Fallback: return KKPhim detail without DB if upsert fails
@@ -89,7 +114,35 @@ export const getMovieBySlug = async (req: Request, res: Response) => {
       if (!raw?.status || !raw?.movie) {
         return res.status(404).json({ message: 'Movie not found.' });
       }
-      return res.json(mapMovieDetail(raw));
+      const movie = mapMovieDetail(raw);
+
+      // Check database VIP flag if movie exists in DB
+      const dbMovie = await prisma.movie.findUnique({ where: { slug } });
+      if (dbMovie?.isVip) {
+        let isUserVip = false;
+        const authReq = req as any;
+        const isAdmin = authReq.user?.role === 'ADMIN';
+        if (authReq.user?.id) {
+          const dbUser = await prisma.user.findUnique({ where: { id: authReq.user.id } });
+          isUserVip = dbUser?.isVip || false;
+        }
+        const canAccess = isAdmin || isUserVip;
+
+        if (!canAccess) {
+          const gatedMovie = {
+            ...movie,
+            isVip: true,
+            requiresVip: true,
+            episodes: movie.episodes.map((ep: any) => ({
+              ...ep,
+              videoSources: [],
+            })),
+          };
+          return res.json(gatedMovie);
+        }
+      }
+
+      return res.json(movie);
     } catch (inner: any) {
       const status = inner instanceof KkphimError ? inner.status : 500;
       return res.status(status).json({
