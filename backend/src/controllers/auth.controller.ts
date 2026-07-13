@@ -8,10 +8,11 @@ import { AuthenticatedRequest } from '../middleware/auth';
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 const REFRESH_COOKIE = 'cine3d_refresh';
+const secureCookies = process.env.COOKIE_SECURE === 'true';
 const cookieOptions = {
   httpOnly: true,
-  secure: process.env.COOKIE_SECURE === 'true',
-  sameSite: 'lax' as const,
+  secure: secureCookies,
+  sameSite: (secureCookies ? 'none' : 'lax') as 'none' | 'lax',
   maxAge: 7 * 24 * 60 * 60 * 1000,
   path: '/api/auth',
 };
