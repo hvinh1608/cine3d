@@ -139,8 +139,28 @@ export async function fetchMovieList(
   });
 }
 
-export async function searchMovies(keyword: string, page = 1, limit = 24) {
-  return kkFetch('/v1/api/tim-kiem', { keyword, page, limit });
+export async function searchMovies(
+  keyword: string,
+  page = 1,
+  limit = 24,
+  opts: {
+    category?: string;
+    country?: string;
+    year?: string | number;
+    sort_field?: string;
+    sort_type?: string;
+  } = {}
+) {
+  return kkFetch('/v1/api/tim-kiem', {
+    keyword,
+    page,
+    limit,
+    category: opts.category,
+    country: opts.country,
+    year: opts.year,
+    sort_field: opts.sort_field,
+    sort_type: opts.sort_type,
+  });
 }
 
 export async function fetchMovieDetail(slug: string) {

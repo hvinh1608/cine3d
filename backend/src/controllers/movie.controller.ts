@@ -52,7 +52,17 @@ export const getMovies = async (req: Request, res: Response) => {
     let raw: any;
 
     if (search) {
-      raw = await searchMovies(String(search), pageNum, limitNum);
+      raw = await searchMovies(String(search), pageNum, limitNum, {
+        category: genre as string | undefined,
+        country: country as string | undefined,
+        year: year as string | undefined,
+        sort_field: sortBy === 'views'
+          ? 'view'
+          : sortBy === 'ratingAvg'
+            ? 'tmdb.vote_average'
+            : 'modified.time',
+        sort_type: 'desc',
+      });
     } else if (genre || country || year || type) {
       raw = await fetchMovieList(resolveTypeList(type as string | undefined), {
         page: pageNum,

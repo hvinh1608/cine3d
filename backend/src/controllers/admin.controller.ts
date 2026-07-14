@@ -115,6 +115,15 @@ export const getAdminCountries = async (_req: Request, res: Response) => {
   }
 };
 
+export const getAdminGenres = async (_req: Request, res: Response) => {
+  try {
+    const genres = await prisma.genre.findMany({ orderBy: { name: 'asc' } });
+    return res.json(genres);
+  } catch (error: any) {
+    return internalError(res, 'Error retrieving admin genres.', error);
+  }
+};
+
 export const createMovie = async (req: Request, res: Response) => {
   const {
     title,

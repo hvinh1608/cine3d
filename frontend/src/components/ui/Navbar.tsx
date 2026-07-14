@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Search, Film, User, LogOut, ShieldAlert, Sparkles, Menu, X, Bell, Crown } from 'lucide-react';
+import { ArrowRight, Search, SearchX, Film, LogOut, ShieldAlert, Sparkles, Menu, X, Bell, Crown } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 import type { Movie } from '../../types/movie';
@@ -21,6 +21,7 @@ export default function Navbar() {
   const [suggestions, setSuggestions] = useState<Movie[]>([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
 
   // Notification states
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -64,6 +65,7 @@ export default function Navbar() {
     if (keyword.length < 2) {
       setSuggestions([]);
       setSuggestionsOpen(false);
+      setActiveSuggestionIndex(-1);
       return;
     }
 
@@ -77,6 +79,7 @@ export default function Navbar() {
         });
         setSuggestions(Array.isArray(response.data?.movies) ? response.data.movies : []);
         setSuggestionsOpen(true);
+        setActiveSuggestionIndex(-1);
       } catch (error) {
         if (!controller.signal.aborted) setSuggestions([]);
       } finally {
@@ -131,7 +134,31 @@ export default function Navbar() {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      setSuggestionsOpen(false);
+      setMobileMenuOpen(false);
       router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
+  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      setSuggestionsOpen(false);
+      setActiveSuggestionIndex(-1);
+      return;
+    }
+    if (!suggestionsOpen || suggestions.length === 0) return;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setActiveSuggestionIndex((index) => Math.min(index + 1, suggestions.length - 1));
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setActiveSuggestionIndex((index) => Math.max(index - 1, 0));
+    } else if (event.key === 'Enter' && activeSuggestionIndex >= 0) {
+      event.preventDefault();
+      const movie = suggestions[activeSuggestionIndex];
+      setSuggestionsOpen(false);
+      setMobileMenuOpen(false);
+      router.push(`/movies/${movie.slug}`);
     }
   };
 
@@ -176,20 +203,27 @@ export default function Navbar() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm phim, diễn viên..."
+              onFocus={() => searchQuery.trim().length >= 2 && setSuggestionsOpen(true)}
+              onKeyDown={handleSearchKeyDown}
+              aria-label="Tìm phim"
+              placeholder="Tìm nhanh tên phim..."
               className="bg-slate-900/60 border border-white/10 hover:border-white/20 focus:border-yellow-500 text-white rounded-full pl-4 pr-10 py-1.5 text-xs w-48 focus:w-60 transition-all duration-300 outline-none backdrop-blur-sm"
             />
             <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer">
               <Search className="w-4 h-4" />
             </button>
-            {suggestionsOpen && (suggestionsLoading || suggestions.length > 0) && (
-              <div className="absolute left-0 top-full z-[60] mt-2 w-80 overflow-hidden rounded-xl border border-white/10 bg-slate-950/95 p-1 shadow-2xl backdrop-blur-xl">
-                {suggestionsLoading ? <p className="px-3 py-4 text-center text-xs text-slate-400">Đang tìm...</p> : suggestions.map((movie) => (
-                  <Link key={movie.id} href={`/movies/${movie.slug}`} onClick={() => setSuggestionsOpen(false)} className="flex items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10">
+            {suggestionsOpen && searchQuery.trim().length >= 2 && (
+              <div className="absolute right-0 top-full z-[60] mt-3 w-80 overflow-hidden rounded-2xl border border-white/10 bg-slate-950/95 p-1.5 shadow-[0_20px_60px_rgba(0,0,0,0.55)] backdrop-blur-xl">
+                <div className="flex items-center justify-between px-2.5 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-slate-500"><span>Gợi ý phim</span><span>Dùng ↑ ↓ để chọn</span></div>
+                {suggestionsLoading ? <p className="px-3 py-5 text-center text-xs text-slate-400">Đang tìm phim...</p> : suggestions.length === 0 ? (
+                  <div className="px-4 py-6 text-center"><SearchX className="mx-auto h-7 w-7 text-slate-700" /><p className="mt-2 text-xs font-bold text-slate-400">Không tìm thấy phim phù hợp</p></div>
+                ) : suggestions.map((movie, index) => (
+                  <Link key={movie.id} href={`/movies/${movie.slug}`} onMouseEnter={() => setActiveSuggestionIndex(index)} onClick={() => setSuggestionsOpen(false)} className={`flex items-center gap-3 rounded-xl p-2 text-left transition ${activeSuggestionIndex === index ? 'bg-white/10' : 'hover:bg-white/[0.07]'}`}>
                     <img src={movie.posterUrl} alt="" className="h-12 w-8 shrink-0 rounded object-cover" />
                     <span className="min-w-0"><strong className="block truncate text-xs text-white">{movie.title}</strong><small className="text-[10px] text-slate-400">{movie.releaseYear} · {movie.isSeries ? 'Phim bộ' : 'Phim lẻ'}</small></span>
                   </Link>
                 ))}
+                {!suggestionsLoading && <button type="submit" className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-xl border-t border-white/5 px-3 py-2.5 text-[11px] font-bold text-yellow-400 transition hover:bg-yellow-400/10">Xem tất cả kết quả <ArrowRight className="h-3.5 w-3.5" /></button>}
               </div>
             )}
           </form>
@@ -316,20 +350,24 @@ export default function Navbar() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Tìm phim, diễn viên..."
+              onFocus={() => searchQuery.trim().length >= 2 && setSuggestionsOpen(true)}
+              onKeyDown={handleSearchKeyDown}
+              aria-label="Tìm phim"
+              placeholder="Tìm nhanh tên phim..."
               className="bg-slate-900 border border-white/10 focus:border-yellow-500 text-white rounded-full pl-4 pr-10 py-2 text-sm w-full outline-none"
             />
             <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer">
               <Search className="w-5 h-5" />
             </button>
-            {suggestionsOpen && suggestions.length > 0 && (
+            {suggestionsOpen && searchQuery.trim().length >= 2 && (
               <div className="absolute left-0 right-0 top-full z-[60] mt-2 overflow-hidden rounded-xl border border-white/10 bg-slate-950/95 p-1 shadow-2xl backdrop-blur-xl">
-                {suggestions.map((movie) => (
+                {suggestionsLoading ? <p className="px-3 py-5 text-center text-xs text-slate-400">Đang tìm phim...</p> : suggestions.length === 0 ? <p className="px-3 py-5 text-center text-xs text-slate-500">Không tìm thấy phim phù hợp.</p> : suggestions.map((movie) => (
                   <Link key={movie.id} href={`/movies/${movie.slug}`} onClick={() => { setSuggestionsOpen(false); setMobileMenuOpen(false); }} className="flex items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10">
                     <img src={movie.posterUrl} alt="" className="h-12 w-8 shrink-0 rounded object-cover" />
                     <span className="min-w-0"><strong className="block truncate text-xs text-white">{movie.title}</strong><small className="text-[10px] text-slate-400">{movie.releaseYear} · {movie.isSeries ? 'Phim bộ' : 'Phim lẻ'}</small></span>
                   </Link>
                 ))}
+                {!suggestionsLoading && <button type="submit" className="flex w-full items-center justify-center gap-1.5 border-t border-white/5 px-3 py-2.5 text-xs font-bold text-yellow-400">Xem tất cả kết quả <ArrowRight className="h-3.5 w-3.5" /></button>}
               </div>
             )}
           </form>

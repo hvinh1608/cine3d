@@ -44,6 +44,7 @@ import {
   getStats,
   getLocalMovies,
   getAdminCountries,
+  getAdminGenres,
   createMovie,
   updateMovie,
   deleteMovie,
@@ -123,10 +124,11 @@ router.post('/reports', rateLimit(60 * 60 * 1000, 10), authenticateToken as any,
 // --- Helper Filter Routes ---
 router.get('/genres', async (_req: Request, res: Response) => {
   try {
-    const genres = await prisma.genre.findMany({ orderBy: { name: 'asc' } });
-    return res.json(genres);
+    const raw = await fetchGenres();
+    return res.json(extractMetaItems(raw));
   } catch (error: any) {
-    return internalError(res, 'Error retrieving genres.', error);
+    const status = error instanceof KkphimError ? error.status : 500;
+    return internalError(res, 'Error retrieving genres.', error, status);
   }
 });
 
@@ -162,6 +164,7 @@ router.get('/directors', async (req: Request, res: Response) => {
 router.get('/admin/stats', authenticateToken as any, requireAdmin as any, getStats);
 router.get('/admin/movies', authenticateToken as any, requireAdmin as any, getLocalMovies);
 router.get('/admin/countries', authenticateToken as any, requireAdmin as any, getAdminCountries);
+router.get('/admin/genres', authenticateToken as any, requireAdmin as any, getAdminGenres);
 router.post('/admin/movies', authenticateToken as any, requireAdmin as any, createMovie);
 router.put('/admin/movies/:id', authenticateToken as any, requireAdmin as any, updateMovie);
 router.delete('/admin/movies/:id', authenticateToken as any, requireAdmin as any, deleteMovie);
