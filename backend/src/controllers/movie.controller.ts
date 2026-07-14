@@ -246,8 +246,12 @@ export const getHome = async (_req: Request, res: Response) => {
     const newestMovies = latest.items.map((item) => mapListItem(item, latest.cdn));
     const trendingMovies = trending.items.map((item) => mapListItem(item, trending.cdn));
 
+    const bannerMovies = newestMovies.length > 0
+      ? newestMovies
+      : (trendingMovies.length > 0 ? trendingMovies : proposed.items.map((item) => mapListItem(item, proposed.cdn)));
+
     return res.json({
-      banners: newestMovies.slice(0, 8).map((movie, index) => ({
+      banners: bannerMovies.slice(0, 8).map((movie, index) => ({
         id: `kk-banner-${movie.slug}`,
         title: movie.title,
         description: movie.description || movie.englishTitle || movie.title,
