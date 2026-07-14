@@ -39,7 +39,7 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
     try {
       const dbUser = await prisma.user.findUnique({
         where: { id: req.user.id },
-        select: { avatar: true, isVip: true, vipExpiresAt: true, isLocked: true },
+        select: { avatar: true, isVip: true, vipExpiresAt: true, isLocked: true, role: { select: { name: true } } },
       });
 
       if (!dbUser) return res.status(404).json({ message: 'User not found.' });
@@ -379,7 +379,7 @@ export const uploadAvatar = async (req: AuthenticatedRequest, res: Response) => 
   try {
     const dbUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: { isVip: true, vipExpiresAt: true, isLocked: true },
+      select: { isVip: true, vipExpiresAt: true, isLocked: true, role: { select: { name: true } } },
     });
 
     if (!dbUser) return res.status(404).json({ message: 'User not found.' });

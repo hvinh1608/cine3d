@@ -4,7 +4,7 @@ import { AuthenticatedRequest } from '../middleware/auth';
 import { internalError } from '../lib/http-error';
 import { hasVipAccess } from '../lib/vip';
 
-function publicCommentUser(user: { id: string; username: string; avatar: string | null; isVip: boolean; vipExpiresAt: Date | null }) {
+function publicCommentUser(user: { id: string; username: string; avatar: string | null; isVip: boolean; vipExpiresAt: Date | null; role?: { name: string } | string }) {
   return { id: user.id, username: user.username, avatar: user.avatar, isVip: hasVipAccess(user) };
 }
 
@@ -20,12 +20,12 @@ export const getComments = async (req: AuthenticatedRequest, res: Response) => {
       take: 50,
       include: {
         user: {
-          select: { id: true, username: true, avatar: true, isVip: true, vipExpiresAt: true },
+          select: { id: true, username: true, avatar: true, isVip: true, vipExpiresAt: true, role: { select: { name: true } } },
         },
         replies: {
           include: {
             user: {
-              select: { id: true, username: true, avatar: true, isVip: true, vipExpiresAt: true },
+              select: { id: true, username: true, avatar: true, isVip: true, vipExpiresAt: true, role: { select: { name: true } } },
             },
             commentLikes: { select: { userId: true } },
           },
@@ -100,7 +100,7 @@ export const createComment = async (req: AuthenticatedRequest, res: Response) =>
       },
       include: {
         user: {
-          select: { id: true, username: true, avatar: true, isVip: true, vipExpiresAt: true },
+          select: { id: true, username: true, avatar: true, isVip: true, vipExpiresAt: true, role: { select: { name: true } } },
         },
       },
     });

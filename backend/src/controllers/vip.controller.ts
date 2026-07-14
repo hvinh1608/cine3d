@@ -106,7 +106,7 @@ export const getMyVipOrders = async (req: AuthenticatedRequest, res: Response) =
       }),
       prisma.user.findUnique({
         where: { id: req.user.id },
-        select: { isVip: true, vipExpiresAt: true, isLocked: true },
+        select: { isVip: true, vipExpiresAt: true, isLocked: true, role: { select: { name: true } } },
       }),
     ]);
     return res.json({
