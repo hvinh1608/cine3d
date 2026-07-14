@@ -41,7 +41,7 @@ const formatMoney = (value: number) => new Intl.NumberFormat('vi-VN', {
 }).format(value);
 
 export default function VipPage() {
-  const { user, hasHydrated, setUser, showToast } = useStore();
+  const { user, hasHydrated, authReady, setUser, showToast } = useStore();
   const [plans, setPlans] = useState<VipPlan[]>([]);
   const [orders, setOrders] = useState<VipOrder[]>([]);
   const [vipExpiresAt, setVipExpiresAt] = useState<string | null>(null);
@@ -69,7 +69,7 @@ export default function VipPage() {
   }, [setUser, userId, userIsVip, userVipExpiresAt]);
 
   useEffect(() => {
-    if (!hasHydrated) return;
+    if (!hasHydrated || !authReady) return;
     let active = true;
     setLoading(true);
     Promise.all([
@@ -86,7 +86,7 @@ export default function VipPage() {
         if (active) setLoading(false);
       });
     return () => { active = false; };
-  }, [hasHydrated, loadOrders, showToast, userId]);
+  }, [authReady, hasHydrated, loadOrders, showToast, userId]);
 
   useEffect(() => {
     if (!pendingOrder) return;

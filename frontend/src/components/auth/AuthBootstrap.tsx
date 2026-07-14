@@ -7,25 +7,37 @@ import { useStore } from '../../hooks/useStore';
 /** Validate a persisted session and restore the latest profile on app startup. */
 export default function AuthBootstrap() {
   const hasHydrated = useStore((state) => state.hasHydrated);
+  const authReady = useStore((state) => state.authReady);
   const user = useStore((state) => state.user);
-  const setUser = useStore((state) => state.setUser);
+  const setSession = useStore((state) => state.setSession);
+  const setAuthReady = useStore((state) => state.setAuthReady);
+  const logout = useStore((state) => state.logout);
 
   useEffect(() => {
-    if (!hasHydrated || !user) return;
+    if (!hasHydrated || authReady) return;
+    if (!user) {
+      setAuthReady(true);
+      return;
+    }
 
     let active = true;
-    api.get('/auth/me')
+    // Access tokens intentionally live only in memory. Restore one directly
+    // from the HttpOnly refresh cookie before private components can fetch.
+    api.post('/auth/refresh')
       .then(({ data }) => {
-        if (active) setUser(data.user);
+        if (active) setSession(data.user, data.accessToken);
       })
       .catch(() => {
-        // The API interceptor clears the session when refresh also fails.
+        if (active) logout();
+      })
+      .finally(() => {
+        if (active) setAuthReady(true);
       });
 
     return () => {
       active = false;
     };
-  }, [hasHydrated, user?.id, setUser]);
+  }, [authReady, hasHydrated, logout, setAuthReady, setSession, user]);
 
   return null;
 }

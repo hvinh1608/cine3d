@@ -34,6 +34,7 @@ interface AppState {
   accessToken: string | null;
   refreshToken: string | null;
   hasHydrated: boolean;
+  authReady: boolean;
   favorites: Movie[];
   watchlist: Movie[];
   watchHistory: WatchHistoryItem[];
@@ -44,6 +45,7 @@ interface AppState {
   setAccessToken: (token: string | null) => void;
   setSession: (user: User, accessToken: string, refreshToken?: string) => void;
   setHasHydrated: (hydrated: boolean) => void;
+  setAuthReady: (ready: boolean) => void;
   setFavorites: (favorites: Movie[]) => void;
   setWatchlist: (watchlist: Movie[]) => void;
   setWatchHistory: (history: WatchHistoryItem[]) => void;
@@ -59,6 +61,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
   accessToken: null,
   refreshToken: null,
   hasHydrated: false,
+  authReady: false,
   favorites: [],
   watchlist: [],
   watchHistory: [],
@@ -71,8 +74,10 @@ export const useStore = create<AppState>()(persist((set, get) => ({
     user,
     accessToken,
     refreshToken: refreshToken || null,
+    authReady: true,
   }),
   setHasHydrated: (hasHydrated) => set({ hasHydrated }),
+  setAuthReady: (authReady) => set({ authReady }),
   setFavorites: (favorites) => set({ favorites }),
   setWatchlist: (watchlist) => set({ watchlist }),
   setWatchHistory: (watchHistory) => set({ watchHistory }),
@@ -86,6 +91,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
       user: null,
       accessToken: null,
       refreshToken: null,
+      authReady: true,
       favorites: [],
       watchlist: [],
       watchHistory: [],
@@ -105,5 +111,8 @@ export const useStore = create<AppState>()(persist((set, get) => ({
     user: state.user,
     reduceMotion: state.reduceMotion,
   }),
-  onRehydrateStorage: () => (state) => state?.setHasHydrated(true),
+  onRehydrateStorage: () => (state) => {
+    state?.setHasHydrated(true);
+    if (!state?.user) state?.setAuthReady(true);
+  },
 }));

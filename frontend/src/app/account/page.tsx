@@ -18,7 +18,7 @@ const PRESET_AVATARS = [
 ];
 
 export default function AccountPage() {
-  const { user, setUser, accessToken, setSession, hasHydrated, favorites, setFavorites, watchHistory, setWatchHistory, watchlist, setWatchlist, logout, showToast } = useStore();
+  const { user, setUser, accessToken, setSession, hasHydrated, authReady, favorites, setFavorites, watchHistory, setWatchHistory, watchlist, setWatchlist, logout, showToast } = useStore();
 
   // Tab State
   const [activeTab, setActiveTab] = useState<'profile' | 'favorites' | 'watchlist' | 'history'>('profile');
@@ -139,7 +139,7 @@ export default function AccountPage() {
     }
   };
 
-  if (!hasHydrated) {
+  if (!hasHydrated || !authReady) {
     return (
       <div className="flex-1 flex items-center justify-center py-20">
         <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-800 border-t-red-600" />

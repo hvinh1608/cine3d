@@ -13,7 +13,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 export default function Navbar() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, logout, hasHydrated } = useStore();
+  const { user, logout, hasHydrated, authReady, accessToken } = useStore();
 
   const [scrolled, setScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
@@ -95,7 +95,7 @@ export default function Navbar() {
 
   // Fetch notifications
   useEffect(() => {
-    if (user && hasHydrated) {
+    if (user && hasHydrated && authReady && accessToken) {
       const fetchNotis = async () => {
         try {
           const res = await axios.get(`${API_URL}/user/notifications`, {
@@ -111,7 +111,7 @@ export default function Navbar() {
       const interval = setInterval(fetchNotis, 30000);
       return () => clearInterval(interval);
     }
-  }, [user, hasHydrated]);
+  }, [accessToken, authReady, user, hasHydrated]);
 
   const handleMarkAsRead = async (id: string, url?: string | null) => {
     setNotiOpen(false);
@@ -229,7 +229,7 @@ export default function Navbar() {
           </form>
 
           {/* User Section */}
-          {!hasHydrated ? (
+          {!hasHydrated || !authReady ? (
             <div className="h-9 w-28 animate-pulse rounded-full bg-white/5" />
           ) : user ? (
             <div className="flex items-center space-x-3">
@@ -384,7 +384,7 @@ export default function Navbar() {
               <Crown className="mr-1 h-4 w-4" /> Nâng cấp VIP
             </Link>
 
-            {!hasHydrated ? (
+            {!hasHydrated || !authReady ? (
               <div className="mx-auto h-10 w-32 animate-pulse rounded-full bg-white/5" />
             ) : user ? (
               <>
