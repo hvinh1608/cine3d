@@ -72,6 +72,8 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
         email: updated.email,
         username: updated.username,
         avatar: updated.avatar,
+        isVip: hasVipAccess(updated),
+        vipExpiresAt: updated.vipExpiresAt,
         role: updated.role.name,
       },
     });
@@ -429,6 +431,8 @@ export const uploadAvatar = async (req: AuthenticatedRequest, res: Response) => 
           email: updated.email,
           username: updated.username,
           avatar: updated.avatar,
+          isVip: hasVipAccess(updated),
+          vipExpiresAt: updated.vipExpiresAt,
           role: updated.role.name,
         },
       });
