@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { resolve4 } from 'node:dns/promises';
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
 const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
@@ -108,13 +109,23 @@ export async function sendActionEmail(input: {
   }
 
   const port = Number(process.env.SMTP_PORT || 465);
+  const smtpHost = process.env.SMTP_HOST!;
+  let connectionHost = smtpHost;
+  try {
+    const ipv4Addresses = await resolve4(smtpHost);
+    if (ipv4Addresses[0]) connectionHost = ipv4Addresses[0];
+  } catch (error) {
+    console.warn(`Could not resolve an IPv4 address for ${smtpHost}; using the hostname.`, error);
+  }
+
   const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
+    host: connectionHost,
     port,
     secure: process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : port === 465,
     connectionTimeout: 10_000,
     greetingTimeout: 10_000,
     socketTimeout: 15_000,
+    tls: { servername: smtpHost },
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
