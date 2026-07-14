@@ -10,7 +10,7 @@ const PAID = 'PAID';
 const CANCELLED = 'CANCELLED';
 const EXPIRED = 'EXPIRED';
 const ORDER_TTL_MS = 30 * 60 * 1000;
-const MOCK_PAYMENT_ENABLED = (process.env.VIP_PAYMENT_MODE || 'mock').toLowerCase() === 'mock';
+const MANUAL_PAYMENT_ENABLED = (process.env.VIP_PAYMENT_MODE || 'manual').toLowerCase() !== 'disabled';
 
 async function expirePendingOrders() {
   await prisma.vipOrder.updateMany({
@@ -41,7 +41,7 @@ export const getVipPlans = async (_req: AuthenticatedRequest, res: Response) => 
         durationDays: true,
       },
     });
-    return res.json({ paymentMode: MOCK_PAYMENT_ENABLED ? 'MOCK' : 'DISABLED', plans });
+    return res.json({ plans });
   } catch (error) {
     return internalError(res, 'Không thể tải các gói VIP.', error);
   }
@@ -49,7 +49,7 @@ export const getVipPlans = async (_req: AuthenticatedRequest, res: Response) => 
 
 export const createVipOrder = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ message: 'Unauthorized.' });
-  if (!MOCK_PAYMENT_ENABLED) return res.status(503).json({ message: 'Thanh toán VIP thử nghiệm đang tạm tắt.' });
+  if (!MANUAL_PAYMENT_ENABLED) return res.status(503).json({ message: 'Thanh toán VIP đang tạm tắt.' });
   const planId = typeof req.body.planId === 'string' ? req.body.planId : '';
   if (!planId) return res.status(400).json({ message: 'Vui lòng chọn gói VIP.' });
 
@@ -85,8 +85,7 @@ export const createVipOrder = async (req: AuthenticatedRequest, res: Response) =
     });
 
     return res.status(201).json({
-      message: 'Đã tạo đơn VIP thử nghiệm. Vui lòng chờ admin xác nhận.',
-      paymentMode: 'MOCK',
+      message: 'Đã tạo đơn thanh toán. Hệ thống đang chờ xác nhận giao dịch.',
       order,
     });
   } catch (error) {
@@ -111,7 +110,6 @@ export const getMyVipOrders = async (req: AuthenticatedRequest, res: Response) =
       }),
     ]);
     return res.json({
-      paymentMode: 'MOCK',
       vip: { active: hasVipAccess(user), expiresAt: user?.vipExpiresAt ?? null, permanent: user?.isVip ?? false },
       orders,
     });
@@ -152,9 +150,9 @@ export const getAdminVipOrders = async (_req: AuthenticatedRequest, res: Respons
   }
 };
 
-export const confirmMockVipOrder = async (req: AuthenticatedRequest, res: Response) => {
+export const confirmVipOrder = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ message: 'Unauthorized.' });
-  if (!MOCK_PAYMENT_ENABLED) return res.status(503).json({ message: 'Thanh toán VIP thử nghiệm đang tạm tắt.' });
+  if (!MANUAL_PAYMENT_ENABLED) return res.status(503).json({ message: 'Thanh toán VIP đang tạm tắt.' });
   const now = new Date();
 
   try {
@@ -195,7 +193,7 @@ export const confirmMockVipOrder = async (req: AuthenticatedRequest, res: Respon
       return res.status(409).json({ message: 'Đơn đã hết hạn hoặc không còn chờ xác nhận.' });
     }
 
-    return res.json({ message: 'Đã mô phỏng thanh toán và kích hoạt VIP.', order: result.order, vipExpiresAt: result.vipExpiresAt });
+    return res.json({ message: 'Đã xác nhận thanh toán và kích hoạt VIP.', order: result.order, vipExpiresAt: result.vipExpiresAt });
   } catch (error) {
     return internalError(res, 'Không thể xác nhận đơn VIP.', error);
   }

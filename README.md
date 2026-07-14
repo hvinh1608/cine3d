@@ -1,14 +1,14 @@
 # CINE3D - Premium 3D Cinematic Movie Streaming Platform
 
-## Thử nghiệm nâng cấp VIP
+## Quản lý nâng cấp VIP
 
-Luồng VIP mặc định chạy ở chế độ mock, không xử lý tiền thật:
+Luồng VIP mặc định sử dụng xác nhận giao dịch thủ công:
 
 1. Người dùng đăng nhập, mở `/vip`, chọn gói và tạo đơn.
-2. Admin mở Dashboard → **Đơn VIP thử nghiệm**.
+2. Admin mở Dashboard → **Đơn thanh toán VIP**.
 3. Admin bấm **Xác nhận đã trả** để cộng dồn thời hạn VIP.
 
-Đặt `VIP_PAYMENT_MODE=disabled` trên backend để tắt tạo/xác nhận đơn mock. Các gói mặc định được tạo bởi Prisma seed và không bị ghi đè nếu đã tồn tại trong database.
+Đặt `VIP_PAYMENT_MODE=disabled` trên backend để tắt tạo/xác nhận đơn. Các gói mặc định được tạo bởi Prisma seed và không bị ghi đè nếu đã tồn tại trong database.
 
 Website xem phim trực tuyến với thiết kế giao diện không gian 3D, chiều sâu điện ảnh cao cấp và mượt mà. 
 

@@ -65,7 +65,7 @@ import {
   getMyVipOrders,
   cancelMyVipOrder,
   getAdminVipOrders,
-  confirmMockVipOrder,
+  confirmVipOrder,
   cancelAdminVipOrder,
 } from '../controllers/vip.controller';
 
@@ -104,7 +104,7 @@ router.delete('/user/history/:id', authenticateToken as any, deleteWatchHistory 
 router.get('/user/notifications', authenticateToken as any, getNotifications as any);
 router.put('/user/notifications/:id/read', authenticateToken as any, markNotificationRead as any);
 
-// --- VIP Mock Checkout Routes ---
+// --- VIP Checkout Routes ---
 router.get('/vip/plans', getVipPlans as any);
 router.post('/vip/orders', rateLimit(60 * 60 * 1000, 10), authenticateToken as any, createVipOrder as any);
 router.get('/vip/orders/me', authenticateToken as any, getMyVipOrders as any);
@@ -172,7 +172,7 @@ router.put('/admin/users/:id/vip', authenticateToken as any, requireAdmin as any
 router.get('/admin/reports', authenticateToken as any, requireAdmin as any, getReports);
 router.put('/admin/reports/:id/resolve', authenticateToken as any, requireAdmin as any, resolveReport);
 router.get('/admin/vip-orders', authenticateToken as any, requireAdmin as any, getAdminVipOrders as any);
-router.post('/admin/vip-orders/:id/confirm', authenticateToken as any, requireAdmin as any, confirmMockVipOrder as any);
+router.post('/admin/vip-orders/:id/confirm', authenticateToken as any, requireAdmin as any, confirmVipOrder as any);
 router.post('/admin/vip-orders/:id/cancel', authenticateToken as any, requireAdmin as any, cancelAdminVipOrder as any);
 
 export default router;

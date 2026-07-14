@@ -476,7 +476,7 @@ export default function AdminPage() {
           }`}
         >
           <ReceiptText className="w-4 h-4" />
-          <span>Đơn VIP thử nghiệm</span>
+          <span>Đơn thanh toán VIP</span>
           {vipOrders.filter((order) => order.status === 'PENDING').length > 0 && (
             <span className="absolute right-4 top-1/2 flex h-4.5 w-4.5 -translate-y-1/2 items-center justify-center rounded-full bg-red-600 text-[9px] font-black text-white">
               {vipOrders.filter((order) => order.status === 'PENDING').length}
@@ -1197,14 +1197,14 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* VIP MOCK ORDERS TAB */}
+        {/* VIP PAYMENT ORDERS TAB */}
         {activeTab === 'vip' && (
           <div className="space-y-6 animate-fade-in">
             <div>
               <h2 className="flex items-center text-xl font-black uppercase tracking-wide text-amber-400">
-                <ReceiptText className="mr-2 h-5 w-5" /> Đơn VIP thử nghiệm
+                <ReceiptText className="mr-2 h-5 w-5" /> Đơn thanh toán VIP
               </h2>
-              <p className="mt-2 text-xs leading-5 text-slate-500">Xác nhận tại đây sẽ mô phỏng thanh toán thành công và cộng thời hạn VIP. Không có tiền thật được xử lý.</p>
+              <p className="mt-2 text-xs leading-5 text-slate-500">Kiểm tra thông tin giao dịch trước khi xác nhận. Thời hạn VIP sẽ được cộng tự động và không thể cộng trùng cùng một đơn.</p>
             </div>
 
             <div className="space-y-3">
@@ -1228,7 +1228,7 @@ export default function AdminPage() {
                         Hủy
                       </button>
                       <button onClick={() => handleConfirmVipOrder(order.id)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-black text-black hover:bg-emerald-400">
-                        <CheckCircle2 className="h-4 w-4" /> Xác nhận đã trả
+                        <CheckCircle2 className="h-4 w-4" /> Xác nhận thanh toán
                       </button>
                     </div>
                   )}

@@ -78,7 +78,7 @@ model VipOrder {
   amount            Int
   durationDays      Int
   status            String    @default("PENDING")
-  provider          String    @default("MOCK")
+  provider          String    @default("MANUAL")
   providerReference String?   @unique
   expiresAt         DateTime
   paidAt            DateTime?
