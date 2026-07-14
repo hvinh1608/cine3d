@@ -303,6 +303,20 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
             </div>
           </div>
 
+          {/* Mobile Dot Indicators */}
+          <div className="absolute bottom-4 left-0 right-0 z-30 flex justify-center space-x-2 md:hidden">
+            {banners.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setCurrentBannerIndex(idx)}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  currentBannerIndex === idx ? 'w-6 bg-yellow-500' : 'w-1.5 bg-white/40'
+                }`}
+                aria-label={`Xem banner ${idx + 1}`}
+              />
+            ))}
+          </div>
+
           {/* Banner Quick Select Strip at the Bottom (Rophim Style overlay) */}
           <div className="absolute bottom-6 left-0 right-0 z-30 max-w-7xl mx-auto px-4 md:px-8 w-full hidden md:block">
             <div className="flex justify-end items-center space-x-3">
