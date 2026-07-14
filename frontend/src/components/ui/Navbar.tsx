@@ -1,14 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowRight, Search, SearchX, Film, LogOut, ShieldAlert, Sparkles, Menu, X, Bell, Crown } from 'lucide-react';
+import { ArrowRight, Search, SearchX, Film, LogOut, ShieldAlert, Sparkles, Menu, X, Bell, Crown, History, Trash2 } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 import type { Movie } from '../../types/movie';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const RECENT_SEARCHES_KEY = 'cine3d-recent-searches';
+const MAX_RECENT_SEARCHES = 5;
 
 export default function Navbar() {
   const router = useRouter();
@@ -22,6 +24,7 @@ export default function Navbar() {
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
   // Notification states
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -29,6 +32,9 @@ export default function Navbar() {
   const [notiOpen, setNotiOpen] = useState(false);
   const notiRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLFormElement>(null);
+  const desktopSearchInputRef = useRef<HTMLInputElement>(null);
+  const mobileSearchInputRef = useRef<HTMLInputElement>(null);
+  const suggestionCacheRef = useRef<Map<string, Movie[]>>(new Map());
 
   // Monitor scrolling to alter glass background intensity
   useEffect(() => {
@@ -59,25 +65,62 @@ export default function Navbar() {
     setSearchQuery(searchParams.get('q') || '');
   }, [searchParams]);
 
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || '[]');
+      if (Array.isArray(saved)) {
+        setRecentSearches(saved.filter((item): item is string => typeof item === 'string').slice(0, MAX_RECENT_SEARCHES));
+      }
+    } catch {
+      localStorage.removeItem(RECENT_SEARCHES_KEY);
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleSearchShortcut = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 'k') return;
+      event.preventDefault();
+      setSuggestionsOpen(true);
+
+      if (window.matchMedia('(min-width: 768px)').matches) {
+        desktopSearchInputRef.current?.focus();
+      } else {
+        setMobileMenuOpen(true);
+        window.setTimeout(() => mobileSearchInputRef.current?.focus(), 0);
+      }
+    };
+
+    window.addEventListener('keydown', handleSearchShortcut);
+    return () => window.removeEventListener('keydown', handleSearchShortcut);
+  }, []);
+
   // Lightweight debounced typeahead search. It only starts after two characters.
   useEffect(() => {
     const keyword = searchQuery.trim();
     if (keyword.length < 2) {
-      setSuggestions([]);
-      setSuggestionsOpen(false);
-      setActiveSuggestionIndex(-1);
       return;
     }
 
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
+      const cacheKey = keyword.toLocaleLowerCase('vi');
+      const cachedSuggestions = suggestionCacheRef.current.get(cacheKey);
+      if (cachedSuggestions) {
+        setSuggestions(cachedSuggestions);
+        setSuggestionsLoading(false);
+        setActiveSuggestionIndex(-1);
+        return;
+      }
+
       setSuggestionsLoading(true);
       try {
         const response = await axios.get(`${API_URL}/movies`, {
           params: { search: keyword, page: 1, limit: 6 },
           signal: controller.signal,
         });
-        setSuggestions(Array.isArray(response.data?.movies) ? response.data.movies : []);
+        const movies = Array.isArray(response.data?.movies) ? response.data.movies : [];
+        suggestionCacheRef.current.set(cacheKey, movies);
+        setSuggestions(movies);
         setSuggestionsOpen(true);
         setActiveSuggestionIndex(-1);
       } catch (error) {
@@ -92,6 +135,23 @@ export default function Navbar() {
       window.clearTimeout(timer);
     };
   }, [searchQuery]);
+
+  const saveRecentSearch = useCallback((rawKeyword: string) => {
+    const keyword = rawKeyword.trim().replace(/\s+/g, ' ');
+    if (!keyword) return;
+
+    setRecentSearches((current) => {
+      const next = [keyword, ...current.filter((item) => item.toLocaleLowerCase('vi') !== keyword.toLocaleLowerCase('vi'))]
+        .slice(0, MAX_RECENT_SEARCHES);
+      localStorage.setItem(RECENT_SEARCHES_KEY, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const clearRecentSearches = () => {
+    setRecentSearches([]);
+    localStorage.removeItem(RECENT_SEARCHES_KEY);
+  };
 
   // Fetch notifications
   useEffect(() => {
@@ -133,11 +193,48 @@ export default function Navbar() {
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchQuery.trim()) {
+    const keyword = searchQuery.trim();
+    if (keyword) {
+      saveRecentSearch(keyword);
       setSuggestionsOpen(false);
       setMobileMenuOpen(false);
-      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+      router.push(`/search?q=${encodeURIComponent(keyword)}`);
     }
+  };
+
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const value = event.target.value;
+    setSearchQuery(value);
+    setSuggestionsOpen(true);
+    setActiveSuggestionIndex(-1);
+
+    if (value.trim().length < 2) {
+      setSuggestions([]);
+      setSuggestionsLoading(false);
+    }
+  };
+
+  const handleRecentSearch = (keyword: string) => {
+    setSearchQuery(keyword);
+    saveRecentSearch(keyword);
+    setSuggestionsOpen(false);
+    setMobileMenuOpen(false);
+    router.push(`/search?q=${encodeURIComponent(keyword)}`);
+  };
+
+  const handleSuggestionSelect = (movie: Movie) => {
+    saveRecentSearch(searchQuery || movie.title);
+    setSuggestionsOpen(false);
+    setMobileMenuOpen(false);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSuggestions([]);
+    setSuggestionsLoading(false);
+    setActiveSuggestionIndex(-1);
+    setSuggestionsOpen(true);
+    (window.matchMedia('(min-width: 768px)').matches ? desktopSearchInputRef : mobileSearchInputRef).current?.focus();
   };
 
   const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -156,10 +253,94 @@ export default function Navbar() {
     } else if (event.key === 'Enter' && activeSuggestionIndex >= 0) {
       event.preventDefault();
       const movie = suggestions[activeSuggestionIndex];
+      saveRecentSearch(searchQuery || movie.title);
       setSuggestionsOpen(false);
       setMobileMenuOpen(false);
       router.push(`/movies/${movie.slug}`);
     }
+  };
+
+  const renderSearchDropdown = (mobile = false) => {
+    if (!suggestionsOpen) return null;
+
+    const keyword = searchQuery.trim();
+    const dropdownClass = mobile
+      ? 'absolute left-0 right-0 top-full z-[60] mt-2'
+      : 'absolute right-0 top-full z-[60] mt-3 w-96';
+
+    return (
+      <div className={`${dropdownClass} overflow-hidden rounded-2xl border border-white/10 bg-slate-950/95 p-1.5 shadow-[0_20px_60px_rgba(0,0,0,0.55)] backdrop-blur-xl`}>
+        {keyword.length < 2 ? (
+          <div className="p-1">
+            <div className="flex items-center justify-between px-2 py-2">
+              <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
+                <History className="h-3.5 w-3.5" /> Tìm kiếm gần đây
+              </span>
+              {recentSearches.length > 0 && (
+                <button type="button" onClick={clearRecentSearches} className="flex items-center gap-1 text-[10px] font-bold text-slate-500 transition hover:text-red-400">
+                  <Trash2 className="h-3 w-3" /> Xóa
+                </button>
+              )}
+            </div>
+            {recentSearches.length > 0 ? (
+              <div className="space-y-0.5">
+                {recentSearches.map((keywordItem) => (
+                  <button key={keywordItem} type="button" onClick={() => handleRecentSearch(keywordItem)} className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-xs font-medium text-slate-300 transition hover:bg-white/[0.07] hover:text-white">
+                    <Search className="h-3.5 w-3.5 text-slate-500" />
+                    <span className="truncate">{keywordItem}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="px-3 py-5 text-center">
+                <Search className="mx-auto h-6 w-6 text-slate-700" />
+                <p className="mt-2 text-xs font-bold text-slate-400">Nhập ít nhất 2 ký tự để tìm phim</p>
+                <p className="mt-1 text-[10px] text-slate-600">Tên phim, tên gốc hoặc từ khóa liên quan</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between px-2.5 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">
+              <span>Gợi ý phim</span>
+              {!mobile && <span>Dùng ↑ ↓ để chọn</span>}
+            </div>
+            {suggestionsLoading ? (
+              <div className="space-y-1 px-1 pb-1" aria-label="Đang tìm phim">
+                {[0, 1, 2].map((item) => <div key={item} className="h-16 animate-pulse rounded-xl bg-white/5" />)}
+              </div>
+            ) : suggestions.length === 0 ? (
+              <div className="px-4 py-6 text-center">
+                <SearchX className="mx-auto h-7 w-7 text-slate-700" />
+                <p className="mt-2 text-xs font-bold text-slate-400">Không tìm thấy phim phù hợp</p>
+                <p className="mt-1 text-[10px] text-slate-600">Thử tên ngắn hơn hoặc kiểm tra lại chính tả</p>
+              </div>
+            ) : suggestions.map((movie, index) => (
+              <Link
+                key={movie.id}
+                href={`/movies/${movie.slug}`}
+                onMouseEnter={() => setActiveSuggestionIndex(index)}
+                onClick={() => handleSuggestionSelect(movie)}
+                className={`flex items-center gap-3 rounded-xl p-2 text-left transition ${activeSuggestionIndex === index ? 'bg-white/10' : 'hover:bg-white/[0.07]'}`}
+              >
+                <img src={movie.posterUrl} alt="" className="h-14 w-10 shrink-0 rounded-md bg-slate-900 object-cover" />
+                <span className="min-w-0 flex-1">
+                  <strong className="block truncate text-xs text-white">{movie.title}</strong>
+                  {movie.englishTitle && <small className="mt-0.5 block truncate text-[10px] text-slate-500">{movie.englishTitle}</small>}
+                  <small className="mt-1 block text-[10px] text-slate-400">{movie.releaseYear || 'Đang cập nhật'} · {movie.isSeries ? 'Phim bộ' : 'Phim lẻ'}</small>
+                </span>
+                <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-600" />
+              </Link>
+            ))}
+            {!suggestionsLoading && (
+              <button type="submit" className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-xl border-t border-white/5 px-3 py-2.5 text-[11px] font-bold text-yellow-400 transition hover:bg-yellow-400/10">
+                Xem tất cả kết quả <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -200,32 +381,32 @@ export default function Navbar() {
           {/* Search Form */}
           <form ref={searchRef} data-search-form onSubmit={handleSearchSubmit} className="relative">
             <input
+              ref={desktopSearchInputRef}
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => searchQuery.trim().length >= 2 && setSuggestionsOpen(true)}
+              onChange={handleSearchChange}
+              onFocus={() => setSuggestionsOpen(true)}
               onKeyDown={handleSearchKeyDown}
               aria-label="Tìm phim"
+              role="combobox"
+              aria-expanded={suggestionsOpen}
+              autoComplete="off"
               placeholder="Tìm nhanh tên phim..."
-              className="bg-slate-900/60 border border-white/10 hover:border-white/20 focus:border-yellow-500 text-white rounded-full pl-4 pr-10 py-1.5 text-xs w-48 focus:w-60 transition-all duration-300 outline-none backdrop-blur-sm"
+              className="bg-slate-900/60 border border-white/10 hover:border-white/20 focus:border-yellow-500 text-white rounded-full pl-4 pr-20 py-2 text-xs w-52 focus:w-72 transition-all duration-300 outline-none backdrop-blur-sm"
             />
-            <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors cursor-pointer">
-              <Search className="w-4 h-4" />
-            </button>
-            {suggestionsOpen && searchQuery.trim().length >= 2 && (
-              <div className="absolute right-0 top-full z-[60] mt-3 w-80 overflow-hidden rounded-2xl border border-white/10 bg-slate-950/95 p-1.5 shadow-[0_20px_60px_rgba(0,0,0,0.55)] backdrop-blur-xl">
-                <div className="flex items-center justify-between px-2.5 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-slate-500"><span>Gợi ý phim</span><span>Dùng ↑ ↓ để chọn</span></div>
-                {suggestionsLoading ? <p className="px-3 py-5 text-center text-xs text-slate-400">Đang tìm phim...</p> : suggestions.length === 0 ? (
-                  <div className="px-4 py-6 text-center"><SearchX className="mx-auto h-7 w-7 text-slate-700" /><p className="mt-2 text-xs font-bold text-slate-400">Không tìm thấy phim phù hợp</p></div>
-                ) : suggestions.map((movie, index) => (
-                  <Link key={movie.id} href={`/movies/${movie.slug}`} onMouseEnter={() => setActiveSuggestionIndex(index)} onClick={() => setSuggestionsOpen(false)} className={`flex items-center gap-3 rounded-xl p-2 text-left transition ${activeSuggestionIndex === index ? 'bg-white/10' : 'hover:bg-white/[0.07]'}`}>
-                    <img src={movie.posterUrl} alt="" className="h-12 w-8 shrink-0 rounded object-cover" />
-                    <span className="min-w-0"><strong className="block truncate text-xs text-white">{movie.title}</strong><small className="text-[10px] text-slate-400">{movie.releaseYear} · {movie.isSeries ? 'Phim bộ' : 'Phim lẻ'}</small></span>
-                  </Link>
-                ))}
-                {!suggestionsLoading && <button type="submit" className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-xl border-t border-white/5 px-3 py-2.5 text-[11px] font-bold text-yellow-400 transition hover:bg-yellow-400/10">Xem tất cả kết quả <ArrowRight className="h-3.5 w-3.5" /></button>}
-              </div>
-            )}
+            <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
+              {searchQuery ? (
+                <button type="button" onClick={clearSearch} aria-label="Xóa nội dung tìm kiếm" className="rounded-full p-1 text-slate-500 transition hover:bg-white/10 hover:text-white">
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              ) : (
+                <kbd className="hidden rounded border border-white/10 bg-black/20 px-1.5 py-0.5 text-[9px] font-bold text-slate-500 xl:block">⌘K</kbd>
+              )}
+              <button type="submit" aria-label="Tìm kiếm" className="rounded-full p-1 text-slate-400 transition-colors hover:bg-yellow-500/10 hover:text-yellow-400 cursor-pointer">
+                <Search className="w-4 h-4" />
+              </button>
+            </div>
+            {renderSearchDropdown()}
           </form>
 
           {/* User Section */}
@@ -347,29 +528,30 @@ export default function Navbar() {
           {/* Mobile Search */}
           <form data-search-form onSubmit={handleSearchSubmit} className="relative w-full">
             <input
+              ref={mobileSearchInputRef}
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onFocus={() => searchQuery.trim().length >= 2 && setSuggestionsOpen(true)}
+              onChange={handleSearchChange}
+              onFocus={() => setSuggestionsOpen(true)}
               onKeyDown={handleSearchKeyDown}
               aria-label="Tìm phim"
+              role="combobox"
+              aria-expanded={suggestionsOpen}
+              autoComplete="off"
               placeholder="Tìm nhanh tên phim..."
-              className="bg-slate-900 border border-white/10 focus:border-yellow-500 text-white rounded-full pl-4 pr-10 py-2 text-sm w-full outline-none"
+              className="bg-slate-900 border border-white/10 focus:border-yellow-500 text-white rounded-full pl-4 pr-20 py-2 text-sm w-full outline-none"
             />
-            <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer">
-              <Search className="w-5 h-5" />
-            </button>
-            {suggestionsOpen && searchQuery.trim().length >= 2 && (
-              <div className="absolute left-0 right-0 top-full z-[60] mt-2 overflow-hidden rounded-xl border border-white/10 bg-slate-950/95 p-1 shadow-2xl backdrop-blur-xl">
-                {suggestionsLoading ? <p className="px-3 py-5 text-center text-xs text-slate-400">Đang tìm phim...</p> : suggestions.length === 0 ? <p className="px-3 py-5 text-center text-xs text-slate-500">Không tìm thấy phim phù hợp.</p> : suggestions.map((movie) => (
-                  <Link key={movie.id} href={`/movies/${movie.slug}`} onClick={() => { setSuggestionsOpen(false); setMobileMenuOpen(false); }} className="flex items-center gap-3 rounded-lg p-2 text-left hover:bg-white/10">
-                    <img src={movie.posterUrl} alt="" className="h-12 w-8 shrink-0 rounded object-cover" />
-                    <span className="min-w-0"><strong className="block truncate text-xs text-white">{movie.title}</strong><small className="text-[10px] text-slate-400">{movie.releaseYear} · {movie.isSeries ? 'Phim bộ' : 'Phim lẻ'}</small></span>
-                  </Link>
-                ))}
-                {!suggestionsLoading && <button type="submit" className="flex w-full items-center justify-center gap-1.5 border-t border-white/5 px-3 py-2.5 text-xs font-bold text-yellow-400">Xem tất cả kết quả <ArrowRight className="h-3.5 w-3.5" /></button>}
-              </div>
-            )}
+            <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2">
+              {searchQuery && (
+                <button type="button" onClick={clearSearch} aria-label="Xóa nội dung tìm kiếm" className="text-slate-500 hover:text-white">
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+              <button type="submit" aria-label="Tìm kiếm" className="text-slate-400 hover:text-white cursor-pointer">
+                <Search className="w-5 h-5" />
+              </button>
+            </div>
+            {renderSearchDropdown(true)}
           </form>
 
           {/* Links */}
