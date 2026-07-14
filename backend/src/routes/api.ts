@@ -10,6 +10,7 @@ import {
   getProfile,
   forgotPassword,
   resetPassword,
+  verifyEmail,
 } from '../controllers/auth.controller';
 import {
   getMovies,
@@ -86,6 +87,7 @@ router.post('/auth/logout', logout);
 router.get('/auth/me', authenticateToken as any, getProfile as any);
 router.post('/auth/forgot-password', resetLimiter, forgotPassword as any);
 router.post('/auth/reset-password', resetLimiter, resetPassword as any);
+router.get('/auth/verify-email', resetLimiter, verifyEmail as any);
 
 // --- Movie Routes ---
 router.get('/movies', getMovies);

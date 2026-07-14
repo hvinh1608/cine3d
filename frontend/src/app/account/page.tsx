@@ -43,10 +43,17 @@ export default function AccountPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('resetToken');
+    const verified = params.get('verified');
     queueMicrotask(() => {
       if (token) {
         setResetToken(token);
         setRecoveryMode('reset');
+      } else if (verified === 'success') {
+        setAuthNotice('Email đã được xác nhận. Bạn có thể đăng nhập ngay.');
+        window.history.replaceState({}, '', '/account');
+      } else if (verified) {
+        setErrorMsg('Liên kết xác nhận không hợp lệ hoặc đã hết hạn.');
+        window.history.replaceState({}, '', '/account');
       }
     });
   }, []);
@@ -97,6 +104,12 @@ export default function AccountPage() {
         ? { email: email.trim(), password }
         : { email: email.trim(), username: username.trim(), password };
       const res = await axios.post(endpoint, payload);
+      if (res.data.requiresVerification) {
+        setIsLogin(true);
+        setPassword('');
+        setAuthNotice(res.data.message || 'Hãy kiểm tra email để xác nhận tài khoản.');
+        return;
+      }
       setSession(res.data.user, res.data.accessToken);
       showToast(isLogin ? 'Đăng nhập thành công!' : 'Đăng ký tài khoản thành công!', 'success');
     } catch (error) {

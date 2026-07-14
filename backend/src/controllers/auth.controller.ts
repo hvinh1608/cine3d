@@ -13,6 +13,7 @@ const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 const REFRESH_COOKIE = 'cine3d_refresh';
 const secureCookies = process.env.COOKIE_SECURE === 'true';
+const requireEmailVerification = process.env.REQUIRE_EMAIL_VERIFICATION === 'true';
 const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim();
 const googleClient = googleClientId ? new OAuth2Client(googleClientId) : null;
 const clientUrl = (process.env.CLIENT_URLS || process.env.CLIENT_URL || 'http://localhost:3000')
@@ -144,6 +145,9 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
   if (typeof password !== 'string' || password.length < 8) {
     return res.status(400).json({ message: 'Password must be at least 8 characters.' });
   }
+  if (requireEmailVerification && !emailDeliveryConfigured) {
+    return res.status(503).json({ message: 'Gửi email xác nhận chưa được cấu hình.' });
+  }
 
   try {
     const existingUser = await prisma.user.findFirst({
@@ -163,6 +167,7 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const verification = requireEmailVerification ? createActionToken() : null;
 
     const user = await prisma.user.create({
       data: {
@@ -170,10 +175,36 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
         username,
         password: hashedPassword,
         roleId: userRole.id,
-        isVerified: true,
+        isVerified: !requireEmailVerification,
+        emailVerificationToken: verification?.tokenHash,
+        emailVerificationExpires: verification?.expiresAt,
       },
       include: { role: true },
     });
+
+    if (verification) {
+      const publicApiUrl = (process.env.PUBLIC_API_URL || `${req.protocol}://${req.get('host')}/api`).replace(/\/$/, '');
+      try {
+        await sendActionEmail({
+          to: user.email,
+          username: user.username,
+          subject: 'Xác nhận tài khoản CINE3D',
+          heading: 'Xác nhận địa chỉ email',
+          message: 'Nhấn nút bên dưới để kích hoạt tài khoản CINE3D của bạn.',
+          actionLabel: 'Xác nhận tài khoản',
+          actionUrl: `${publicApiUrl}/auth/verify-email?token=${encodeURIComponent(verification.token)}`,
+        });
+      } catch (emailError) {
+        console.error('Verification email delivery failed.', emailError);
+        await prisma.user.delete({ where: { id: user.id } });
+        return res.status(503).json({ message: 'Không thể gửi email xác nhận. Vui lòng thử lại sau.' });
+      }
+
+      return res.status(201).json({
+        message: 'Đăng ký thành công. Hãy kiểm tra email để xác nhận tài khoản.',
+        requiresVerification: true,
+      });
+    }
 
     const session = await createSession(user);
     res.cookie(REFRESH_COOKIE, session.refreshToken, cookieOptions);
@@ -208,6 +239,13 @@ export const login = async (req: AuthenticatedRequest, res: Response) => {
 
     if (user.isLocked) {
       return res.status(403).json({ message: 'Account is locked. Please contact support.' });
+    }
+
+    if (requireEmailVerification && !user.isVerified) {
+      return res.status(403).json({
+        message: 'Tài khoản chưa được xác nhận. Hãy kiểm tra email đăng ký.',
+        code: 'EMAIL_NOT_VERIFIED',
+      });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -533,5 +571,33 @@ export const resetPassword = async (req: AuthenticatedRequest, res: Response) =>
     return res.json({ message: 'Password updated successfully.' });
   } catch (error: any) {
     return internalError(res, 'Internal server error.', error);
+  }
+};
+
+export const verifyEmail = async (req: AuthenticatedRequest, res: Response) => {
+  const token = typeof req.query.token === 'string' ? req.query.token : '';
+  if (!token) return res.redirect(`${clientUrl}/account?verified=invalid`);
+
+  try {
+    const user = await prisma.user.findFirst({
+      where: {
+        emailVerificationToken: hashToken(token),
+        emailVerificationExpires: { gt: new Date() },
+      },
+    });
+    if (!user) return res.redirect(`${clientUrl}/account?verified=invalid`);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        isVerified: true,
+        emailVerificationToken: null,
+        emailVerificationExpires: null,
+      },
+    });
+    return res.redirect(`${clientUrl}/account?verified=success`);
+  } catch (error: unknown) {
+    console.error('Email verification failed.', error);
+    return res.redirect(`${clientUrl}/account?verified=error`);
   }
 };
