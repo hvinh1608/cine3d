@@ -414,6 +414,18 @@ export default function AdminPage() {
     }
   };
 
+  const handleUpdateRole = async (userId: string, roleName: string) => {
+    try {
+      const res = await axios.put(`${API_URL}/admin/users/${userId}/role`, { roleName }, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      showToast(res.data.message, 'success');
+      loadAdminData();
+    } catch (error) {
+      showToast(requestMessage(error, 'Không thể cập nhật vai trò người dùng.'), 'error');
+    }
+  };
+
   const handleConfirmVipOrder = async (orderId: string) => {
     try {
       const res = await axios.post(`${API_URL}/admin/vip-orders/${orderId}/confirm`, {}, {
@@ -1224,10 +1236,21 @@ export default function AdminPage() {
                     <tr key={u.id} className="border-b border-white/5 text-slate-300 hover:bg-white/[0.02] transition-colors">
                       <td className="py-3 font-bold text-slate-100">{u.username}</td>
                       <td className="py-3">{u.email}</td>
-                      <td className="py-3">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${u.role?.name === 'ADMIN' ? 'bg-red-600/10 text-red-500 border border-red-500/20' : 'bg-slate-800 text-slate-400'}`}>
-                          {u.role?.name}
-                        </span>
+                       <td className="py-3">
+                        {u.id === user?.id ? (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase bg-red-600/10 text-red-500 border border-red-500/20">
+                            {u.role?.name}
+                          </span>
+                        ) : (
+                          <select
+                            value={u.role?.name}
+                            onChange={(e) => handleUpdateRole(u.id, e.target.value)}
+                            className="bg-slate-900 border border-white/10 rounded-lg px-2 py-1 text-slate-300 outline-none text-xs font-bold cursor-pointer hover:border-white/30"
+                          >
+                            <option value="USER">USER</option>
+                            <option value="ADMIN">ADMIN</option>
+                          </select>
+                        )}
                       </td>
                       <td className="py-3">
                         {u.role?.name !== 'ADMIN' ? (

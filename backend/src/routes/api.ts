@@ -57,6 +57,7 @@ import {
   getUsers,
   toggleUserLock,
   toggleUserVip,
+  updateUserRole,
   getReports,
   resolveReport,
 } from '../controllers/admin.controller';
@@ -180,6 +181,7 @@ router.delete('/admin/episodes/:id', authenticateToken as any, requireAdmin as a
 router.get('/admin/users', authenticateToken as any, requireAdmin as any, getUsers);
 router.put('/admin/users/:id/lock', authenticateToken as any, requireAdmin as any, toggleUserLock);
 router.put('/admin/users/:id/vip', authenticateToken as any, requireAdmin as any, toggleUserVip);
+router.put('/admin/users/:id/role', authenticateToken as any, requireAdmin as any, updateUserRole as any);
 router.get('/admin/reports', authenticateToken as any, requireAdmin as any, getReports);
 router.put('/admin/reports/:id/resolve', authenticateToken as any, requireAdmin as any, resolveReport);
 router.get('/admin/vip-orders', authenticateToken as any, requireAdmin as any, getAdminVipOrders as any);

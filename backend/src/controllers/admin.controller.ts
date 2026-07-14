@@ -553,3 +553,48 @@ export const resolveReport = async (req: Request, res: Response) => {
     return internalError(res, 'Error updating report.', error);
   }
 };
+
+export const updateUserRole = async (req: AuthenticatedRequest, res: Response) => {
+  const { id } = req.params;
+  const { roleName } = req.body; // e.g. "USER" or "ADMIN"
+
+  if (req.user?.id === id) {
+    return res.status(400).json({ message: 'Bạn không thể tự thay đổi vai trò của tài khoản đang đăng nhập.' });
+  }
+
+  if (!['USER', 'ADMIN'].includes(roleName)) {
+    return res.status(400).json({ message: 'Vai trò không hợp lệ.' });
+  }
+
+  try {
+    const role = await prisma.role.findUnique({ where: { name: roleName } });
+    if (!role) {
+      return res.status(400).json({ message: 'Không tìm thấy vai trò tương ứng trong hệ thống.' });
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: { roleId: role.id },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        avatar: true,
+        isVerified: true,
+        isLocked: true,
+        isVip: true,
+        vipExpiresAt: true,
+        createdAt: true,
+        updatedAt: true,
+        role: { select: { id: true, name: true } },
+      },
+    });
+
+    return res.json({
+      message: `Đã thay đổi vai trò của người dùng thành ${roleName} thành công.`,
+      user: updatedUser,
+    });
+  } catch (error: any) {
+    return internalError(res, 'Lỗi hệ thống khi cập nhật vai trò người dùng.', error);
+  }
+};
