@@ -303,34 +303,23 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
             </div>
           </div>
 
-          {/* Mobile Dot Indicators */}
-          <div className="absolute bottom-4 left-0 right-0 z-30 flex justify-center space-x-2 md:hidden">
-            {banners.map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => setCurrentBannerIndex(idx)}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  currentBannerIndex === idx ? 'w-6 bg-yellow-500' : 'w-1.5 bg-white/40'
-                }`}
-                aria-label={`Xem banner ${idx + 1}`}
-              />
-            ))}
-          </div>
-
           {/* Banner Quick Select Strip at the Bottom (Rophim Style overlay) */}
-          <div className="absolute bottom-6 left-0 right-0 z-30 max-w-7xl mx-auto px-4 md:px-8 w-full hidden md:block">
-            <div className="flex justify-end items-center space-x-3">
+          <div className="absolute bottom-6 left-0 right-0 z-30 max-w-7xl mx-auto px-4 md:px-8 w-full">
+            <div
+              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              className="flex items-center space-x-3 overflow-x-auto pb-2 justify-start md:justify-end [&::-webkit-scrollbar]:hidden"
+            >
               {banners.map((item, idx) => (
                 <button
                   key={item.id}
                   onClick={() => setCurrentBannerIndex(idx)}
-                  className={`relative w-28 aspect-video rounded-lg overflow-hidden border-2 transition-all hover:scale-105 ${
+                  className={`relative w-20 md:w-28 aspect-video rounded-lg overflow-hidden border-2 transition-all hover:scale-105 shrink-0 ${
                     currentBannerIndex === idx ? 'border-yellow-500 shadow-lg scale-105' : 'border-white/10 opacity-60'
                   }`}
                 >
                   <Image src={item.imageUrl} alt={item.title} fill sizes="112px" className="object-cover" />
-                  <div className="absolute inset-0 bg-black/40 flex items-end p-1.5">
-                    <span className="text-[9px] font-bold text-white truncate w-full text-left">
+                  <div className="absolute inset-0 bg-black/40 flex items-end p-1 md:p-1.5">
+                    <span className="text-[8px] md:text-[9px] font-bold text-white truncate w-full text-left">
                       {item.title}
                     </span>
                   </div>
