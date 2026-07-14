@@ -333,10 +333,19 @@ export const googleLogin = async (req: AuthenticatedRequest, res: Response) => {
     });
 
     if (!user) {
-      user = await prisma.user.findUnique({
+      const emailAccount = await prisma.user.findUnique({
         where: { email },
-        include: { role: true },
+        select: { id: true, isLocked: true },
       });
+      if (emailAccount?.isLocked) {
+        return res.status(403).json({ message: 'Account is locked. Please contact support.' });
+      }
+      if (emailAccount) {
+        return res.status(409).json({
+          message: 'Email này đã được đăng ký bằng mật khẩu. Hãy đăng nhập bằng email và mật khẩu.',
+          code: 'EMAIL_PASSWORD_ACCOUNT_EXISTS',
+        });
+      }
     }
 
     if (user?.isLocked) {
@@ -344,9 +353,6 @@ export const googleLogin = async (req: AuthenticatedRequest, res: Response) => {
     }
 
     if (user) {
-      if (user.googleId && user.googleId !== googleId) {
-        return res.status(409).json({ message: 'Email này đã liên kết với một tài khoản Google khác.' });
-      }
       user = await prisma.user.update({
         where: { id: user.id },
         data: {
