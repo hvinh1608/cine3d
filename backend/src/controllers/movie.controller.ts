@@ -28,7 +28,7 @@ async function viewerCanAccessVip(req: Request): Promise<boolean> {
   if (!authReq.user?.id) return false;
   const user = await prisma.user.findUnique({
     where: { id: authReq.user.id },
-    select: { isVip: true, vipExpiresAt: true, isLocked: true },
+    select: { isVip: true, vipExpiresAt: true, isLocked: true, role: { select: { name: true } } },
   });
   return hasVipAccess(user);
 }

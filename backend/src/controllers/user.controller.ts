@@ -379,7 +379,7 @@ export const uploadAvatar = async (req: AuthenticatedRequest, res: Response) => 
   try {
     const dbUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: { isVip: true, vipExpiresAt: true, isLocked: true, role: { select: { name: true } } },
+      select: { isVip: true, vipExpiresAt: true, isLocked: true, avatar: true, role: { select: { name: true } } },
     });
 
     if (!dbUser) return res.status(404).json({ message: 'User not found.' });
@@ -399,6 +399,21 @@ export const uploadAvatar = async (req: AuthenticatedRequest, res: Response) => 
       }
 
       const publicUrl = `${req.protocol}://${req.get('host')}/uploads/avatars/${req.file.filename}`;
+
+      // Xóa file avatar cũ nếu đó là file tải lên cục bộ để tránh rác máy chủ
+      if (dbUser.avatar && dbUser.avatar.includes('/uploads/avatars/')) {
+        const oldFilename = dbUser.avatar.split('/uploads/avatars/')[1];
+        if (oldFilename) {
+          const oldFilePath = path.join(__dirname, '../../uploads/avatars', oldFilename);
+          fs.unlink(oldFilePath, (unlinkErr) => {
+            if (unlinkErr) {
+              console.warn(`Không thể xóa file avatar cũ: ${oldFilePath}. Lỗi: ${unlinkErr.message}`);
+            } else {
+              console.log(`Đã dọn dẹp file avatar cũ: ${oldFilename}`);
+            }
+          });
+        }
+      }
 
       const updated = await prisma.user.update({
         where: { id: userId },
