@@ -7,6 +7,7 @@ import type { AxiosError } from 'axios';
 import { User, Lock, Mail, Heart, History, Play, Bookmark, Trash2, LogOut, Check, Save, Crown } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
+import GoogleSignInButton from '../../components/auth/GoogleSignInButton';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const requestMessage = (error: unknown, fallback: string) => (error as AxiosError<{ message?: string }>).response?.data?.message || fallback;
@@ -42,15 +43,10 @@ export default function AccountPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get('resetToken');
-    const verified = params.get('verified');
     queueMicrotask(() => {
       if (token) {
         setResetToken(token);
         setRecoveryMode('reset');
-      } else if (verified === 'success') {
-        setAuthNotice('Email đã được xác minh. Bạn có thể đăng nhập ngay.');
-      } else if (verified) {
-        setErrorMsg('Liên kết xác minh không hợp lệ hoặc đã hết hạn.');
       }
     });
   }, []);
@@ -101,15 +97,29 @@ export default function AccountPage() {
         ? { email: email.trim(), password }
         : { email: email.trim(), username: username.trim(), password };
       const res = await axios.post(endpoint, payload);
-      if (res.data.requiresVerification) {
-        setIsLogin(true);
-        setAuthNotice(res.data.message || 'Vui lòng kiểm tra email để xác minh tài khoản.');
-        return;
-      }
       setSession(res.data.user, res.data.accessToken);
       showToast(isLogin ? 'Đăng nhập thành công!' : 'Đăng ký tài khoản thành công!', 'success');
     } catch (error) {
       setErrorMsg(requestMessage(error, 'Có lỗi xảy ra, vui lòng thử lại.'));
+    } finally {
+      submittingRef.current = false;
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleGoogleCredential = async (credential: string) => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setIsSubmitting(true);
+    setErrorMsg('');
+    setAuthNotice('');
+
+    try {
+      const response = await axios.post('/auth/google', { credential });
+      setSession(response.data.user, response.data.accessToken);
+      showToast('Đăng nhập Google thành công!', 'success');
+    } catch (error) {
+      setErrorMsg(requestMessage(error, 'Không thể đăng nhập bằng Google. Vui lòng thử lại.'));
     } finally {
       submittingRef.current = false;
       setIsSubmitting(false);
@@ -228,6 +238,17 @@ export default function AccountPage() {
             <div className="rounded-lg border border-emerald-500/30 bg-emerald-950/40 px-4 py-2.5 text-xs leading-relaxed text-emerald-300">
               {authNotice}
             </div>
+          )}
+
+          {recoveryMode === 'none' && (
+            <>
+              <GoogleSignInButton onCredential={handleGoogleCredential} />
+              <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-slate-600">
+                <span className="h-px flex-1 bg-white/10" />
+                Hoặc dùng email
+                <span className="h-px flex-1 bg-white/10" />
+              </div>
+            </>
           )}
 
           {recoveryMode !== 'none' ? (

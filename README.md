@@ -16,7 +16,9 @@ Website xem phim trực tuyến với thiết kế giao diện không gian 3D, c
 
 Backend tự chạy `prisma migrate deploy` khi khởi động. Database cũ được đồng bộ và ghi nhận migration nền đúng một lần, vì vậy Render không cần mở Shell. Từ những lần deploy tiếp theo, hãy tạo migration mới thay vì dùng `prisma db push` trực tiếp trên production.
 
-Khôi phục mật khẩu hỗ trợ Resend qua `RESEND_API_KEY` và `MAIL_FROM`. Sau khi xác minh domain gửi, đặt thêm `PUBLIC_API_URL` và `PASSWORD_RESET_URL` theo URL production. Muốn bắt buộc người đăng ký xác minh email, đặt `REQUIRE_EMAIL_VERIFICATION=true`; backend sẽ từ chối khởi động nếu chế độ này được bật nhưng chưa có cấu hình gửi email.
+Khôi phục mật khẩu qua email là tính năng tùy chọn, hỗ trợ Resend bằng `RESEND_API_KEY`, `MAIL_FROM` và `PASSWORD_RESET_URL`. Đăng ký thông thường và Google không yêu cầu Resend hay tên miền gửi thư.
+
+Đăng nhập/đăng ký Google dùng cùng một OAuth 2.0 Web Client ID: đặt `GOOGLE_CLIENT_ID` ở backend và `NEXT_PUBLIC_GOOGLE_CLIENT_ID` ở frontend. Backend xác minh Google ID token trước khi tạo session CINE3D; người dùng Google không cần mật khẩu hay email xác minh riêng.
 
 Dự án được xây dựng trọn vẹn cả Frontend, Backend, Database PostgreSQL và tích hợp Docker Compose để dễ dàng triển khai.
 

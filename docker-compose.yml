@@ -42,9 +42,8 @@ services:
       VIP_PAYMENT_MODE: "${VIP_PAYMENT_MODE:-manual}"
       RESEND_API_KEY: "${RESEND_API_KEY:-}"
       MAIL_FROM: "${MAIL_FROM:-}"
-      PUBLIC_API_URL: "${PUBLIC_API_URL:-http://localhost:5000/api}"
       PASSWORD_RESET_URL: "${PASSWORD_RESET_URL:-http://localhost:3000/account}"
-      REQUIRE_EMAIL_VERIFICATION: "${REQUIRE_EMAIL_VERIFICATION:-false}"
+      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
     depends_on:
       db:
         condition: service_healthy
@@ -68,6 +67,7 @@ services:
       NEXT_PUBLIC_API_URL: "http://localhost:5000/api"
       INTERNAL_API_URL: "http://backend:5000/api"
       NEXT_PUBLIC_SITE_URL: "${NEXT_PUBLIC_SITE_URL:-http://localhost:3000}"
+      NEXT_PUBLIC_GOOGLE_CLIENT_ID: "${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}"
     depends_on:
       backend:
         condition: service_healthy
