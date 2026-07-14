@@ -38,7 +38,7 @@ export default function RootLayout({
           <Navbar />
         </Suspense>
 
-        <main className="flex-1 w-full relative z-10 pt-20 flex flex-col">
+        <main className="flex-1 w-full relative z-10 pt-20 pb-20 md:pb-0 flex flex-col">
           {children}
         </main>
 

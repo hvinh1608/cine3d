@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowRight, Search, SearchX, Film, LogOut, ShieldAlert, Sparkles, Menu, X, Bell, Crown, History, Trash2 } from 'lucide-react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { ArrowRight, Search, SearchX, Film, LogOut, ShieldAlert, Sparkles, Menu, X, Bell, Crown, History, Trash2, Home, User } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 import type { Movie } from '../../types/movie';
@@ -25,7 +25,13 @@ type NotificationItem = {
 export default function Navbar() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   const { user, logout, hasHydrated, authReady, accessToken } = useStore();
+
+  const isTabActive = (path: string) => {
+    if (path === '/') return pathname === '/';
+    return pathname?.startsWith(path);
+  };
 
   const [scrolled, setScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
@@ -619,6 +625,36 @@ export default function Navbar() {
           </div>
         </div>
       )}
+
+      {/* MOBILE BOTTOM NAVIGATION */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#020205]/95 border-t border-white/10 backdrop-blur-xl flex justify-around items-center py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
+        <Link href="/" className={`flex flex-col items-center gap-0.5 active:scale-95 transition-all ${isTabActive('/') ? 'text-yellow-500 font-bold' : 'text-slate-400 hover:text-white'}`}>
+          <Home className="w-5 h-5" />
+          <span className="text-[10px] font-medium">Trang chủ</span>
+        </Link>
+        <Link href="/search" className={`flex flex-col items-center gap-0.5 active:scale-95 transition-all ${isTabActive('/search') ? 'text-yellow-500 font-bold' : 'text-slate-400 hover:text-white'}`}>
+          <Search className="w-5 h-5" />
+          <span className="text-[10px] font-medium">Tìm kiếm</span>
+        </Link>
+        <Link href="/vip" className={`flex flex-col items-center gap-0.5 active:scale-95 transition-all ${isTabActive('/vip') ? 'text-amber-500 font-bold' : 'text-slate-400 hover:text-amber-400'}`}>
+          <Crown className="w-5 h-5" />
+          <span className="text-[10px] font-medium">VIP</span>
+        </Link>
+        <Link href="/account" className={`flex flex-col items-center gap-0.5 active:scale-95 transition-all ${isTabActive('/account') ? 'text-yellow-500 font-bold' : 'text-slate-400 hover:text-white'}`}>
+          {user ? (
+            <Image
+              src={user.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=40&q=80'}
+              alt={user.username}
+              width={20}
+              height={20}
+              className={`w-5 h-5 rounded-full object-cover border ${isTabActive('/account') ? 'border-yellow-500' : 'border-white/20'}`}
+            />
+          ) : (
+            <User className="w-5 h-5" />
+          )}
+          <span className="text-[10px] font-medium">Cá nhân</span>
+        </Link>
+      </div>
     </nav>
   );
 }
