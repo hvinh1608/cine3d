@@ -1,13 +1,22 @@
 import nodemailer from 'nodemailer';
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
+const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 
+const brevoConfigured = Boolean(process.env.BREVO_API_KEY && process.env.MAIL_FROM);
 const resendConfigured = Boolean(process.env.RESEND_API_KEY && process.env.MAIL_FROM);
 const smtpConfigured = Boolean(
   process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS && process.env.MAIL_FROM
 );
 
-export const emailDeliveryConfigured = resendConfigured || smtpConfigured;
+export const emailDeliveryConfigured = brevoConfigured || resendConfigured || smtpConfigured;
+
+function parseSender(value: string) {
+  const match = value.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
+  return match
+    ? { name: match[1] || 'CINE3D', email: match[2].trim() }
+    : { name: 'CINE3D', email: value.trim() };
+}
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>'"]/g, (character) => ({
@@ -48,6 +57,31 @@ export async function sendActionEmail(input: {
           </div>
         </div>`;
   const text = `Xin chào ${input.username}. ${input.message}\n\n${input.actionLabel}: ${input.actionUrl}\n\nLiên kết có thời hạn 60 phút.`;
+
+  if (brevoConfigured) {
+    const response = await fetch(BREVO_API_URL, {
+      method: 'POST',
+      headers: {
+        'api-key': process.env.BREVO_API_KEY!,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: parseSender(process.env.MAIL_FROM!),
+        to: [{ email: input.to }],
+        subject: input.subject,
+        htmlContent: html,
+        textContent: text,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+
+    if (!response.ok) {
+      const details = await response.text();
+      throw new Error(`Brevo rejected the request (${response.status}): ${details.slice(0, 300)}`);
+    }
+    return;
+  }
 
   if (resendConfigured && !smtpConfigured) {
     const response = await fetch(RESEND_API_URL, {
