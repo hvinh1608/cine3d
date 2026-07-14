@@ -84,7 +84,7 @@ export async function sendActionEmail(input: {
     return;
   }
 
-  if (resendConfigured && !smtpConfigured) {
+  if (resendConfigured) {
     const response = await fetch(RESEND_API_URL, {
       method: 'POST',
       headers: {
