@@ -229,14 +229,20 @@ export const getBanners = async (req: Request, res: Response) => {
 /** Home payload in one round trip; shared KKPhim calls are also cached by the client. */
 export const getHome = async (_req: Request, res: Response) => {
   try {
-    const [newRaw, proposedRaw, trendingRaw] = await Promise.all([
+    const [newResult, proposedResult, trendingResult] = await Promise.allSettled([
       fetchNewMovies(1),
       fetchMovieList('phim-bo', { page: 1, limit: 12 }),
       fetchMovieList('phim-le', { page: 1, limit: 12, sort_field: 'view', sort_type: 'desc' }),
     ]);
-    const latest = extractListPagination(newRaw);
-    const proposed = extractListPagination(proposedRaw);
-    const trending = extractListPagination(trendingRaw);
+
+    const failures = [newResult, proposedResult, trendingResult].filter((result) => result.status === 'rejected');
+    if (failures.length === 3) throw (newResult as PromiseRejectedResult).reason;
+    if (failures.length) console.warn(`Home payload is partial: ${failures.length}/3 upstream requests failed.`);
+
+    const emptyList = { items: [], total: 0, page: 1, limit: 0, totalPages: 1, cdn: '' };
+    const latest = newResult.status === 'fulfilled' ? extractListPagination(newResult.value) : emptyList;
+    const proposed = proposedResult.status === 'fulfilled' ? extractListPagination(proposedResult.value) : emptyList;
+    const trending = trendingResult.status === 'fulfilled' ? extractListPagination(trendingResult.value) : emptyList;
     const newestMovies = latest.items.map((item) => mapListItem(item, latest.cdn));
     const trendingMovies = trending.items.map((item) => mapListItem(item, trending.cdn));
 
@@ -260,6 +266,7 @@ export const getHome = async (_req: Request, res: Response) => {
         isProposed: true,
       })),
       movies: newestMovies,
+      partial: failures.length > 0,
     });
   } catch (error: any) {
     const status = error instanceof KkphimError ? error.status : 500;

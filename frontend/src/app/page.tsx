@@ -25,6 +25,7 @@ export default function Home() {
   const [parallaxOffset, setParallaxOffset] = useState({ x: 0, y: 0 });
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [reloadKey, setReloadKey] = useState(0);
   
   const recommendedRowRef = useRef<HTMLDivElement>(null);
   const latestRowRef = useRef<HTMLDivElement>(null);
@@ -44,38 +45,42 @@ export default function Home() {
 
   // Fetch data from backend
   useEffect(() => {
+    const controller = new AbortController();
     const fetchData = async () => {
+      setLoading(true);
       setLoadError('');
-      try {
-        const [homeRes, animeRes] = await Promise.all([
-          axios.get(`${API_URL}/movies/home`),
-          axios.get(`${API_URL}/movies`, { params: { type: 'hoathinh', limit: 12 } })
-        ]);
+      const [homeResult, animeResult] = await Promise.allSettled([
+        axios.get(`${API_URL}/movies/home`, { signal: controller.signal, timeout: 35_000 }),
+        axios.get(`${API_URL}/movies`, { params: { type: 'hoathinh', limit: 12 }, signal: controller.signal, timeout: 30_000 }),
+      ]);
 
-        const data = homeRes.data;
+      if (controller.signal.aborted) return;
+
+      if (homeResult.status === 'fulfilled') {
+        const data = homeResult.value.data;
         setBanners(Array.isArray(data?.banners) ? data.banners : []);
         setTrending(Array.isArray(data?.trending) ? data.trending : []);
         setProposed(Array.isArray(data?.proposed) ? data.proposed : []);
         setAllMovies(Array.isArray(data?.movies) ? data.movies : []);
-
-        const animeData = animeRes.data;
-        setAnimeList(Array.isArray(animeData?.movies) ? animeData.movies : []);
-      } catch (error) {
-        console.warn('Failed to load movies from API.', error);
-        setLoadError('Không tải được danh sách phim. Kiểm tra backend và kết nối mạng.');
-        setBanners([]);
-        setTrending([]);
-        setProposed([]);
-        setAllMovies([]);
-        setAnimeList([]);
-      } finally {
-        setLoading(false);
       }
+
+      if (animeResult.status === 'fulfilled') {
+        const animeData = animeResult.value.data;
+        setAnimeList(Array.isArray(animeData?.movies) ? animeData.movies : []);
+      }
+
+      const failedSections = [homeResult, animeResult].filter((result) => result.status === 'rejected').length;
+      if (failedSections === 2) setLoadError('Không tải được danh sách phim. Backend có thể đang khởi động, vui lòng thử lại.');
+      else if (failedSections === 1) setLoadError('Một phần nội dung tải chậm và đang tạm thời không hiển thị.');
+      setLoading(false);
     };
 
-    fetchData();
+    void fetchData();
+    return () => controller.abort();
+  }, [reloadKey]);
 
-    // Load watch history if logged in
+  useEffect(() => {
+    // Watch history must not force the public movie catalog to refetch after login.
     if (user && accessToken) {
       axios.get(`${API_URL}/user/history`, {
         headers: { Authorization: `Bearer ${accessToken}` }
@@ -199,8 +204,11 @@ export default function Home() {
     <div className="flex-1 w-full pb-20 flex flex-col text-slate-100 bg-transparent">
       {loadError && (
         <div className="max-w-7xl mx-auto px-4 md:px-8 w-full mt-6">
-          <div className="bg-red-950/40 border border-red-500/30 text-red-300 text-sm px-4 py-3 rounded-xl">
-            {loadError}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-950/30 px-4 py-3 text-sm text-amber-200">
+            <span>{loadError}</span>
+            <button type="button" onClick={() => setReloadKey((key) => key + 1)} className="rounded-lg border border-amber-400/20 px-3 py-1.5 text-xs font-black transition hover:bg-amber-400/10">
+              Thử tải lại
+            </button>
           </div>
         </div>
       )}
