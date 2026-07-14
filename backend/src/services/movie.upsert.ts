@@ -36,6 +36,7 @@ export function mapStoredMovie(movie: any): AppMovie {
         quality: source.quality,
         url: source.url,
         type: source.type === 'mp4' ? 'mp4' : 'hls',
+        isPremium: source.isPremium,
       })),
       subtitles: episode.subtitles.map((subtitle: any) => ({
         id: subtitle.id,

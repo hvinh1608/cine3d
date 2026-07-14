@@ -1,12 +1,13 @@
-export interface VideoSource { id: string; server: string; quality: string; url: string; type: 'hls' | 'mp4' }
+export interface VideoSource { id: string; server: string; quality: string; url: string; type: 'hls' | 'mp4'; isPremium?: boolean }
 export interface Subtitle { id: string; language: string; url: string }
-export interface Episode { id: string; title: string; episodeOrder: number; videoSources: VideoSource[]; subtitles?: Subtitle[] }
+export interface Episode { id: string; title: string; episodeOrder: number; videoSources: VideoSource[]; subtitles?: Subtitle[]; premiumSourcesLocked?: number }
 export interface Movie {
   id: string; title: string; englishTitle?: string | null; slug: string;
   description?: string; posterUrl: string; backdropUrl: string; trailerUrl?: string | null;
   releaseYear: number; duration?: number; quality: string; ratingAvg: number; views?: number;
   isSeries: boolean; episodeCount: number; episodes?: Episode[];
   isVip?: boolean; requiresVip?: boolean;
+  vipEarlyAccessUntil?: string | null; isEarlyAccess?: boolean;
   movieGenres?: { genre: { name: string; slug: string } }[];
   movieActors?: { actor: { name: string } }[];
   movieDirectors?: { director: { name: string } }[];

@@ -62,13 +62,14 @@ export default function AdminPage() {
   const [movieIsTrending, setMovieIsTrending] = useState(false);
   const [movieIsProposed, setMovieIsProposed] = useState(false);
   const [movieIsVip, setMovieIsVip] = useState(false);
+  const [movieVipEarlyAccessUntil, setMovieVipEarlyAccessUntil] = useState('');
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
 
   // Episode Add Form States
   const [selectedMovieId, setSelectedMovieId] = useState<string>('');
   const [epTitle, setEpTitle] = useState('');
   const [epOrder, setEpOrder] = useState('1');
-  const [videoSources, setVideoSources] = useState<any[]>([{ server: 'Main Server', quality: '1080p', url: '', type: 'hls' }]);
+  const [videoSources, setVideoSources] = useState<any[]>([{ server: 'Main Server', quality: '1080p', url: '', type: 'hls', isPremium: false }]);
   const [subtitles, setSubtitles] = useState<any[]>([{ language: 'Vietnamese', url: '' }]);
 
   const [loading, setLoading] = useState(true);
@@ -164,6 +165,7 @@ export default function AdminPage() {
     setMovieIsTrending(movie.isTrending || false);
     setMovieIsProposed(movie.isProposed || false);
     setMovieIsVip(movie.isVip || false);
+    setMovieVipEarlyAccessUntil(movie.vipEarlyAccessUntil ? new Date(movie.vipEarlyAccessUntil).toISOString().slice(0, 16) : '');
     
     // Set checked genres
     const gIds = movie.movieGenres?.map((mg: any) => mg.genreId) || [];
@@ -191,6 +193,7 @@ export default function AdminPage() {
     setMovieIsTrending(false);
     setMovieIsProposed(false);
     setMovieIsVip(false);
+    setMovieVipEarlyAccessUntil('');
     setSelectedGenres([]);
   };
 
@@ -220,6 +223,7 @@ export default function AdminPage() {
       isTrending: movieIsTrending,
       isProposed: movieIsProposed,
       isVip: movieIsVip,
+      vipEarlyAccessUntil: movieVipEarlyAccessUntil || null,
       genreIds: selectedGenres,
     };
 
@@ -260,7 +264,7 @@ export default function AdminPage() {
 
   // Video Sources Array actions
   const handleAddSource = () => {
-    setVideoSources([...videoSources, { server: `Backup Server ${videoSources.length + 1}`, quality: '1080p', url: '', type: 'hls' }]);
+    setVideoSources([...videoSources, { server: `Backup Server ${videoSources.length + 1}`, quality: '1080p', url: '', type: 'hls', isPremium: false }]);
   };
 
   const handleRemoveSource = (index: number) => {
@@ -312,7 +316,7 @@ export default function AdminPage() {
       
       // Reset forms
       setEpTitle('');
-      setVideoSources([{ server: 'Main Server', quality: '1080p', url: '', type: 'hls' }]);
+      setVideoSources([{ server: 'Main Server', quality: '1080p', url: '', type: 'hls', isPremium: false }]);
       setSubtitles([{ language: 'Vietnamese', url: '' }]);
     } catch (e: any) {
       showToast(e.response?.data?.message || 'Lỗi thêm tập.', 'error');
@@ -789,6 +793,15 @@ export default function AdminPage() {
                   />
                   Phim VIP (isVip)
                 </label>
+                <label className="flex min-w-[220px] flex-col gap-1 text-[10px] font-black uppercase tracking-wider text-amber-300">
+                  VIP xem sớm đến
+                  <input
+                    type="datetime-local"
+                    value={movieVipEarlyAccessUntil}
+                    onChange={(e) => setMovieVipEarlyAccessUntil(e.target.value)}
+                    className="rounded-lg border border-amber-400/20 bg-slate-950 px-3 py-2 text-xs font-medium normal-case text-white outline-none focus:border-amber-400"
+                  />
+                </label>
               </div>
 
               <button
@@ -927,7 +940,7 @@ export default function AdminPage() {
                               <td className="py-2.5 font-bold">#{ep.episodeOrder}</td>
                               <td className="py-2.5">{ep.title}</td>
                               <td className="py-2.5 text-[10px] text-slate-400 truncate max-w-[250px]">
-                                {ep.videoSources?.map((s: any) => `${s.server} (${s.quality})`).join(', ') || 'HLS URL'}
+                                {ep.videoSources?.map((s: any) => `${s.server} (${s.quality}${s.isPremium ? ' · Premium' : ''})`).join(', ') || 'HLS URL'}
                               </td>
                               <td className="py-2.5 text-right">
                                 <button
@@ -1036,6 +1049,15 @@ export default function AdminPage() {
                           className="bg-slate-900 border border-white/10 rounded-lg px-3 py-1.5 text-xs outline-none w-full"
                         />
                       </div>
+                      <label className="flex items-center gap-2 text-[10px] font-black uppercase text-amber-400 sm:col-span-4">
+                        <input
+                          type="checkbox"
+                          checked={!!src.isPremium}
+                          onChange={(e) => handleSourceChange(index, 'isPremium', e.target.checked)}
+                          className="rounded text-amber-500 focus:ring-0"
+                        />
+                        Nguồn Premium — chỉ VIP được xem và được ưu tiên phát trước
+                      </label>
                       
                       {videoSources.length > 1 && (
                         <button

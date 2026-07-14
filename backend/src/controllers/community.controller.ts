@@ -2,6 +2,11 @@ import { Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { internalError } from '../lib/http-error';
+import { hasVipAccess } from '../lib/vip';
+
+function publicCommentUser(user: { id: string; username: string; avatar: string | null; isVip: boolean; vipExpiresAt: Date | null }) {
+  return { id: user.id, username: user.username, avatar: user.avatar, isVip: hasVipAccess(user) };
+}
 
 
 // Comments
@@ -15,12 +20,12 @@ export const getComments = async (req: AuthenticatedRequest, res: Response) => {
       take: 50,
       include: {
         user: {
-          select: { id: true, username: true, avatar: true },
+          select: { id: true, username: true, avatar: true, isVip: true, vipExpiresAt: true },
         },
         replies: {
           include: {
             user: {
-              select: { id: true, username: true, avatar: true },
+              select: { id: true, username: true, avatar: true, isVip: true, vipExpiresAt: true },
             },
             commentLikes: { select: { userId: true } },
           },
@@ -42,6 +47,7 @@ export const getComments = async (req: AuthenticatedRequest, res: Response) => {
         const { commentLikes, ...replyData } = reply;
         return {
           ...replyData,
+          user: publicCommentUser(reply.user),
           likesCount: commentLikes.length,
           isLiked: currentUserId ? commentLikes.some((like) => like.userId === currentUserId) : false,
         };
@@ -51,6 +57,7 @@ export const getComments = async (req: AuthenticatedRequest, res: Response) => {
 
       return {
         ...commentData,
+        user: publicCommentUser(comment.user),
         likesCount: commentLikes.length,
         isLiked,
         replies,
@@ -93,12 +100,12 @@ export const createComment = async (req: AuthenticatedRequest, res: Response) =>
       },
       include: {
         user: {
-          select: { id: true, username: true, avatar: true },
+          select: { id: true, username: true, avatar: true, isVip: true, vipExpiresAt: true },
         },
       },
     });
 
-    return res.status(201).json(comment);
+    return res.status(201).json({ ...comment, user: publicCommentUser(comment.user) });
   } catch (error: any) {
     return internalError(res, 'Error posting comment.', error);
   }

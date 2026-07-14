@@ -6,6 +6,7 @@ export type AppVideoSource = {
   quality: string;
   url: string;
   type: 'hls' | 'mp4';
+  isPremium?: boolean;
 };
 
 export type AppEpisode = {
@@ -37,6 +38,8 @@ export type AppMovie = {
   isTrending: boolean;
   isProposed: boolean;
   isVip?: boolean;
+  vipEarlyAccessUntil?: Date | string | null;
+  isEarlyAccess?: boolean;
   requiresVip?: boolean;
   country: { name: string; slug: string } | null;
   movieGenres: { genre: { name: string; slug: string } }[];

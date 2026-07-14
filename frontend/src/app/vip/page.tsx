@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { BadgeCheck, Check, Clock3, Crown, MonitorPlay, ReceiptText, ShieldCheck, Sparkles, X, Zap } from 'lucide-react';
+import { BadgeCheck, Check, Clock3, Crown, Download, MonitorPlay, ReceiptText, ShieldCheck, Sparkles, X, Zap } from 'lucide-react';
 import api from '../../lib/api';
 import { useStore } from '../../hooks/useStore';
 
@@ -138,6 +138,7 @@ export default function VipPage() {
             <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Quyền lợi Premium</p>
             <div className="mt-5 space-y-4">
               <div className="flex items-center gap-3"><span className="rounded-xl bg-amber-400/15 p-2.5 text-amber-300"><MonitorPlay className="h-5 w-5" /></span><div><p className="text-sm font-bold text-white">Nội dung VIP độc quyền</p><p className="text-xs text-slate-500">Mở khóa toàn bộ nguồn phát Premium</p></div></div>
+              <div className="flex items-center gap-3"><span className="rounded-xl bg-cyan-400/15 p-2.5 text-cyan-300"><Download className="h-5 w-5" /></span><div><p className="text-sm font-bold text-white">Tải phim khi có MP4</p><p className="text-xs text-slate-500">Nút tải trực tiếp dành riêng cho tài khoản VIP</p></div></div>
               <div className="flex items-center gap-3"><span className="rounded-xl bg-purple-400/15 p-2.5 text-purple-300"><Zap className="h-5 w-5" /></span><div><p className="text-sm font-bold text-white">Kích hoạt nhanh chóng</p><p className="text-xs text-slate-500">Thời hạn tự động cộng dồn sau xác nhận</p></div></div>
               <div className="flex items-center gap-3"><span className="rounded-xl bg-emerald-400/15 p-2.5 text-emerald-300"><ShieldCheck className="h-5 w-5" /></span><div><p className="text-sm font-bold text-white">Quản lý minh bạch</p><p className="text-xs text-slate-500">Theo dõi đơn và hạn dùng ngay trên tài khoản</p></div></div>
             </div>

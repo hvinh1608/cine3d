@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Play, Star, Plus, Check, Calendar, Clock, Globe, Film, Send, Trash2, Heart, Video, X } from 'lucide-react';
+import { Play, Star, Plus, Check, Calendar, Clock, Globe, Film, Send, Trash2, Heart, Video, X, Crown } from 'lucide-react';
 import { useStore } from '../../../hooks/useStore';
 import MovieCardLandscape from '../../../components/ui/MovieCardLandscape';
 import axios from '../../../lib/api';
@@ -167,18 +167,7 @@ export default function MovieDetail() {
       }, ...comments]);
       setNewComment('');
     } catch (error) {
-      // Offline fallback push
-      const newCommentMock = {
-        id: Math.random().toString(),
-        content: newComment.trim(),
-        createdAt: new Date().toISOString(),
-        user: { username: user.username, avatar: user.avatar },
-        likesCount: 0,
-        isLiked: false,
-        replies: []
-      };
-      setComments([newCommentMock, ...comments]);
-      setNewComment('');
+      showToast('Không thể đăng bình luận. Vui lòng thử lại.', 'error');
     }
   };
 
@@ -489,6 +478,11 @@ export default function MovieDetail() {
                     VIP
                   </span>
                 )}
+                {movie.isEarlyAccess && (
+                  <span className="bg-gradient-to-r from-purple-500 to-fuchsia-400 text-white font-black text-xs px-2.5 py-1 rounded-full uppercase tracking-widest shadow-lg">
+                    Chiếu sớm VIP
+                  </span>
+                )}
               </h1>
               {movie.englishTitle && <p className="text-slate-400 text-lg font-medium">{movie.englishTitle}</p>}
             </div>
@@ -670,7 +664,7 @@ export default function MovieDetail() {
                     />
                     <div className="flex-1 space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-xs md:text-sm text-slate-200">{comment.user?.username}</span>
+                        <span className="flex items-center gap-2 font-bold text-xs md:text-sm text-slate-200">{comment.user?.username}{comment.user?.isVip && <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/20 bg-amber-400/10 px-1.5 py-0.5 text-[8px] font-black uppercase text-amber-300"><Crown className="h-2.5 w-2.5" /> VIP</span>}</span>
                         <span className="text-[10px] text-slate-500">
                           {new Date(comment.createdAt).toLocaleDateString('vi-VN')}
                         </span>
@@ -749,7 +743,7 @@ export default function MovieDetail() {
                           />
                           <div className="flex-1 space-y-1">
                             <div className="flex items-center justify-between text-[11px]">
-                              <span className="font-bold text-slate-300">{reply.user?.username}</span>
+                              <span className="flex items-center gap-1.5 font-bold text-slate-300">{reply.user?.username}{reply.user?.isVip && <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/10 px-1.5 py-0.5 text-[7px] font-black uppercase text-amber-300"><Crown className="h-2 w-2" /> VIP</span>}</span>
                               <span className="text-[9px] text-slate-500">
                                 {new Date(reply.createdAt).toLocaleDateString('vi-VN')}
                               </span>

@@ -11,6 +11,7 @@ import { mapListItem, mapMovieDetail, extractListPagination } from '../services/
 import { ensureMovieInDb } from '../services/movie.upsert';
 import { internalError } from '../lib/http-error';
 import { hasVipAccess } from '../lib/vip';
+import { shapeMovieForViewer } from '../lib/vip-content';
 
 
 function resolveTypeList(type?: string): string {
@@ -19,6 +20,17 @@ function resolveTypeList(type?: string): string {
   if (type === 'hoathinh' || type === 'anime') return 'hoat-hinh';
   if (type === 'tvshows' || type === 'tv') return 'tv-shows';
   return 'phim-le';
+}
+
+async function viewerCanAccessVip(req: Request): Promise<boolean> {
+  const authReq = req as any;
+  if (authReq.user?.role === 'ADMIN') return true;
+  if (!authReq.user?.id) return false;
+  const user = await prisma.user.findUnique({
+    where: { id: authReq.user.id },
+    select: { isVip: true, vipExpiresAt: true, isLocked: true },
+  });
+  return hasVipAccess(user);
 }
 
 export const getMovies = async (req: Request, res: Response) => {
@@ -84,31 +96,7 @@ export const getMovieBySlug = async (req: Request, res: Response) => {
     // Upsert into DB so favorites/comments get a stable UUID
     const movie = await ensureMovieInDb(slug);
 
-    // Check VIP Gating
-    let isUserVip = false;
-    const authReq = req as any;
-    const isAdmin = authReq.user?.role === 'ADMIN';
-
-    if (authReq.user?.id) {
-      const dbUser = await prisma.user.findUnique({ where: { id: authReq.user.id }, select: { isVip: true, vipExpiresAt: true, isLocked: true } });
-      isUserVip = hasVipAccess(dbUser);
-    }
-
-    const canAccess = isAdmin || isUserVip;
-
-    if (movie.isVip && !canAccess) {
-      const gatedMovie = {
-        ...movie,
-        requiresVip: true,
-        episodes: movie.episodes.map((ep: any) => ({
-          ...ep,
-          videoSources: [], // Strip video sources for non-VIP
-        })),
-      };
-      return res.json(gatedMovie);
-    }
-
-    return res.json(movie);
+    return res.json(shapeMovieForViewer(movie, await viewerCanAccessVip(req)));
   } catch (error: any) {
     // Fallback: return KKPhim detail without DB if upsert fails
     try {
@@ -118,44 +106,22 @@ export const getMovieBySlug = async (req: Request, res: Response) => {
       }
       const movie = mapMovieDetail(raw);
 
-      // Check database VIP flag if movie exists in DB
       let dbMovie = null;
       try {
-        dbMovie = await prisma.movie.findUnique({ where: { slug } });
+        dbMovie = await prisma.movie.findUnique({
+          where: { slug },
+          select: { isVip: true, vipEarlyAccessUntil: true },
+        });
       } catch (dbErr) {
         console.warn('Fallback: Failed to query dbMovie VIP status.', dbErr);
         return res.status(503).json({ message: 'Movie service is temporarily unavailable.' });
       }
 
-      if (dbMovie?.isVip) {
-        let isUserVip = false;
-        const authReq = req as any;
-        const isAdmin = authReq.user?.role === 'ADMIN';
-        if (authReq.user?.id) {
-          try {
-            const dbUser = await prisma.user.findUnique({ where: { id: authReq.user.id }, select: { isVip: true, vipExpiresAt: true, isLocked: true } });
-            isUserVip = hasVipAccess(dbUser);
-          } catch (dbErr) {
-            console.warn('Fallback: Failed to query dbUser VIP status.', dbErr);
-          }
-        }
-        const canAccess = isAdmin || isUserVip;
-
-        if (!canAccess) {
-          const gatedMovie = {
-            ...movie,
-            isVip: true,
-            requiresVip: true,
-            episodes: movie.episodes.map((ep: any) => ({
-              ...ep,
-              videoSources: [],
-            })),
-          };
-          return res.json(gatedMovie);
-        }
-      }
-
-      return res.json(movie);
+      return res.json(shapeMovieForViewer({
+        ...movie,
+        isVip: dbMovie?.isVip || false,
+        vipEarlyAccessUntil: dbMovie?.vipEarlyAccessUntil || null,
+      }, await viewerCanAccessVip(req)));
     } catch (inner: any) {
       const status = inner instanceof KkphimError ? inner.status : 500;
       return internalError(res, 'Error retrieving movie details.', inner, status);

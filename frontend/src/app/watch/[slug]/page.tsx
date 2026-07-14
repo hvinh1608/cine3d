@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, ChevronRight, ChevronLeft, ListVideo, Server, LightbulbOff, ArrowLeft, Subtitles, Gauge, Tv, Settings, Maximize2, Lock } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, ChevronRight, ChevronLeft, ListVideo, Server, LightbulbOff, ArrowLeft, Subtitles, Gauge, Tv, Settings, Maximize2, Lock, Crown, Download } from 'lucide-react';
 import { useStore } from '../../../hooks/useStore';
 import axios from '../../../lib/api';
 import Hls from 'hls.js';
@@ -511,14 +511,14 @@ function WatchPageContent() {
               />
             )}
 
-            {movie.requiresVip ? (
+            {movie.requiresVip || (!activeSource && activeEpisode?.premiumSourcesLocked > 0) ? (
               <div className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 text-center space-y-4 z-20">
                 <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center border border-amber-500/30 shadow-[0_0_20px_rgba(245,158,11,0.2)] animate-pulse">
                   <Lock className="w-7 h-7 text-amber-400" />
                 </div>
                 
                 <div className="space-y-1.5 max-w-md">
-                  <h3 className="text-lg md:text-xl font-black text-amber-400 uppercase tracking-widest">Nội dung giới hạn VIP</h3>
+                  <h3 className="text-lg md:text-xl font-black text-amber-400 uppercase tracking-widest">{movie.isEarlyAccess ? 'Suất chiếu sớm VIP' : 'Nội dung giới hạn VIP'}</h3>
                   <p className="text-xs md:text-sm text-slate-300">
                     Bộ phim <span className="text-white font-bold">"{movie.title}"</span> hiện chỉ dành riêng cho thành viên Premium VIP. Vui lòng đăng nhập tài khoản VIP hoặc liên hệ Quản trị viên để nâng cấp.
                   </p>
@@ -939,6 +939,16 @@ function WatchPageContent() {
                       <button onClick={handleFullscreen} className="text-slate-300 hover:text-white transition-colors cursor-pointer" title="Toàn màn hình">
                         <Maximize className="w-4.5 h-4.5" />
                       </button>
+                      {user?.isVip && activeSource?.type === 'mp4' && (
+                        <a
+                          href={activeSource.url}
+                          download={`${movie.slug}-tap-${activeEpisode?.episodeOrder || 1}.mp4`}
+                          className="text-amber-300 transition-colors hover:text-amber-200"
+                          title="Tải MP4 dành cho VIP"
+                        >
+                          <Download className="w-4.5 h-4.5" />
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -970,9 +980,17 @@ function WatchPageContent() {
                           : 'bg-slate-900 border-white/5 text-slate-400 hover:bg-white/5'
                       }`}
                     >
-                      {src.server} ({src.quality})
+                      <span className="flex items-center justify-between gap-2">
+                        <span>{src.server} ({src.quality})</span>
+                        {src.isPremium && <span className="inline-flex items-center gap-1 rounded bg-amber-400/15 px-1.5 py-0.5 text-[8px] uppercase text-amber-300"><Crown className="h-2.5 w-2.5" /> VIP</span>}
+                      </span>
                     </button>
                   )) || <p className="text-slate-500 text-xs">Đang tải server...</p>
+                )}
+                {!movie.requiresVip && activeEpisode?.premiumSourcesLocked > 0 && !user?.isVip && (
+                  <Link href="/vip" className="col-span-full flex items-center justify-center gap-2 rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2.5 text-xs font-bold text-amber-300 hover:bg-amber-400/10">
+                    <Lock className="h-3.5 w-3.5" /> Mở khóa {activeEpisode.premiumSourcesLocked} nguồn Premium/4K
+                  </Link>
                 )}
               </div>
             </div>

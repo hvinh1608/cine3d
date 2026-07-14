@@ -96,10 +96,14 @@ export const createMovie = async (req: Request, res: Response) => {
     isTrending,
     isProposed,
     isVip,
+    vipEarlyAccessUntil,
   } = req.body;
 
   if (!title || !slug || !description || !backdropUrl || !posterUrl || !countryId) {
     return res.status(400).json({ message: 'Missing required movie fields.' });
+  }
+  if (vipEarlyAccessUntil && Number.isNaN(new Date(vipEarlyAccessUntil).getTime())) {
+    return res.status(400).json({ message: 'Invalid VIP early-access date.' });
   }
 
   try {
@@ -126,6 +130,7 @@ export const createMovie = async (req: Request, res: Response) => {
         isTrending: isTrending !== undefined ? !!isTrending : false,
         isProposed: isProposed !== undefined ? !!isProposed : false,
         isVip: isVip !== undefined ? !!isVip : false,
+        vipEarlyAccessUntil: vipEarlyAccessUntil ? new Date(vipEarlyAccessUntil) : null,
         countryId,
         movieGenres: {
           create: (genreIds || []).map((id: string) => ({ genreId: id })),
@@ -168,7 +173,12 @@ export const updateMovie = async (req: Request, res: Response) => {
     isTrending,
     isProposed,
     isVip,
+    vipEarlyAccessUntil,
   } = req.body;
+
+  if (vipEarlyAccessUntil && Number.isNaN(new Date(vipEarlyAccessUntil).getTime())) {
+    return res.status(400).json({ message: 'Invalid VIP early-access date.' });
+  }
 
   try {
     const existingMovie = await prisma.movie.findUnique({ where: { id } });
@@ -194,6 +204,9 @@ export const updateMovie = async (req: Request, res: Response) => {
         isTrending: isTrending !== undefined ? !!isTrending : undefined,
         isProposed: isProposed !== undefined ? !!isProposed : undefined,
         isVip: isVip !== undefined ? !!isVip : undefined,
+        vipEarlyAccessUntil: vipEarlyAccessUntil !== undefined
+          ? (vipEarlyAccessUntil ? new Date(vipEarlyAccessUntil) : null)
+          : undefined,
         countryId,
         movieGenres: genreIds
           ? {
@@ -256,6 +269,7 @@ export const createEpisode = async (req: Request, res: Response) => {
             quality: src.quality,
             url: src.url,
             type: src.type || 'hls',
+            isPremium: !!src.isPremium,
           })),
         },
         subtitles: {
@@ -301,6 +315,7 @@ export const updateEpisode = async (req: Request, res: Response) => {
                 quality: src.quality,
                 url: src.url,
                 type: src.type || 'hls',
+                isPremium: !!src.isPremium,
               })),
             }
           : undefined,
