@@ -357,6 +357,7 @@ export const getUsers = async (req: Request, res: Response) => {
         isVerified: true,
         isLocked: true,
         isVip: true,
+        vipExpiresAt: true,
         createdAt: true,
         updatedAt: true,
         role: { select: { id: true, name: true } },

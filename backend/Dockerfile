@@ -27,6 +27,7 @@ ENV NODE_ENV=production
 
 COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
+COPY tsconfig.json ./
 COPY prisma ./prisma/
 RUN npx prisma generate
 COPY --from=build /app/dist ./dist

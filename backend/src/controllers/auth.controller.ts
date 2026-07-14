@@ -5,6 +5,7 @@ import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { internalError } from '../lib/http-error';
+import { hasVipAccess } from '../lib/vip';
 
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
@@ -24,6 +25,7 @@ type SessionUser = {
   username: string;
   avatar: string | null;
   isVip: boolean;
+  vipExpiresAt: Date | null;
   role: { name: string };
 };
 
@@ -59,7 +61,8 @@ async function createSession(user: SessionUser) {
     user: {
       ...payload,
       avatar: user.avatar,
-      isVip: user.isVip,
+      isVip: hasVipAccess(user),
+      vipExpiresAt: user.vipExpiresAt,
     },
   };
 }
@@ -254,7 +257,8 @@ export const refresh = async (req: AuthenticatedRequest, res: Response) => {
         username: storedToken.user.username,
         avatar: storedToken.user.avatar,
         role: storedToken.user.role.name,
-        isVip: storedToken.user.isVip,
+        isVip: hasVipAccess(storedToken.user),
+        vipExpiresAt: storedToken.user.vipExpiresAt,
       },
     });
   } catch (error: any) {
@@ -292,6 +296,7 @@ export const getProfile = async (req: AuthenticatedRequest, res: Response) => {
         avatar: true,
         isVerified: true,
         isVip: true,
+        vipExpiresAt: true,
         role: { select: { name: true } },
       },
     });
@@ -307,7 +312,8 @@ export const getProfile = async (req: AuthenticatedRequest, res: Response) => {
         username: user.username,
         avatar: user.avatar,
         isVerified: user.isVerified,
-        isVip: user.isVip,
+        isVip: hasVipAccess(user),
+        vipExpiresAt: user.vipExpiresAt,
         role: user.role.name,
       },
     });

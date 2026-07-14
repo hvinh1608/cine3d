@@ -10,6 +10,7 @@ import {
 import { mapListItem, mapMovieDetail, extractListPagination } from '../services/kkphim.mapper';
 import { ensureMovieInDb } from '../services/movie.upsert';
 import { internalError } from '../lib/http-error';
+import { hasVipAccess } from '../lib/vip';
 
 
 function resolveTypeList(type?: string): string {
@@ -89,8 +90,8 @@ export const getMovieBySlug = async (req: Request, res: Response) => {
     const isAdmin = authReq.user?.role === 'ADMIN';
 
     if (authReq.user?.id) {
-      const dbUser = await prisma.user.findUnique({ where: { id: authReq.user.id }, select: { isVip: true, isLocked: true } });
-      isUserVip = !!dbUser?.isVip && !dbUser.isLocked;
+      const dbUser = await prisma.user.findUnique({ where: { id: authReq.user.id }, select: { isVip: true, vipExpiresAt: true, isLocked: true } });
+      isUserVip = hasVipAccess(dbUser);
     }
 
     const canAccess = isAdmin || isUserVip;
@@ -132,8 +133,8 @@ export const getMovieBySlug = async (req: Request, res: Response) => {
         const isAdmin = authReq.user?.role === 'ADMIN';
         if (authReq.user?.id) {
           try {
-            const dbUser = await prisma.user.findUnique({ where: { id: authReq.user.id }, select: { isVip: true, isLocked: true } });
-            isUserVip = !!dbUser?.isVip && !dbUser.isLocked;
+            const dbUser = await prisma.user.findUnique({ where: { id: authReq.user.id }, select: { isVip: true, vipExpiresAt: true, isLocked: true } });
+            isUserVip = hasVipAccess(dbUser);
           } catch (dbErr) {
             console.warn('Fallback: Failed to query dbUser VIP status.', dbErr);
           }

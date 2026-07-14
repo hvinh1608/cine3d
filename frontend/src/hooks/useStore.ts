@@ -9,6 +9,7 @@ interface User {
   role: string;
   avatar?: string;
   isVip?: boolean;
+  vipExpiresAt?: string | null;
 }
 
 interface WatchHistoryItem {

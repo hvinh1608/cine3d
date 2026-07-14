@@ -533,13 +533,12 @@ function WatchPageContent() {
                       Đăng nhập ngay
                     </Link>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => showToast('Vui lòng liên hệ Admin để nâng cấp tài khoản VIP!', 'info')}
+                    <Link
+                      href="/vip"
                       className="bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black text-xs md:text-sm px-6 py-2.5 rounded-full hover:scale-105 transition-transform active:scale-95 shadow-lg cursor-pointer"
                     >
                       Nâng cấp VIP ngay
-                    </button>
+                    </Link>
                   )}
                   
                   <Link

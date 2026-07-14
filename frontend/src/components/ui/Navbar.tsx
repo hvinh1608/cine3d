@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Search, Film, User, LogOut, ShieldAlert, Sparkles, Menu, X, Bell } from 'lucide-react';
+import { Search, Film, User, LogOut, ShieldAlert, Sparkles, Menu, X, Bell, Crown } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 import type { Movie } from '../../types/movie';
@@ -162,6 +162,9 @@ export default function Navbar() {
           <Link href="/search?type=movie" className="hover:text-yellow-500 transition-colors">Phim Lẻ</Link>
           <Link href="/search" className="hover:text-yellow-500 transition-colors flex items-center">
             <Sparkles className="w-3.5 h-3.5 text-purple-400 mr-1 animate-pulse" /> Khám Phá
+          </Link>
+          <Link href="/vip" className="flex items-center text-amber-400 transition-colors hover:text-amber-300">
+            <Crown className="mr-1 h-3.5 w-3.5" /> VIP
           </Link>
         </div>
 
@@ -338,6 +341,9 @@ export default function Navbar() {
             <Link href="/search?type=movie" onClick={() => setMobileMenuOpen(false)} className="hover:text-yellow-500 py-1 border-b border-white/5">Phim Lẻ</Link>
             <Link href="/search" onClick={() => setMobileMenuOpen(false)} className="hover:text-yellow-500 py-1 border-b border-white/5 flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-purple-400 mr-1 animate-pulse" /> Khám Phá
+            </Link>
+            <Link href="/vip" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center border-b border-white/5 py-1 text-amber-400 hover:text-amber-300">
+              <Crown className="mr-1 h-4 w-4" /> Nâng cấp VIP
             </Link>
 
             {!hasHydrated ? (

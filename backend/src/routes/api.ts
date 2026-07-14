@@ -59,6 +59,15 @@ import { fetchGenres, fetchCountries, KkphimError } from '../services/kkphim.cli
 import { extractMetaItems } from '../services/kkphim.mapper';
 import { rateLimit } from '../middleware/rate-limit';
 import { internalError } from '../lib/http-error';
+import {
+  getVipPlans,
+  createVipOrder,
+  getMyVipOrders,
+  cancelMyVipOrder,
+  getAdminVipOrders,
+  confirmMockVipOrder,
+  cancelAdminVipOrder,
+} from '../controllers/vip.controller';
 
 const router = Router();
 
@@ -94,6 +103,12 @@ router.post('/user/history', authenticateToken as any, saveWatchProgress as any)
 router.delete('/user/history/:id', authenticateToken as any, deleteWatchHistory as any);
 router.get('/user/notifications', authenticateToken as any, getNotifications as any);
 router.put('/user/notifications/:id/read', authenticateToken as any, markNotificationRead as any);
+
+// --- VIP Mock Checkout Routes ---
+router.get('/vip/plans', getVipPlans as any);
+router.post('/vip/orders', rateLimit(60 * 60 * 1000, 10), authenticateToken as any, createVipOrder as any);
+router.get('/vip/orders/me', authenticateToken as any, getMyVipOrders as any);
+router.post('/vip/orders/:id/cancel', authenticateToken as any, cancelMyVipOrder as any);
 
 // --- Community / Interaction Routes ---
 router.get('/movies/:movieId/comments', optionalAuthenticate as any, getComments as any);
@@ -156,5 +171,8 @@ router.put('/admin/users/:id/lock', authenticateToken as any, requireAdmin as an
 router.put('/admin/users/:id/vip', authenticateToken as any, requireAdmin as any, toggleUserVip);
 router.get('/admin/reports', authenticateToken as any, requireAdmin as any, getReports);
 router.put('/admin/reports/:id/resolve', authenticateToken as any, requireAdmin as any, resolveReport);
+router.get('/admin/vip-orders', authenticateToken as any, requireAdmin as any, getAdminVipOrders as any);
+router.post('/admin/vip-orders/:id/confirm', authenticateToken as any, requireAdmin as any, confirmMockVipOrder as any);
+router.post('/admin/vip-orders/:id/cancel', authenticateToken as any, requireAdmin as any, cancelAdminVipOrder as any);
 
 export default router;

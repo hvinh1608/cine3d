@@ -2,11 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shield, Film, ListVideo, AlertTriangle, Users, BarChart3, Plus, Trash2, Edit, X, Lock, Unlock, RefreshCw, Tv, Subtitles, Link2, Eye, Star } from 'lucide-react';
+import { Shield, Film, ListVideo, AlertTriangle, Users, BarChart3, Plus, Trash2, Edit, X, Lock, Unlock, RefreshCw, Tv, Subtitles, Link2, Eye, Star, ReceiptText, CheckCircle2 } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const formatVnd = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value);
+const isUserVipActive = (user: any) => Boolean(user.isVip || (user.vipExpiresAt && new Date(user.vipExpiresAt).getTime() > Date.now()));
 
 export default function AdminPage() {
   const router = useRouter();
@@ -20,7 +22,7 @@ export default function AdminPage() {
   }, [user, router]);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'stats' | 'movies' | 'episodes' | 'users' | 'reports'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'movies' | 'episodes' | 'users' | 'vip' | 'reports'>('stats');
 
   // Stats States
   const [stats, setStats] = useState<any>({
@@ -37,6 +39,7 @@ export default function AdminPage() {
   const [movies, setMovies] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
+  const [vipOrders, setVipOrders] = useState<any[]>([]);
   const [countries, setCountries] = useState<any[]>([]);
   const [genres, setGenres] = useState<any[]>([]);
   
@@ -76,13 +79,14 @@ export default function AdminPage() {
     if (!accessToken) return;
     setLoading(true);
     try {
-      const [statsRes, moviesRes, usersRes, reportsRes, countriesRes, genresRes] = await Promise.all([
+      const [statsRes, moviesRes, usersRes, reportsRes, countriesRes, genresRes, vipOrdersRes] = await Promise.all([
         axios.get(`${API_URL}/admin/stats`, { headers: { Authorization: `Bearer ${accessToken}` } }),
         axios.get(`${API_URL}/admin/movies`, { headers: { Authorization: `Bearer ${accessToken}` } }),
         axios.get(`${API_URL}/admin/users`, { headers: { Authorization: `Bearer ${accessToken}` } }),
         axios.get(`${API_URL}/admin/reports`, { headers: { Authorization: `Bearer ${accessToken}` } }),
         axios.get(`${API_URL}/countries`),
         axios.get(`${API_URL}/genres`),
+        axios.get(`${API_URL}/admin/vip-orders`, { headers: { Authorization: `Bearer ${accessToken}` } }),
       ]);
 
       setStats(statsRes.data);
@@ -91,6 +95,7 @@ export default function AdminPage() {
       setReports(reportsRes.data || []);
       setCountries(countriesRes.data || []);
       setGenres(genresRes.data || []);
+      setVipOrders(vipOrdersRes.data || []);
 
       if (!movieCountry && countriesRes.data?.[0]?.id) {
         setMovieCountry(countriesRes.data[0].id);
@@ -109,6 +114,7 @@ export default function AdminPage() {
       setMovies([]);
       setUsers([]);
       setReports([]);
+      setVipOrders([]);
       showToast('Không tải được dữ liệu quản trị.', 'error');
     } finally {
       setLoading(false);
@@ -353,6 +359,30 @@ export default function AdminPage() {
     }
   };
 
+  const handleConfirmVipOrder = async (orderId: string) => {
+    try {
+      const res = await axios.post(`${API_URL}/admin/vip-orders/${orderId}/confirm`, {}, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      showToast(res.data.message, 'success');
+      loadAdminData();
+    } catch (e: any) {
+      showToast(e.response?.data?.message || 'Không thể xác nhận đơn VIP.', 'error');
+    }
+  };
+
+  const handleCancelVipOrder = async (orderId: string) => {
+    try {
+      const res = await axios.post(`${API_URL}/admin/vip-orders/${orderId}/cancel`, {}, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      });
+      showToast(res.data.message, 'success');
+      loadAdminData();
+    } catch (e: any) {
+      showToast(e.response?.data?.message || 'Không thể hủy đơn VIP.', 'error');
+    }
+  };
+
   // Report Actions
   const handleResolveReport = async (reportId: string) => {
     try {
@@ -435,6 +465,21 @@ export default function AdminPage() {
           {stats.pendingReports > 0 && (
             <span className="absolute right-4 top-1/2 -translate-y-1/2 bg-red-600 text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center">
               {stats.pendingReports}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('vip')}
+          className={`flex items-center space-x-2.5 px-4 py-3 rounded-xl text-xs md:text-sm font-bold transition-all relative cursor-pointer ${
+            activeTab === 'vip' ? 'bg-amber-500 text-black' : 'text-amber-400 hover:bg-amber-500/10 hover:text-amber-300'
+          }`}
+        >
+          <ReceiptText className="w-4 h-4" />
+          <span>Đơn VIP thử nghiệm</span>
+          {vipOrders.filter((order) => order.status === 'PENDING').length > 0 && (
+            <span className="absolute right-4 top-1/2 flex h-4.5 w-4.5 -translate-y-1/2 items-center justify-center rounded-full bg-red-600 text-[9px] font-black text-white">
+              {vipOrders.filter((order) => order.status === 'PENDING').length}
             </span>
           )}
         </button>
@@ -1098,17 +1143,20 @@ export default function AdminPage() {
                       </td>
                       <td className="py-3">
                         {u.role?.name !== 'ADMIN' ? (
-                          <button
-                            onClick={() => handleToggleVip(u.id)}
-                            className={`px-3 py-1 rounded-lg text-xs font-black transition-colors cursor-pointer ${
-                              u.isVip
-                                ? 'bg-amber-500/20 text-amber-500 border border-amber-500/20 hover:bg-amber-500 hover:text-white'
-                                : 'bg-slate-800 text-slate-400 border border-transparent hover:bg-amber-500/20 hover:text-amber-400'
-                            }`}
-                          >
-                            <Star className="w-3 h-3 inline mr-1" />
-                            {u.isVip ? 'VIP' : 'Thường'}
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleToggleVip(u.id)}
+                              className={`px-3 py-1 rounded-lg text-xs font-black transition-colors cursor-pointer ${
+                                isUserVipActive(u)
+                                  ? 'bg-amber-500/20 text-amber-500 border border-amber-500/20 hover:bg-amber-500 hover:text-white'
+                                  : 'bg-slate-800 text-slate-400 border border-transparent hover:bg-amber-500/20 hover:text-amber-400'
+                              }`}
+                            >
+                              <Star className="w-3 h-3 inline mr-1" />
+                              {isUserVipActive(u) ? 'VIP' : 'Thường'}
+                            </button>
+                            {u.vipExpiresAt && <span className="ml-2 text-[9px] text-slate-500">đến {new Date(u.vipExpiresAt).toLocaleDateString('vi-VN')}</span>}
+                          </>
                         ) : (
                           <span className="text-[10px] text-amber-400 font-extrabold uppercase flex items-center">
                             <Star className="w-3 h-3 mr-1" /> Premium Admin
@@ -1145,6 +1193,48 @@ export default function AdminPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* VIP MOCK ORDERS TAB */}
+        {activeTab === 'vip' && (
+          <div className="space-y-6 animate-fade-in">
+            <div>
+              <h2 className="flex items-center text-xl font-black uppercase tracking-wide text-amber-400">
+                <ReceiptText className="mr-2 h-5 w-5" /> Đơn VIP thử nghiệm
+              </h2>
+              <p className="mt-2 text-xs leading-5 text-slate-500">Xác nhận tại đây sẽ mô phỏng thanh toán thành công và cộng thời hạn VIP. Không có tiền thật được xử lý.</p>
+            </div>
+
+            <div className="space-y-3">
+              {vipOrders.map((order) => (
+                <div key={order.id} className="rounded-2xl border border-white/5 bg-slate-900/60 p-4 md:flex md:items-center md:justify-between">
+                  <div className="min-w-0 space-y-1 text-left">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono text-xs font-black text-amber-400">{order.orderCode}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-black ${order.status === 'PAID' ? 'bg-emerald-500/15 text-emerald-400' : order.status === 'PENDING' ? 'bg-amber-500/15 text-amber-400' : 'bg-slate-700 text-slate-400'}`}>
+                        {order.status}
+                      </span>
+                    </div>
+                    <p className="font-bold text-white">{order.user?.username} <span className="font-normal text-slate-500">· {order.user?.email}</span></p>
+                    <p className="text-xs text-slate-400">{order.plan?.name} · {order.durationDays} ngày · <strong className="text-slate-200">{formatVnd(order.amount)}</strong></p>
+                    <p className="text-[10px] text-slate-600">Tạo lúc {new Date(order.createdAt).toLocaleString('vi-VN')}{order.paidAt ? ` · xác nhận ${new Date(order.paidAt).toLocaleString('vi-VN')}` : ''}</p>
+                  </div>
+
+                  {order.status === 'PENDING' && (
+                    <div className="mt-4 flex shrink-0 gap-2 md:ml-4 md:mt-0">
+                      <button onClick={() => handleCancelVipOrder(order.id)} className="rounded-xl border border-red-500/20 px-3 py-2 text-xs font-bold text-red-400 hover:bg-red-500/10">
+                        Hủy
+                      </button>
+                      <button onClick={() => handleConfirmVipOrder(order.id)} className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-4 py-2 text-xs font-black text-black hover:bg-emerald-400">
+                        <CheckCircle2 className="h-4 w-4" /> Xác nhận đã trả
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {vipOrders.length === 0 && <p className="py-10 text-center text-xs text-slate-500">Chưa có đơn VIP nào.</p>}
             </div>
           </div>
         )}

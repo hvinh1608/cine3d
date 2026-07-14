@@ -46,7 +46,22 @@ async function main() {
     console.log('Skipping initial admin creation; SEED_ADMIN_EMAIL/PASSWORD are not set.');
   }
 
-  // 3. Create Countries
+  // 3. Create editable VIP plans. These values are safe defaults for mock testing.
+  const vipPlans = [
+    { code: 'VIP_30', name: 'VIP 1 Tháng', description: 'Truy cập toàn bộ nội dung VIP trong 30 ngày.', price: 39000, durationDays: 30, displayOrder: 1 },
+    { code: 'VIP_90', name: 'VIP 3 Tháng', description: 'Tiết kiệm hơn với 90 ngày xem phim VIP.', price: 99000, durationDays: 90, displayOrder: 2 },
+    { code: 'VIP_365', name: 'VIP 1 Năm', description: 'Trải nghiệm VIP trọn năm với mức giá tốt nhất.', price: 299000, durationDays: 365, displayOrder: 3 },
+  ];
+  for (const plan of vipPlans) {
+    await prisma.vipPlan.upsert({
+      where: { code: plan.code },
+      update: {},
+      create: plan,
+    });
+  }
+  console.log('VIP plans ensured.');
+
+  // 4. Create Countries
   const countriesData = [
     { name: 'Mỹ', slug: 'my' },
     { name: 'Hàn Quốc', slug: 'han-quoc' },
@@ -64,7 +79,7 @@ async function main() {
     });
   }
 
-  // 4. Create Genres
+  // 5. Create Genres
   const genresData = [
     { name: 'Hành Động', slug: 'hanh-dong' },
     { name: 'Viễn Tưởng', slug: 'vien-tuong' },
@@ -84,7 +99,7 @@ async function main() {
     });
   }
 
-  // 5. Create Actors & Directors
+  // 6. Create Actors & Directors
   const actorsData = [
     { name: 'Keanu Reeves', slug: 'keanu-reeves', avatarUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=100&q=80' },
     { name: 'Scarlett Johansson', slug: 'scarlett-johansson', avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80' },
@@ -115,7 +130,7 @@ async function main() {
     });
   }
 
-  // 6. Create Movies & Series
+  // 7. Create Movies & Series
   const existingMoviesCount = await prisma.movie.count();
   if (existingMoviesCount > 0) {
     console.log('Movies already exist in database. Skipping movie seeding.');
@@ -402,42 +417,6 @@ async function main() {
       });
       console.log(`Banner created for: ${movie.title}`);
     }
-  }
-
-  // 7. Add Comments & Ratings for test
-  const matrixMovie = await prisma.movie.findUnique({ where: { slug: 'ma-tran-hoi-sinh' } });
-  if (matrixMovie) {
-    await prisma.comment.create({
-      data: {
-        movieId: matrixMovie.id,
-        userId: regularUser.id,
-        content: 'Phim quá đỉnh! Kỹ xảo xuất sắc và triết lý sâu sắc.',
-      },
-    });
-
-    await prisma.rating.create({
-      data: {
-        movieId: matrixMovie.id,
-        userId: regularUser.id,
-        score: 9,
-      },
-    });
-
-    await prisma.favorite.create({
-      data: {
-        movieId: matrixMovie.id,
-        userId: regularUser.id,
-      },
-    });
-
-    await prisma.watchHistory.create({
-      data: {
-        movieId: matrixMovie.id,
-        userId: regularUser.id,
-        watchedTime: 420, // 7 minutes
-        duration: 8880,
-      },
-    });
   }
 
   console.log('Seeding completed successfully!');

@@ -24,6 +24,7 @@ model User {
   isVerified           Boolean   @default(false)
   isLocked             Boolean   @default(false)
   isVip                Boolean   @default(false)
+  vipExpiresAt         DateTime?
   passwordResetToken   String?
   passwordResetExpires DateTime?
   roleId               String
@@ -31,21 +32,65 @@ model User {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
-  comments      Comment[]
-  commentLikes  CommentLike[]
-  ratings       Rating[]
-  favorites     Favorite[]
-  watchlist     Watchlist[]
-  watchHistory  WatchHistory[]
-  notifications Notification[]
-  reports       Report[]
-  refreshTokens RefreshToken[]
+  comments           Comment[]
+  commentLikes       CommentLike[]
+  ratings            Rating[]
+  favorites          Favorite[]
+  watchlist          Watchlist[]
+  watchHistory       WatchHistory[]
+  notifications      Notification[]
+  reports            Report[]
+  refreshTokens      RefreshToken[]
+  vipOrders          VipOrder[]     @relation("VipOrderUser")
+  confirmedVipOrders VipOrder[]     @relation("VipOrderConfirmer")
 
   @@index([email])
   @@index([username])
   @@index([passwordResetToken])
   @@index([roleId])
   @@index([isVip])
+  @@index([vipExpiresAt])
+}
+
+model VipPlan {
+  id           String     @id @default(uuid())
+  code         String     @unique
+  name         String
+  description  String?
+  price        Int
+  durationDays Int
+  isActive     Boolean    @default(true)
+  displayOrder Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  orders       VipOrder[]
+
+  @@index([isActive, displayOrder])
+}
+
+model VipOrder {
+  id                String    @id @default(uuid())
+  orderCode         String    @unique
+  userId            String
+  user              User      @relation("VipOrderUser", fields: [userId], references: [id], onDelete: Cascade)
+  planId            String
+  plan              VipPlan   @relation(fields: [planId], references: [id], onDelete: Restrict)
+  amount            Int
+  durationDays      Int
+  status            String    @default("PENDING")
+  provider          String    @default("MOCK")
+  providerReference String?   @unique
+  expiresAt         DateTime
+  paidAt            DateTime?
+  confirmedById     String?
+  confirmedBy       User?     @relation("VipOrderConfirmer", fields: [confirmedById], references: [id], onDelete: SetNull)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status, expiresAt])
+  @@index([planId])
+  @@index([confirmedById])
 }
 
 model Country {

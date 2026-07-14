@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { User, Lock, Mail, Heart, History, Play, Bookmark, Trash2, LogOut, Check, Save } from 'lucide-react';
+import { User, Lock, Mail, Heart, History, Play, Bookmark, Trash2, LogOut, Check, Save, Crown } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 
@@ -251,16 +251,26 @@ export default function AccountPage() {
                 {user.role}
               </span>
               <span className="text-[10px] text-slate-400 font-semibold">{user.email}</span>
+              {user.isVip && (
+                <span className="inline-flex items-center rounded border border-amber-400/20 bg-amber-400/10 px-2 py-0.5 text-[10px] font-black uppercase text-amber-400">
+                  <Crown className="mr-1 h-3 w-3" /> VIP
+                </span>
+              )}
             </div>
           </div>
         </div>
-        <button
-          onClick={logout}
-          className="flex items-center justify-center space-x-1.5 px-5 py-2.5 rounded-xl border border-white/10 hover:border-red-500/30 bg-slate-900/60 hover:bg-red-600 hover:text-white transition-all text-slate-300 text-xs font-bold active:scale-95 cursor-pointer"
-        >
-          <LogOut className="w-4 h-4" />
-          <span>Đăng Xuất</span>
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/vip" className="flex items-center justify-center gap-1.5 rounded-xl bg-amber-400 px-5 py-2.5 text-xs font-black text-black transition hover:bg-amber-300">
+            <Crown className="h-4 w-4" /> {user.isVip ? 'Quản lý VIP' : 'Nâng cấp VIP'}
+          </Link>
+          <button
+            onClick={logout}
+            className="flex items-center justify-center space-x-1.5 px-5 py-2.5 rounded-xl border border-white/10 hover:border-red-500/30 bg-slate-900/60 hover:bg-red-600 hover:text-white transition-all text-slate-300 text-xs font-bold active:scale-95 cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Đăng Xuất</span>
+          </button>
+        </div>
       </div>
 
       {/* Tabs Layout */}
