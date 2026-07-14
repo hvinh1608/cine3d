@@ -23,5 +23,11 @@ jobs:
       - run: npm ci
       - run: npm test
         if: matrix.project == 'backend'
+      - run: npx prisma validate
+        if: matrix.project == 'backend'
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
       - run: npm run build
+        if: matrix.project == 'frontend'
+      - run: npm run lint
         if: matrix.project == 'frontend'

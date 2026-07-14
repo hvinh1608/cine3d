@@ -1,14 +1,21 @@
 'use client';
 
 import React, { useState, useEffect, useRef, Suspense, useCallback } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, ChevronRight, ChevronLeft, ListVideo, Server, LightbulbOff, ArrowLeft, Subtitles, Gauge, Tv, Settings, Maximize2, Lock, Crown, Download } from 'lucide-react';
 import { useStore } from '../../../hooks/useStore';
 import axios from '../../../lib/api';
 import Hls from 'hls.js';
+import type { Episode, Movie, VideoSource } from '../../../types/movie';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+type PlaybackEpisode = Episode & { premiumSourcesLocked?: number };
+type PlaybackMovie = Movie & { requiresVip?: boolean; isEarlyAccess?: boolean; episodes: PlaybackEpisode[] };
+type HlsQuality = { index: number; height: number; bitrate: number; name: string };
+type HistoryRecord = { movieId: string; episodeId: string | null; watchedTime: number };
+type VideoWithRemotePlayback = HTMLVideoElement & { remote?: { prompt: () => Promise<void> } };
 
 export default function WatchPage() {
   return (
@@ -24,15 +31,14 @@ export default function WatchPage() {
 
 function WatchPageContent() {
   const params = useParams();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const slug = params.slug as string;
   const activeEpOrder = parseInt(searchParams.get('ep') || '1', 10);
 
   const { user, accessToken, showToast } = useStore();
-  const [movie, setMovie] = useState<any>(null);
-  const [activeEpisode, setActiveEpisode] = useState<any>(null);
-  const [activeSource, setActiveSource] = useState<any>(null);
+  const [movie, setMovie] = useState<PlaybackMovie | null>(null);
+  const [activeEpisode, setActiveEpisode] = useState<PlaybackEpisode | null>(null);
+  const [activeSource, setActiveSource] = useState<VideoSource | null>(null);
   
   // Custom Player States
   const [playing, setPlaying] = useState(false);
@@ -51,7 +57,7 @@ function WatchPageContent() {
   const [ambilightColor, setAmbilightColor] = useState<string>('rgba(99, 102, 241, 0.18)');
 
   // HLS Qualities & Casting states
-  const [qualities, setQualities] = useState<any[]>([]);
+  const [qualities, setQualities] = useState<HlsQuality[]>([]);
   const [currentQualityIndex, setCurrentQualityIndex] = useState<number>(-1);
 
   // Mobile & UX Optimization States
@@ -64,7 +70,7 @@ function WatchPageContent() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
-  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Helper to trigger controls visibility and reset auto-hide timer
   const triggerControls = useCallback(() => {
@@ -91,26 +97,28 @@ function WatchPageContent() {
 
   // Update controls visibility timer when playing state changes
   useEffect(() => {
-    if (playing) {
-      triggerControls();
-    } else {
-      setShowControls(true);
-      if (controlsTimeoutRef.current) {
-        clearTimeout(controlsTimeoutRef.current);
+    queueMicrotask(() => {
+      if (playing) {
+        triggerControls();
+      } else {
+        setShowControls(true);
+        if (controlsTimeoutRef.current) {
+          clearTimeout(controlsTimeoutRef.current);
+        }
       }
-    }
+    });
   }, [playing, triggerControls]);
 
   // Fetch Movie details
   useEffect(() => {
     const fetchMovie = async () => {
       try {
-        const headers: any = {};
+        const headers: Record<string, string> = {};
         if (accessToken) {
           headers.Authorization = `Bearer ${accessToken}`;
         }
         const res = await axios.get(`${API_URL}/movies/${slug}`, { headers });
-        setMovie(res.data);
+        setMovie(res.data as PlaybackMovie);
       } catch (error) {
         console.warn('Failed to load movie for playback.', error);
         setMovie(null);
@@ -127,9 +135,11 @@ function WatchPageContent() {
   // Selecting another episode must not refetch and resync the entire movie.
   useEffect(() => {
     const episodes = movie?.episodes || [];
-    const episode = episodes.find((item: any) => item.episodeOrder === activeEpOrder) || episodes[0] || null;
-    setActiveEpisode(episode);
-    setActiveSource(episode?.videoSources?.[0] || null);
+    const episode = episodes.find((item) => item.episodeOrder === activeEpOrder) || episodes[0] || null;
+    queueMicrotask(() => {
+      setActiveEpisode(episode);
+      setActiveSource(episode?.videoSources?.[0] || null);
+    });
   }, [movie, activeEpOrder]);
 
   // Load Video source HLS / MP4
@@ -160,11 +170,11 @@ function WatchPageContent() {
         instance.attachMedia(video);
         
         instance.on(Hls.Events.MANIFEST_PARSED, () => {
-          const loadedLevels = instance.levels.map((lvl: any, index: number) => ({
+          const loadedLevels = instance.levels.map((level, index) => ({
             index,
-            height: lvl.height,
-            bitrate: lvl.bitrate,
-            name: lvl.name || (lvl.height ? `${lvl.height}p` : `Level ${index + 1}`)
+            height: level.height,
+            bitrate: level.bitrate,
+            name: level.name || (level.height ? `${level.height}p` : `Level ${index + 1}`)
           }));
           setQualities(loadedLevels);
         });
@@ -185,11 +195,11 @@ function WatchPageContent() {
           const res = await axios.get(`${API_URL}/user/history`, {
             headers: { Authorization: `Bearer ${accessToken}` }
           });
-          const record = res.data.find((h: any) => h.movieId === movie.id && h.episodeId === activeEpisode?.id);
+          const record = (res.data as HistoryRecord[]).find((history) => history.movieId === movie.id && history.episodeId === activeEpisode?.id);
           if (record && record.watchedTime > 5) {
             video.currentTime = record.watchedTime;
           }
-        } catch (e) {
+        } catch {
           // ignore
         }
       }
@@ -231,7 +241,7 @@ function WatchPageContent() {
       return;
     }
     axios.post(`${API_URL}/user/history`, payload).catch(() => {});
-  }, [user, accessToken, movie?.id, activeEpisode?.id]);
+  }, [user, accessToken, movie, activeEpisode]);
 
   // Periodic Save History (every 10 seconds of play) and immediate save on pause/unload
   useEffect(() => {
@@ -269,8 +279,6 @@ function WatchPageContent() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let intervalId: any;
-
     const analyzeFrame = () => {
       try {
         ctx.drawImage(video, 0, 0, 10, 10);
@@ -287,7 +295,7 @@ function WatchPageContent() {
         b = Math.floor(b / count);
         // Blend with minimum background color to keep it cinematic
         setAmbilightColor(`rgba(${r}, ${g}, ${b}, 0.28)`);
-      } catch (e) {
+      } catch {
         // Fallback for CORS security restrictions on external domains
         const colors = [
           'rgba(99, 102, 241, 0.15)', // indigo
@@ -301,7 +309,7 @@ function WatchPageContent() {
       }
     };
 
-    intervalId = setInterval(analyzeFrame, 1000);
+    const intervalId = setInterval(analyzeFrame, 1000);
     return () => clearInterval(intervalId);
   }, [playing, activeSource]);
 
@@ -330,12 +338,12 @@ function WatchPageContent() {
     const video = videoRef.current;
     
     // Remote Playback API
-    const vAny = video as any;
-    if (vAny.remotePlayback) {
-      vAny.remotePlayback.prompt()
+    const videoWithRemote = video as VideoWithRemotePlayback;
+    if (videoWithRemote.remote) {
+      videoWithRemote.remote.prompt()
         .then(() => showToast('Đang kết nối thiết bị trình chiếu...', 'info'))
-        .catch((e: any) => {
-          if (e.name !== 'NotAllowedError') {
+        .catch((error: unknown) => {
+          if (!(error instanceof DOMException) || error.name !== 'NotAllowedError') {
             showToast('Không tìm thấy thiết bị trình chiếu khả dụng.', 'error');
           }
         });
@@ -511,7 +519,7 @@ function WatchPageContent() {
               />
             )}
 
-            {movie.requiresVip || (!activeSource && activeEpisode?.premiumSourcesLocked > 0) ? (
+            {movie.requiresVip || (!activeSource && (activeEpisode.premiumSourcesLocked || 0) > 0) ? (
               <div className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 text-center space-y-4 z-20">
                 <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center border border-amber-500/30 shadow-[0_0_20px_rgba(245,158,11,0.2)] animate-pulse">
                   <Lock className="w-7 h-7 text-amber-400" />
@@ -520,7 +528,7 @@ function WatchPageContent() {
                 <div className="space-y-1.5 max-w-md">
                   <h3 className="text-lg md:text-xl font-black text-amber-400 uppercase tracking-widest">{movie.isEarlyAccess ? 'Suất chiếu sớm VIP' : 'Nội dung giới hạn VIP'}</h3>
                   <p className="text-xs md:text-sm text-slate-300">
-                    Bộ phim <span className="text-white font-bold">"{movie.title}"</span> hiện chỉ dành riêng cho thành viên Premium VIP. Vui lòng đăng nhập tài khoản VIP hoặc liên hệ Quản trị viên để nâng cấp.
+                    Bộ phim <span className="text-white font-bold">“{movie.title}”</span> hiện chỉ dành riêng cho thành viên Premium VIP. Vui lòng đăng nhập tài khoản VIP hoặc liên hệ Quản trị viên để nâng cấp.
                   </p>
                 </div>
 
@@ -559,14 +567,14 @@ function WatchPageContent() {
                   onLoadedMetadata={handleLoadedMetadata}
                   className={`w-full h-full object-contain cursor-pointer object-${aspectRatio}`}
                 >
-                  {activeEpisode.subtitles?.map((sub: any) => (
+                  {activeEpisode.subtitles?.map((subtitle) => (
                     <track
-                      key={sub.id}
-                      src={sub.url}
+                      key={subtitle.id}
+                      src={subtitle.url}
                       kind="subtitles"
-                      srcLang={sub.language === 'Vietnamese' ? 'vi' : 'en'}
-                      label={sub.language}
-                      default={sub.language === 'Vietnamese'}
+                      srcLang={subtitle.language === 'Vietnamese' ? 'vi' : 'en'}
+                      label={subtitle.language}
+                      default={subtitle.language === 'Vietnamese'}
                     />
                   ))}
                 </video>
@@ -735,20 +743,20 @@ function WatchPageContent() {
                         ) : (
                           <>
                             <div className="text-[10px] text-slate-500 px-3 py-1 font-bold">CHỌN SERVER / PHÂN GIẢI</div>
-                            {activeEpisode.videoSources?.map((src: any) => (
+                            {activeEpisode.videoSources?.map((source) => (
                               <button
-                                key={src.id}
+                                key={source.id}
                                 onClick={() => {
-                                  setActiveSource(src);
+                                  setActiveSource(source);
                                   setShowSettings(false);
                                   setSettingsTab('main');
                                 }}
                                 className={`py-2 px-3 rounded-lg hover:bg-white/5 text-left transition-colors font-semibold cursor-pointer flex justify-between items-center w-full ${
-                                  activeSource?.id === src.id ? 'text-yellow-500 bg-white/5' : 'text-slate-300'
+                                  activeSource?.id === source.id ? 'text-yellow-500 bg-white/5' : 'text-slate-300'
                                 }`}
                               >
-                                <span>{src.server}</span>
-                                <span className="text-xs text-slate-500 font-bold">{src.quality}</span>
+                                <span>{source.server}</span>
+                                <span className="text-xs text-slate-500 font-bold">{source.quality}</span>
                               </button>
                             ))}
                           </>
@@ -796,15 +804,15 @@ function WatchPageContent() {
                         >
                           Tắt phụ đề
                         </button>
-                        {activeEpisode.subtitles?.map((sub: any) => (
+                        {activeEpisode.subtitles?.map((subtitle) => (
                           <button
-                            key={sub.id}
-                            onClick={() => handleSubtitleChange(sub.language)}
+                            key={subtitle.id}
+                            onClick={() => handleSubtitleChange(subtitle.language)}
                             className={`py-2 px-3 rounded-lg hover:bg-white/5 text-left transition-colors font-semibold cursor-pointer w-full ${
-                              activeSubTrack === sub.language ? 'text-yellow-500 bg-white/5' : 'text-slate-300'
+                              activeSubTrack === subtitle.language ? 'text-yellow-500 bg-white/5' : 'text-slate-300'
                             }`}
                           >
-                            {sub.language}
+                            {subtitle.language}
                           </button>
                         ))}
                       </div>
@@ -819,15 +827,15 @@ function WatchPageContent() {
                         >
                           <ChevronLeft className="w-4 h-4 mr-1" /> Trở lại cài đặt
                         </button>
-                        {[
+                        {([
                           { key: 'contain', name: 'Tự nhiên / Gốc (Fit)', desc: 'Hiện đầy đủ khung hình gốc' },
                           { key: 'cover', name: 'Đầy màn hình (Zoom/Cover)', desc: 'Phóng to lấp đầy màn hình, cắt nhẹ' },
                           { key: 'fill', name: 'Giãn màn hình (Stretch/Fill)', desc: 'Co giãn video vừa khít màn hình' }
-                        ].map((item) => (
+                        ] satisfies { key: 'contain' | 'cover' | 'fill'; name: string; desc: string }[]).map((item) => (
                           <button
                             key={item.key}
                             onClick={() => {
-                              setAspectRatio(item.key as any);
+                              setAspectRatio(item.key);
                               setShowSettings(false);
                               setSettingsTab('main');
                             }}
@@ -970,24 +978,24 @@ function WatchPageContent() {
                 {movie.requiresVip ? (
                   <p className="text-amber-400 text-xs font-bold py-2">Nguồn phát bị khóa (Yêu cầu VIP)</p>
                 ) : (
-                  activeEpisode.videoSources?.map((src: any) => (
+                  activeEpisode.videoSources?.map((source) => (
                     <button
-                      key={src.id}
-                      onClick={() => setActiveSource(src)}
+                      key={source.id}
+                      onClick={() => setActiveSource(source)}
                       className={`w-full py-2.5 px-4 text-xs font-bold rounded-lg border text-left transition-all cursor-pointer ${
-                        activeSource?.id === src.id
+                        activeSource?.id === source.id
                           ? 'bg-cyan-500/10 border-cyan-500 text-cyan-400'
                           : 'bg-slate-900 border-white/5 text-slate-400 hover:bg-white/5'
                       }`}
                     >
                       <span className="flex items-center justify-between gap-2">
-                        <span>{src.server} ({src.quality})</span>
-                        {src.isPremium && <span className="inline-flex items-center gap-1 rounded bg-amber-400/15 px-1.5 py-0.5 text-[8px] uppercase text-amber-300"><Crown className="h-2.5 w-2.5" /> VIP</span>}
+                        <span>{source.server} ({source.quality})</span>
+                        {source.isPremium && <span className="inline-flex items-center gap-1 rounded bg-amber-400/15 px-1.5 py-0.5 text-[8px] uppercase text-amber-300"><Crown className="h-2.5 w-2.5" /> VIP</span>}
                       </span>
                     </button>
                   )) || <p className="text-slate-500 text-xs">Đang tải server...</p>
                 )}
-                {!movie.requiresVip && activeEpisode?.premiumSourcesLocked > 0 && !user?.isVip && (
+                {!movie.requiresVip && (activeEpisode.premiumSourcesLocked || 0) > 0 && !user?.isVip && (
                   <Link href="/vip" className="col-span-full flex items-center justify-center gap-2 rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2.5 text-xs font-bold text-amber-300 hover:bg-amber-400/10">
                     <Lock className="h-3.5 w-3.5" /> Mở khóa {activeEpisode.premiumSourcesLocked} nguồn Premium/4K
                   </Link>
@@ -1001,17 +1009,17 @@ function WatchPageContent() {
                 <ListVideo className="w-4.5 h-4.5 text-purple-400 mr-2" /> Danh Sách Tập
               </h4>
               <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-3 gap-2 overflow-y-auto max-h-[300px] pr-1">
-                {movie.episodes?.map((ep: any) => (
+                {movie.episodes?.map((episode) => (
                   <Link
-                    key={ep.id}
-                    href={`/watch/${movie.slug}?ep=${ep.episodeOrder}`}
+                    key={episode.id}
+                    href={`/watch/${movie.slug}?ep=${episode.episodeOrder}`}
                     className={`py-2 px-1 text-center text-xs font-bold rounded-lg border transition-all ${
-                      activeEpOrder === ep.episodeOrder
+                      activeEpOrder === episode.episodeOrder
                         ? 'bg-red-600 border-transparent text-white'
                         : 'bg-slate-900 border-white/5 text-slate-400 hover:bg-white/5'
                     }`}
                   >
-                    {ep.title}
+                    {episode.title}
                   </Link>
                 ))}
               </div>

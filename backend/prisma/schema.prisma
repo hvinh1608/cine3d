@@ -27,6 +27,8 @@ model User {
   vipExpiresAt         DateTime?
   passwordResetToken   String?
   passwordResetExpires DateTime?
+  emailVerificationToken   String?
+  emailVerificationExpires DateTime?
   roleId               String
   role                 Role      @relation(fields: [roleId], references: [id])
   createdAt            DateTime  @default(now())
@@ -47,6 +49,7 @@ model User {
   @@index([email])
   @@index([username])
   @@index([passwordResetToken])
+  @@index([emailVerificationToken])
   @@index([roleId])
   @@index([isVip])
   @@index([vipExpiresAt])

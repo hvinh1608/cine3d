@@ -2,11 +2,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+import type { AxiosError } from 'axios';
 import { User, Lock, Mail, Heart, History, Play, Bookmark, Trash2, LogOut, Check, Save, Crown } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const requestMessage = (error: unknown, fallback: string) => (error as AxiosError<{ message?: string }>).response?.data?.message || fallback;
 
 const PRESET_AVATARS = [
   'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
@@ -28,9 +31,29 @@ export default function AccountPage() {
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [recoveryMode, setRecoveryMode] = useState<'none' | 'forgot' | 'reset'>('none');
+  const [resetToken, setResetToken] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [authNotice, setAuthNotice] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submittingRef = useRef(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('resetToken');
+    const verified = params.get('verified');
+    queueMicrotask(() => {
+      if (token) {
+        setResetToken(token);
+        setRecoveryMode('reset');
+      } else if (verified === 'success') {
+        setAuthNotice('Email đã được xác minh. Bạn có thể đăng nhập ngay.');
+      } else if (verified) {
+        setErrorMsg('Liên kết xác minh không hợp lệ hoặc đã hết hạn.');
+      }
+    });
+  }, []);
 
   // Profile Edit States
   const [editUsername, setEditUsername] = useState('');
@@ -40,8 +63,10 @@ export default function AccountPage() {
   // Sync edit fields when user logs in
   useEffect(() => {
     if (!user) return;
-    setEditUsername(user.username);
-    setEditAvatar(user.avatar || '');
+    queueMicrotask(() => {
+      setEditUsername(user.username);
+      setEditAvatar(user.avatar || '');
+    });
     if (!accessToken) return;
 
     let active = true;
@@ -68,6 +93,7 @@ export default function AccountPage() {
     submittingRef.current = true;
     setIsSubmitting(true);
     setErrorMsg('');
+    setAuthNotice('');
 
     try {
       const endpoint = isLogin ? '/auth/login' : '/auth/register';
@@ -75,10 +101,43 @@ export default function AccountPage() {
         ? { email: email.trim(), password }
         : { email: email.trim(), username: username.trim(), password };
       const res = await axios.post(endpoint, payload);
+      if (res.data.requiresVerification) {
+        setIsLogin(true);
+        setAuthNotice(res.data.message || 'Vui lòng kiểm tra email để xác minh tài khoản.');
+        return;
+      }
       setSession(res.data.user, res.data.accessToken);
       showToast(isLogin ? 'Đăng nhập thành công!' : 'Đăng ký tài khoản thành công!', 'success');
-    } catch (error: any) {
-      setErrorMsg(error.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại.');
+    } catch (error) {
+      setErrorMsg(requestMessage(error, 'Có lỗi xảy ra, vui lòng thử lại.'));
+    } finally {
+      submittingRef.current = false;
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleRecoverySubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setIsSubmitting(true);
+    setErrorMsg('');
+    setAuthNotice('');
+
+    try {
+      if (recoveryMode === 'reset') {
+        await axios.post('/auth/reset-password', { token: resetToken, newPassword });
+        setRecoveryMode('none');
+        setResetToken('');
+        setNewPassword('');
+        window.history.replaceState({}, '', '/account');
+        setAuthNotice('Đổi mật khẩu thành công. Hãy đăng nhập bằng mật khẩu mới.');
+      } else {
+        const response = await axios.post('/auth/forgot-password', { email: email.trim() });
+        setAuthNotice(response.data.message || 'Nếu email tồn tại, hướng dẫn khôi phục đã được gửi.');
+      }
+    } catch (error) {
+      setErrorMsg(requestMessage(error, 'Không thể xử lý yêu cầu. Vui lòng thử lại.'));
     } finally {
       submittingRef.current = false;
       setIsSubmitting(false);
@@ -98,8 +157,8 @@ export default function AccountPage() {
       });
       setUser(res.data.user);
       setSuccessMsg('Cập nhật thông tin thành công!');
-    } catch (e: any) {
-      setErrorMsg(e.response?.data?.message || 'Không thể cập nhật hồ sơ. Vui lòng thử lại.');
+    } catch (error) {
+      setErrorMsg(requestMessage(error, 'Không thể cập nhật hồ sơ. Vui lòng thử lại.'));
     }
   };
 
@@ -155,7 +214,7 @@ export default function AccountPage() {
           
           <div className="text-center space-y-2">
             <h2 className="text-2xl font-black tracking-wide bg-gradient-to-r from-red-500 to-purple-500 bg-clip-text text-transparent uppercase">
-              {isLogin ? 'Đăng Nhập CINE3D' : 'Đăng Ký Tài Khoản'}
+              {recoveryMode === 'forgot' ? 'Quên Mật Khẩu' : recoveryMode === 'reset' ? 'Đặt Lại Mật Khẩu' : isLogin ? 'Đăng Nhập CINE3D' : 'Đăng Ký Tài Khoản'}
             </h2>
             <p className="text-xs text-slate-500">Trải nghiệm rạp chiếu phim 3D không gian ảo.</p>
           </div>
@@ -165,7 +224,48 @@ export default function AccountPage() {
               {errorMsg}
             </div>
           )}
+          {authNotice && (
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-950/40 px-4 py-2.5 text-xs leading-relaxed text-emerald-300">
+              {authNotice}
+            </div>
+          )}
 
+          {recoveryMode !== 'none' ? (
+            <form onSubmit={handleRecoverySubmit} className="space-y-4">
+              {recoveryMode === 'forgot' ? (
+                <div className="relative">
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="Email tài khoản"
+                    className="w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-red-500"
+                  />
+                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                </div>
+              ) : (
+                <div className="relative">
+                  <input
+                    type="password"
+                    required
+                    minLength={8}
+                    value={newPassword}
+                    onChange={(event) => setNewPassword(event.target.value)}
+                    placeholder="Mật khẩu mới (ít nhất 8 ký tự)"
+                    className="w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-red-500"
+                  />
+                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                </div>
+              )}
+              <button type="submit" disabled={isSubmitting} className="w-full rounded-xl bg-gradient-to-r from-red-600 to-purple-600 py-3.5 text-sm font-black text-white disabled:opacity-60">
+                {isSubmitting ? 'Đang xử lý...' : recoveryMode === 'forgot' ? 'Gửi email khôi phục' : 'Lưu mật khẩu mới'}
+              </button>
+              <button type="button" onClick={() => { setRecoveryMode('none'); setErrorMsg(''); setAuthNotice(''); }} className="w-full text-xs text-slate-400 transition hover:text-white">
+                Quay lại đăng nhập
+              </button>
+            </form>
+          ) : (
           <form onSubmit={handleAuthSubmit} className="space-y-4">
             <div className="relative">
               <input
@@ -197,6 +297,7 @@ export default function AccountPage() {
               <input
                 type="password"
                 required
+                minLength={8}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Mật khẩu"
@@ -213,8 +314,14 @@ export default function AccountPage() {
               {isSubmitting ? 'Đang xử lý...' : isLogin ? 'Đăng Nhập' : 'Tạo Tài Khoản'}
             </button>
           </form>
+          )}
 
-          <div className="text-center pt-2">
+          {recoveryMode === 'none' && <div className="space-y-3 text-center pt-2">
+            {isLogin && (
+              <button type="button" onClick={() => { setRecoveryMode('forgot'); setErrorMsg(''); setAuthNotice(''); }} className="block w-full text-xs text-slate-500 transition hover:text-yellow-400">
+                Quên mật khẩu?
+              </button>
+            )}
             <button
               onClick={() => {
                 setIsLogin(!isLogin);
@@ -224,7 +331,7 @@ export default function AccountPage() {
             >
               {isLogin ? 'Chưa có tài khoản? Đăng ký ngay' : 'Đã có tài khoản? Đăng nhập'}
             </button>
-          </div>
+          </div>}
 
         </div>
       </div>
@@ -238,10 +345,12 @@ export default function AccountPage() {
       <div className="glass-panel p-6 rounded-3xl mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6 shadow-2xl">
         <div className="flex items-center space-x-4">
           <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-red-500 shrink-0">
-            <img
+            <Image
               src={user.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80'}
               alt={user.username}
-              className="w-full h-full object-cover"
+              fill
+              sizes="64px"
+              className="object-cover"
             />
           </div>
           <div className="text-left space-y-1">
@@ -369,7 +478,7 @@ export default function AccountPage() {
                         editAvatar === avatarUrl ? 'border-red-500 scale-105 shadow-[0_0_10px_rgba(239,68,68,0.4)]' : 'border-white/10 hover:border-white/30'
                       }`}
                     >
-                      <img src={avatarUrl} alt="Preset Avatar" className="w-full h-full object-cover" />
+                      <Image src={avatarUrl} alt="Avatar gợi ý" fill sizes="80px" className="object-cover" />
                       {editAvatar === avatarUrl && (
                         <div className="absolute inset-0 bg-red-500/20 flex items-center justify-center">
                           <Check className="w-5 h-5 text-white" />
@@ -386,7 +495,7 @@ export default function AccountPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
               {favorites.map((movie) => (
                 <div key={movie.id} className="relative aspect-[2/3] rounded-2xl overflow-hidden group shadow-lg border border-white/5 bg-slate-950">
-                  <img src={movie.posterUrl} alt={movie.title} className="w-full h-full object-cover" />
+                  <Image src={movie.posterUrl} alt={movie.title} fill sizes="(max-width: 640px) 50vw, 20vw" className="object-cover" />
                   
                   {/* Remove favorite button */}
                   <button
@@ -420,7 +529,7 @@ export default function AccountPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
               {watchlist.map((movie) => (
                 <div key={movie.id} className="relative aspect-[2/3] rounded-2xl overflow-hidden group shadow-lg border border-white/5 bg-slate-950">
-                  <img src={movie.posterUrl} alt={movie.title} className="w-full h-full object-cover" />
+                  <Image src={movie.posterUrl} alt={movie.title} fill sizes="(max-width: 640px) 50vw, 20vw" className="object-cover" />
                   
                   {/* Remove watchlist button */}
                   <button
@@ -468,17 +577,15 @@ export default function AccountPage() {
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
 
-                    <img
-                      src={item.movie?.posterUrl}
-                      alt={item.movie?.title}
-                      className="w-14 aspect-[2/3] rounded-lg object-cover border border-white/10 shrink-0"
-                    />
+                    <span className="relative h-[84px] w-14 shrink-0 overflow-hidden rounded-lg border border-white/10">
+                      <Image src={item.movie.posterUrl} alt={item.movie.title} fill sizes="56px" className="object-cover" />
+                    </span>
 
                     <div className="flex-grow space-y-1.5 w-full min-w-0 pr-8">
                       <h4 className="text-sm font-bold text-white leading-tight truncate">{item.movie?.title}</h4>
                       <p className="text-[10px] text-slate-400">
                         {(() => {
-                          const matchedEp = item.movie?.episodes?.find((e: any) => e.id === item.episodeId);
+                          const matchedEp = item.movie?.episodes?.find((episode) => episode.id === item.episodeId);
                           return matchedEp ? `${matchedEp.title} • ` : '';
                         })()}
                         Đã xem {percent}% ({Math.floor(item.watchedTime / 60)} phút)
@@ -495,7 +602,7 @@ export default function AccountPage() {
 
                     <Link
                       href={`/watch/${item.movie?.slug}?ep=${(() => {
-                        const matchedEp = item.movie?.episodes?.find((e: any) => e.id === item.episodeId);
+                        const matchedEp = item.movie?.episodes?.find((episode) => episode.id === item.episodeId);
                         return matchedEp?.episodeOrder || 1;
                       })()}`}
                       className="bg-purple-600 hover:bg-purple-700 text-white font-bold p-2 rounded-full text-xs flex items-center justify-center shrink-0 active:scale-95"

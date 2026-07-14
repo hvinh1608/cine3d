@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowRight, Search, SearchX, Film, LogOut, ShieldAlert, Sparkles, Menu, X, Bell, Crown, History, Trash2 } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
@@ -11,6 +12,15 @@ import type { Movie } from '../../types/movie';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const RECENT_SEARCHES_KEY = 'cine3d-recent-searches';
 const MAX_RECENT_SEARCHES = 5;
+
+type NotificationItem = {
+  id: string;
+  title: string;
+  message: string;
+  isRead: boolean;
+  url?: string | null;
+  createdAt: string;
+};
 
 export default function Navbar() {
   const router = useRouter();
@@ -27,7 +37,7 @@ export default function Navbar() {
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
 
   // Notification states
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notiOpen, setNotiOpen] = useState(false);
   const notiRef = useRef<HTMLDivElement>(null);
@@ -62,14 +72,15 @@ export default function Navbar() {
 
   // Update query state if search param changes
   useEffect(() => {
-    setSearchQuery(searchParams.get('q') || '');
+    queueMicrotask(() => setSearchQuery(searchParams.get('q') || ''));
   }, [searchParams]);
 
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(RECENT_SEARCHES_KEY) || '[]');
       if (Array.isArray(saved)) {
-        setRecentSearches(saved.filter((item): item is string => typeof item === 'string').slice(0, MAX_RECENT_SEARCHES));
+        const recent = saved.filter((item): item is string => typeof item === 'string').slice(0, MAX_RECENT_SEARCHES);
+        queueMicrotask(() => setRecentSearches(recent));
       }
     } catch {
       localStorage.removeItem(RECENT_SEARCHES_KEY);
@@ -123,7 +134,7 @@ export default function Navbar() {
         setSuggestions(movies);
         setSuggestionsOpen(true);
         setActiveSuggestionIndex(-1);
-      } catch (error) {
+      } catch {
         if (!controller.signal.aborted) setSuggestions([]);
       } finally {
         if (!controller.signal.aborted) setSuggestionsLoading(false);
@@ -162,14 +173,21 @@ export default function Navbar() {
             headers: { Authorization: `Bearer ${useStore.getState().accessToken}` }
           });
           setNotifications(res.data);
-          setUnreadCount(res.data.filter((n: any) => !n.isRead).length);
-        } catch (e) {
+          setUnreadCount(res.data.filter((notification: NotificationItem) => !notification.isRead).length);
+        } catch {
           // ignore or mock
         }
       };
-      fetchNotis();
-      const interval = setInterval(fetchNotis, 30000);
-      return () => clearInterval(interval);
+      const fetchWhenVisible = () => {
+        if (document.visibilityState === 'visible') void fetchNotis();
+      };
+      void fetchNotis();
+      const interval = window.setInterval(fetchWhenVisible, 60000);
+      window.addEventListener('focus', fetchWhenVisible);
+      return () => {
+        window.clearInterval(interval);
+        window.removeEventListener('focus', fetchWhenVisible);
+      };
     }
   }, [accessToken, authReady, user, hasHydrated]);
 
@@ -269,7 +287,7 @@ export default function Navbar() {
       : 'absolute right-0 top-full z-[60] mt-3 w-96';
 
     return (
-      <div className={`${dropdownClass} overflow-hidden rounded-2xl border border-white/10 bg-slate-950/95 p-1.5 shadow-[0_20px_60px_rgba(0,0,0,0.55)] backdrop-blur-xl`}>
+      <div id={mobile ? 'mobile-search-suggestions' : 'desktop-search-suggestions'} role="listbox" className={`${dropdownClass} overflow-hidden rounded-2xl border border-white/10 bg-slate-950/95 p-1.5 shadow-[0_20px_60px_rgba(0,0,0,0.55)] backdrop-blur-xl`}>
         {keyword.length < 2 ? (
           <div className="p-1">
             <div className="flex items-center justify-between px-2 py-2">
@@ -323,7 +341,7 @@ export default function Navbar() {
                 onClick={() => handleSuggestionSelect(movie)}
                 className={`flex items-center gap-3 rounded-xl p-2 text-left transition ${activeSuggestionIndex === index ? 'bg-white/10' : 'hover:bg-white/[0.07]'}`}
               >
-                <img src={movie.posterUrl} alt="" className="h-14 w-10 shrink-0 rounded-md bg-slate-900 object-cover" />
+                <span className="relative h-14 w-10 shrink-0 overflow-hidden rounded-md bg-slate-900"><Image src={movie.posterUrl} alt="" fill sizes="40px" className="object-cover" /></span>
                 <span className="min-w-0 flex-1">
                   <strong className="block truncate text-xs text-white">{movie.title}</strong>
                   {movie.englishTitle && <small className="mt-0.5 block truncate text-[10px] text-slate-500">{movie.englishTitle}</small>}
@@ -390,6 +408,7 @@ export default function Navbar() {
               aria-label="Tìm phim"
               role="combobox"
               aria-expanded={suggestionsOpen}
+              aria-controls="desktop-search-suggestions"
               autoComplete="off"
               placeholder="Tìm nhanh tên phim..."
               className="bg-slate-900/60 border border-white/10 hover:border-white/20 focus:border-yellow-500 text-white rounded-full pl-4 pr-20 py-2 text-xs w-52 focus:w-72 transition-all duration-300 outline-none backdrop-blur-sm"
@@ -481,9 +500,11 @@ export default function Navbar() {
                 href="/account"
                 className="flex items-center space-x-2 border border-white/10 bg-slate-950/40 px-3 py-1.5 rounded-full hover:bg-white/5 transition-all"
               >
-                <img
+                <Image
                   src={user.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=40&q=80'}
                   alt={user.username}
+                  width={20}
+                  height={20}
                   className="w-5 h-5 rounded-full object-cover border border-white/20"
                 />
                 <span className="text-xs font-bold text-white max-w-[80px] truncate">{user.username}</span>
@@ -537,6 +558,7 @@ export default function Navbar() {
               aria-label="Tìm phim"
               role="combobox"
               aria-expanded={suggestionsOpen}
+              aria-controls="mobile-search-suggestions"
               autoComplete="off"
               placeholder="Tìm nhanh tên phim..."
               className="bg-slate-900 border border-white/10 focus:border-yellow-500 text-white rounded-full pl-4 pr-20 py-2 text-sm w-full outline-none"

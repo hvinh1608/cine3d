@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { AxiosError } from 'axios';
 import Link from 'next/link';
 import { BadgeCheck, Check, Clock3, Crown, Download, MonitorPlay, ReceiptText, ShieldCheck, Sparkles, X, Zap } from 'lucide-react';
 import api from '../../lib/api';
@@ -71,10 +72,10 @@ export default function VipPage() {
   useEffect(() => {
     if (!hasHydrated || !authReady) return;
     let active = true;
-    setLoading(true);
+    const ordersRequest = userId ? Promise.resolve().then(loadOrders) : Promise.resolve();
     Promise.all([
       api.get('/vip/plans'),
-      userId ? loadOrders() : Promise.resolve(),
+      ordersRequest,
     ])
       .then(([plansResponse]) => {
         if (active) setPlans(Array.isArray(plansResponse.data.plans) ? plansResponse.data.plans : []);
@@ -90,8 +91,15 @@ export default function VipPage() {
 
   useEffect(() => {
     if (!pendingOrder) return;
-    const interval = window.setInterval(() => void loadOrders().catch(() => undefined), 8000);
-    return () => window.clearInterval(interval);
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void loadOrders().catch(() => undefined);
+    };
+    const interval = window.setInterval(refreshWhenVisible, 30000);
+    window.addEventListener('focus', refreshWhenVisible);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refreshWhenVisible);
+    };
   }, [loadOrders, pendingOrder]);
 
   const createOrder = async (planId: string) => {
@@ -101,10 +109,11 @@ export default function VipPage() {
       const { data } = await api.post('/vip/orders', { planId });
       setOrders((current) => [data.order, ...current]);
       showToast(data.message, 'success');
-    } catch (error: any) {
-      const existing = error.response?.data?.order as VipOrder | undefined;
+    } catch (error) {
+      const requestError = error as AxiosError<{ message?: string; order?: VipOrder }>;
+      const existing = requestError.response?.data?.order;
       if (existing) setOrders((current) => [existing, ...current.filter((order) => order.id !== existing.id)]);
-      showToast(error.response?.data?.message || 'Không thể tạo đơn VIP.', 'error');
+      showToast(requestError.response?.data?.message || 'Không thể tạo đơn VIP.', 'error');
     } finally {
       setSubmittingPlanId(null);
     }
@@ -115,8 +124,9 @@ export default function VipPage() {
       const { data } = await api.post(`/vip/orders/${orderId}/cancel`);
       showToast(data.message, 'success');
       await loadOrders();
-    } catch (error: any) {
-      showToast(error.response?.data?.message || 'Không thể hủy đơn.', 'error');
+    } catch (error) {
+      const requestError = error as AxiosError<{ message?: string }>;
+      showToast(requestError.response?.data?.message || 'Không thể hủy đơn.', 'error');
     }
   };
 

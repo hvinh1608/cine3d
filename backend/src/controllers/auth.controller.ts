@@ -6,11 +6,17 @@ import * as crypto from 'crypto';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { internalError } from '../lib/http-error';
 import { hasVipAccess } from '../lib/vip';
+import { emailDeliveryConfigured, sendActionEmail } from '../services/email.service';
 
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 const REFRESH_COOKIE = 'cine3d_refresh';
 const secureCookies = process.env.COOKIE_SECURE === 'true';
+const requireEmailVerification = process.env.REQUIRE_EMAIL_VERIFICATION === 'true';
+const clientUrl = (process.env.CLIENT_URLS || process.env.CLIENT_URL || 'http://localhost:3000')
+  .split(',')[0]
+  .trim()
+  .replace(/\/$/, '');
 const cookieOptions = {
   httpOnly: true,
   secure: secureCookies,
@@ -77,6 +83,15 @@ function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
+function createActionToken() {
+  const token = crypto.randomBytes(32).toString('hex');
+  return {
+    token,
+    tokenHash: hashToken(token),
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+  };
+}
+
 if (!JWT_ACCESS_SECRET || !JWT_REFRESH_SECRET) {
   throw new Error('JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must be set in environment variables.');
 }
@@ -86,6 +101,9 @@ if (
     JWT_ACCESS_SECRET.includes('change_me') || JWT_REFRESH_SECRET.includes('change_me'))
 ) {
   throw new Error('Production JWT secrets must be unique and contain at least 32 characters.');
+}
+if (requireEmailVerification && !emailDeliveryConfigured) {
+  throw new Error('REQUIRE_EMAIL_VERIFICATION needs RESEND_API_KEY and MAIL_FROM.');
 }
 
 export const register = async (req: AuthenticatedRequest, res: Response) => {
@@ -105,8 +123,8 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
     return res.status(400).json({ message: 'Username must be between 3 and 40 characters.' });
   }
 
-  if (typeof password !== 'string' || password.length < 6) {
-    return res.status(400).json({ message: 'Password must be at least 6 characters.' });
+  if (typeof password !== 'string' || password.length < 8) {
+    return res.status(400).json({ message: 'Password must be at least 8 characters.' });
   }
 
   try {
@@ -128,16 +146,47 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    const verification = requireEmailVerification ? createActionToken() : null;
     const user = await prisma.user.create({
       data: {
         email,
         username,
         password: hashedPassword,
         roleId: userRole.id,
-        isVerified: true, // Auto-verified for ease of testing
+        isVerified: !requireEmailVerification,
+        emailVerificationToken: verification?.tokenHash,
+        emailVerificationExpires: verification?.expiresAt,
       },
       include: { role: true },
     });
+
+    if (verification) {
+      const publicApiUrl = (process.env.PUBLIC_API_URL || `${req.protocol}://${req.get('host')}/api`).replace(/\/$/, '');
+      try {
+        await sendActionEmail({
+          to: user.email,
+          username: user.username,
+          subject: 'Xác minh tài khoản CINE3D',
+          heading: 'Xác minh địa chỉ email',
+          message: 'Nhấn nút bên dưới để kích hoạt tài khoản và bắt đầu sử dụng CINE3D.',
+          actionLabel: 'Xác minh tài khoản',
+          actionUrl: `${publicApiUrl}/auth/verify-email?token=${encodeURIComponent(verification.token)}`,
+        });
+      } catch (emailError) {
+        console.error('Verification email delivery failed.', emailError);
+        // Do not leave behind an account that can never be verified. The user
+        // can safely submit the registration form again after mail recovers.
+        await prisma.user.delete({ where: { id: user.id } });
+        return res.status(503).json({
+          message: 'Không thể gửi email xác minh lúc này. Vui lòng thử lại sau.',
+        });
+      }
+
+      return res.status(201).json({
+        message: 'Tài khoản đã được tạo. Vui lòng kiểm tra email để xác minh trước khi đăng nhập.',
+        requiresVerification: true,
+      });
+    }
 
     const session = await createSession(user);
     res.cookie(REFRESH_COOKIE, session.refreshToken, cookieOptions);
@@ -172,6 +221,13 @@ export const login = async (req: AuthenticatedRequest, res: Response) => {
 
     if (user.isLocked) {
       return res.status(403).json({ message: 'Account is locked. Please contact support.' });
+    }
+
+    if (requireEmailVerification && !user.isVerified) {
+      return res.status(403).json({
+        message: 'Tài khoản chưa được xác minh. Vui lòng kiểm tra email.',
+        code: 'EMAIL_NOT_VERIFIED',
+      });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
@@ -328,28 +384,35 @@ export const forgotPassword = async (req: AuthenticatedRequest, res: Response) =
 
   const genericMessage = 'If an account with that email exists, password reset instructions have been sent.';
 
+  if (!emailDeliveryConfigured) {
+    return res.status(503).json({ message: 'Khôi phục mật khẩu qua email chưa được cấu hình.' });
+  }
+
   try {
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       return res.json({ message: genericMessage });
     }
 
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    const reset = createActionToken();
 
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        passwordResetToken: hashedToken,
-        passwordResetExpires: expiresAt,
+        passwordResetToken: reset.tokenHash,
+        passwordResetExpires: reset.expiresAt,
       },
     });
 
-    // TODO: send resetToken via email. Log only in non-production for local testing.
-    if (process.env.NODE_ENV !== 'production') {
-      console.info(`[dev] Password reset token for ${email}: ${resetToken}`);
-    }
+    await sendActionEmail({
+      to: user.email,
+      username: user.username,
+      subject: 'Đặt lại mật khẩu CINE3D',
+      heading: 'Khôi phục mật khẩu',
+      message: 'Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.',
+      actionLabel: 'Đặt lại mật khẩu',
+      actionUrl: `${process.env.PASSWORD_RESET_URL || `${clientUrl}/account`}?resetToken=${encodeURIComponent(reset.token)}`,
+    });
 
     return res.json({ message: genericMessage });
   } catch (error: any) {
@@ -363,8 +426,8 @@ export const resetPassword = async (req: AuthenticatedRequest, res: Response) =>
     return res.status(400).json({ message: 'Reset token and new password are required.' });
   }
 
-  if (typeof newPassword !== 'string' || newPassword.length < 6) {
-    return res.status(400).json({ message: 'Password must be at least 6 characters.' });
+  if (typeof newPassword !== 'string' || newPassword.length < 8) {
+    return res.status(400).json({ message: 'Password must be at least 8 characters.' });
   }
 
   try {
@@ -395,5 +458,33 @@ export const resetPassword = async (req: AuthenticatedRequest, res: Response) =>
     return res.json({ message: 'Password updated successfully.' });
   } catch (error: any) {
     return internalError(res, 'Internal server error.', error);
+  }
+};
+
+export const verifyEmail = async (req: AuthenticatedRequest, res: Response) => {
+  const token = typeof req.query.token === 'string' ? req.query.token : '';
+  if (!token) return res.redirect(`${clientUrl}/account?verified=invalid`);
+
+  try {
+    const user = await prisma.user.findFirst({
+      where: {
+        emailVerificationToken: hashToken(token),
+        emailVerificationExpires: { gt: new Date() },
+      },
+    });
+    if (!user) return res.redirect(`${clientUrl}/account?verified=invalid`);
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        isVerified: true,
+        emailVerificationToken: null,
+        emailVerificationExpires: null,
+      },
+    });
+    return res.redirect(`${clientUrl}/account?verified=success`);
+  } catch (error: unknown) {
+    console.error('Email verification failed.', error);
+    return res.redirect(`${clientUrl}/account?verified=error`);
   }
 };

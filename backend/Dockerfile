@@ -29,9 +29,10 @@ COPY package*.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 COPY tsconfig.json ./
 COPY prisma ./prisma/
+COPY scripts ./scripts/
 RUN npx prisma generate
 COPY --from=build /app/dist ./dist
 
 EXPOSE 5000
 
-CMD ["sh", "-c", "npx prisma db push && npx prisma db seed && node dist/index.js"]
+CMD ["npm", "start"]

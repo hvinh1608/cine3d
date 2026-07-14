@@ -1,14 +1,31 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shield, Film, ListVideo, AlertTriangle, Users, BarChart3, Plus, Trash2, Edit, X, Lock, Unlock, RefreshCw, Tv, Subtitles, Link2, Eye, Star, ReceiptText, CheckCircle2 } from 'lucide-react';
+import { Shield, Film, ListVideo, AlertTriangle, Users, BarChart3, Plus, Trash2, Edit, X, Lock, Unlock, RefreshCw, Tv, Subtitles, Star, ReceiptText, CheckCircle2 } from 'lucide-react';
+import type { AxiosError } from 'axios';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const formatVnd = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value);
-const isUserVipActive = (user: any) => Boolean(user.isVip || (user.vipExpiresAt && new Date(user.vipExpiresAt).getTime() > Date.now()));
+type AdminVideoSource = { id?: string; server: string; quality: string; url: string; type: string; isPremium: boolean };
+type AdminSubtitle = { id?: string; language: string; url: string };
+type AdminEpisode = { id: string; title: string; episodeOrder: number; videoSources: AdminVideoSource[]; subtitles: AdminSubtitle[] };
+type AdminMovie = {
+  id: string; title: string; englishTitle?: string | null; slug: string; description: string; posterUrl: string; backdropUrl: string;
+  trailerUrl?: string | null; releaseYear: number; duration: number; countryId: string; quality: string; isSeries: boolean; status: string;
+  isFeatured: boolean; isTrending: boolean; isProposed: boolean; isVip: boolean; vipEarlyAccessUntil?: string | null; episodeCount: number;
+  episodes: AdminEpisode[]; movieGenres: { genreId: string }[];
+};
+type AdminUser = { id: string; email: string; username: string; isLocked: boolean; isVip: boolean; vipExpiresAt?: string | null; role?: { name: string } };
+type AdminReport = { id: string; type: string; content: string; status: string; createdAt: string; user?: { username: string }; movie?: { title: string } | null };
+type AdminVipOrder = { id: string; orderCode: string; status: string; amount: number; durationDays: number; createdAt: string; paidAt?: string | null; user?: { username: string; email: string }; plan?: { name: string } };
+type MetaEntity = { id: string; name: string; slug: string };
+type AdminStats = { totalUsers: number; totalMovies: number; totalEpisodes: number; totalViews: number; pendingReports: number; topMovies: { id: string; title: string; views: number; ratingAvg: number }[]; recentReports: AdminReport[] };
+
+const isUserVipActive = (user: AdminUser) => Boolean(user.isVip || (user.vipExpiresAt && new Date(user.vipExpiresAt).getTime() > Date.now()));
+const requestMessage = (error: unknown, fallback: string) => (error as AxiosError<{ message?: string }>).response?.data?.message || fallback;
 
 export default function AdminPage() {
   const router = useRouter();
@@ -25,7 +42,7 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<'stats' | 'movies' | 'episodes' | 'users' | 'vip' | 'reports'>('stats');
 
   // Stats States
-  const [stats, setStats] = useState<any>({
+  const [stats, setStats] = useState<AdminStats>({
     totalUsers: 0,
     totalMovies: 0,
     totalEpisodes: 0,
@@ -36,12 +53,16 @@ export default function AdminPage() {
   });
 
   // Entities List States
-  const [movies, setMovies] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
-  const [reports, setReports] = useState<any[]>([]);
-  const [vipOrders, setVipOrders] = useState<any[]>([]);
-  const [countries, setCountries] = useState<any[]>([]);
-  const [genres, setGenres] = useState<any[]>([]);
+  const [movies, setMovies] = useState<AdminMovie[]>([]);
+  const [movieSearch, setMovieSearch] = useState('');
+  const [moviePage, setMoviePage] = useState(1);
+  const [movieTotal, setMovieTotal] = useState(0);
+  const [movieTotalPages, setMovieTotalPages] = useState(1);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [reports, setReports] = useState<AdminReport[]>([]);
+  const [vipOrders, setVipOrders] = useState<AdminVipOrder[]>([]);
+  const [countries, setCountries] = useState<MetaEntity[]>([]);
+  const [genres, setGenres] = useState<MetaEntity[]>([]);
   
   // Movie Form States (Create & Edit)
   const [editingMovieId, setEditingMovieId] = useState<string | null>(null);
@@ -69,20 +90,21 @@ export default function AdminPage() {
   const [selectedMovieId, setSelectedMovieId] = useState<string>('');
   const [epTitle, setEpTitle] = useState('');
   const [epOrder, setEpOrder] = useState('1');
-  const [videoSources, setVideoSources] = useState<any[]>([{ server: 'Main Server', quality: '1080p', url: '', type: 'hls', isPremium: false }]);
-  const [subtitles, setSubtitles] = useState<any[]>([{ language: 'Vietnamese', url: '' }]);
+  const [videoSources, setVideoSources] = useState<AdminVideoSource[]>([{ server: 'Main Server', quality: '1080p', url: '', type: 'hls', isPremium: false }]);
+  const [subtitles, setSubtitles] = useState<AdminSubtitle[]>([{ language: 'Vietnamese', url: '' }]);
 
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const movieSearchReadyRef = useRef(false);
 
   // Fetch Dashboard data
-  const loadAdminData = async () => {
+  const loadAdminData = useCallback(async () => {
     if (!accessToken) return;
     setLoading(true);
     try {
       const [statsRes, moviesRes, usersRes, reportsRes, countriesRes, genresRes, vipOrdersRes] = await Promise.all([
         axios.get(`${API_URL}/admin/stats`, { headers: { Authorization: `Bearer ${accessToken}` } }),
-        axios.get(`${API_URL}/admin/movies`, { headers: { Authorization: `Bearer ${accessToken}` } }),
+        axios.get(`${API_URL}/admin/movies`, { params: { page: 1, limit: 20 }, headers: { Authorization: `Bearer ${accessToken}` } }),
         axios.get(`${API_URL}/admin/users`, { headers: { Authorization: `Bearer ${accessToken}` } }),
         axios.get(`${API_URL}/admin/reports`, { headers: { Authorization: `Bearer ${accessToken}` } }),
         axios.get(`${API_URL}/admin/countries`, { headers: { Authorization: `Bearer ${accessToken}` } }),
@@ -91,7 +113,10 @@ export default function AdminPage() {
       ]);
 
       setStats(statsRes.data);
-      setMovies(moviesRes.data || []);
+      setMovies(moviesRes.data?.movies || []);
+      setMovieTotal(moviesRes.data?.total || 0);
+      setMoviePage(moviesRes.data?.page || 1);
+      setMovieTotalPages(moviesRes.data?.totalPages || 1);
       setUsers(usersRes.data || []);
       setReports(reportsRes.data || []);
       setCountries(countriesRes.data || []);
@@ -120,23 +145,53 @@ export default function AdminPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [accessToken, movieCountry, showToast]);
 
   useEffect(() => {
-    loadAdminData();
-  }, [accessToken]);
+    queueMicrotask(() => void loadAdminData());
+  }, [loadAdminData]);
+
+  const loadMoviesPage = useCallback(async (page: number, search = movieSearch) => {
+    if (!accessToken) return;
+    try {
+      const response = await axios.get(`${API_URL}/admin/movies`, {
+        params: { page, limit: 20, search: search.trim() || undefined },
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      setMovies(response.data?.movies || []);
+      setMovieTotal(response.data?.total || 0);
+      setMoviePage(response.data?.page || page);
+      setMovieTotalPages(response.data?.totalPages || 1);
+      setSelectedMovieId((current) => response.data?.movies?.some((movie: AdminMovie) => movie.id === current) ? current : '');
+    } catch {
+      showToast('Không tải được danh sách phim.', 'error');
+    }
+  }, [accessToken, movieSearch, showToast]);
+
+  useEffect(() => {
+    if (!movieSearchReadyRef.current) {
+      movieSearchReadyRef.current = true;
+      return;
+    }
+    const timer = window.setTimeout(() => void loadMoviesPage(1, movieSearch), 350);
+    return () => window.clearTimeout(timer);
+  }, [loadMoviesPage, movieSearch]);
 
   // Handle auto-calculating episode order and title
   useEffect(() => {
     if (selectedMovieId) {
       const movie = movies.find(m => m.id === selectedMovieId);
       const eps = movie?.episodes || [];
-      const nextOrder = eps.length > 0 ? Math.max(...eps.map((e: any) => e.episodeOrder || 0)) + 1 : 1;
-      setEpOrder(String(nextOrder));
-      setEpTitle(movie?.isSeries ? `Tập ${nextOrder}` : 'Full Movie');
+      const nextOrder = eps.length > 0 ? Math.max(...eps.map((episode) => episode.episodeOrder || 0)) + 1 : 1;
+      queueMicrotask(() => {
+        setEpOrder(String(nextOrder));
+        setEpTitle(movie?.isSeries ? `Tập ${nextOrder}` : 'Full Movie');
+      });
     } else {
-      setEpOrder('1');
-      setEpTitle('');
+      queueMicrotask(() => {
+        setEpOrder('1');
+        setEpTitle('');
+      });
     }
   }, [selectedMovieId, movies]);
 
@@ -146,7 +201,7 @@ export default function AdminPage() {
   }
 
   // Movie CRUD Form Handling
-  const handleStartEditMovie = (movie: any) => {
+  const handleStartEditMovie = (movie: AdminMovie) => {
     setEditingMovieId(movie.id);
     setMovieTitle(movie.title);
     setMovieEnglishTitle(movie.englishTitle || '');
@@ -168,7 +223,7 @@ export default function AdminPage() {
     setMovieVipEarlyAccessUntil(movie.vipEarlyAccessUntil ? new Date(movie.vipEarlyAccessUntil).toISOString().slice(0, 16) : '');
     
     // Set checked genres
-    const gIds = movie.movieGenres?.map((mg: any) => mg.genreId) || [];
+    const gIds = movie.movieGenres?.map((movieGenre) => movieGenre.genreId) || [];
     setSelectedGenres(gIds);
     
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -242,8 +297,8 @@ export default function AdminPage() {
       
       handleCancelEditMovie();
       loadAdminData();
-    } catch (e: any) {
-      showToast(e.response?.data?.message || 'Thao tác phim thất bại.', 'error');
+    } catch (error) {
+      showToast(requestMessage(error, 'Thao tác phim thất bại.'), 'error');
     } finally {
       setActionLoading(false);
     }
@@ -257,8 +312,8 @@ export default function AdminPage() {
       });
       showToast('Xóa phim thành công!', 'success');
       loadAdminData();
-    } catch (e: any) {
-      showToast(e.response?.data?.message || 'Xóa phim thất bại.', 'error');
+    } catch (error) {
+      showToast(requestMessage(error, 'Xóa phim thất bại.'), 'error');
     }
   };
 
@@ -271,10 +326,8 @@ export default function AdminPage() {
     setVideoSources(videoSources.filter((_, i) => i !== index));
   };
 
-  const handleSourceChange = (index: number, field: string, value: any) => {
-    const updated = [...videoSources];
-    updated[index][field] = value;
-    setVideoSources(updated);
+  const handleSourceChange = (index: number, field: keyof AdminVideoSource, value: string | boolean) => {
+    setVideoSources((current) => current.map((source, sourceIndex) => sourceIndex === index ? { ...source, [field]: value } : source));
   };
 
   // Subtitles Array actions
@@ -286,10 +339,8 @@ export default function AdminPage() {
     setSubtitles(subtitles.filter((_, i) => i !== index));
   };
 
-  const handleSubtitleChange = (index: number, field: string, value: any) => {
-    const updated = [...subtitles];
-    updated[index][field] = value;
-    setSubtitles(updated);
+  const handleSubtitleChange = (index: number, field: keyof AdminSubtitle, value: string) => {
+    setSubtitles((current) => current.map((subtitle, subtitleIndex) => subtitleIndex === index ? { ...subtitle, [field]: value } : subtitle));
   };
 
   // Episode creation and deletion
@@ -318,8 +369,8 @@ export default function AdminPage() {
       setEpTitle('');
       setVideoSources([{ server: 'Main Server', quality: '1080p', url: '', type: 'hls', isPremium: false }]);
       setSubtitles([{ language: 'Vietnamese', url: '' }]);
-    } catch (e: any) {
-      showToast(e.response?.data?.message || 'Lỗi thêm tập.', 'error');
+    } catch (error) {
+      showToast(requestMessage(error, 'Lỗi thêm tập.'), 'error');
     } finally {
       setActionLoading(false);
     }
@@ -333,8 +384,8 @@ export default function AdminPage() {
       });
       showToast('Xóa tập phim thành công!', 'success');
       loadAdminData();
-    } catch (e: any) {
-      showToast(e.response?.data?.message || 'Lỗi xóa tập.', 'error');
+    } catch (error) {
+      showToast(requestMessage(error, 'Lỗi xóa tập.'), 'error');
     }
   };
 
@@ -346,8 +397,8 @@ export default function AdminPage() {
       });
       showToast(res.data.message, 'success');
       loadAdminData();
-    } catch (e: any) {
-      showToast(e.response?.data?.message || 'Không thể thay đổi trạng thái tài khoản.', 'error');
+    } catch (error) {
+      showToast(requestMessage(error, 'Không thể thay đổi trạng thái tài khoản.'), 'error');
     }
   };
 
@@ -358,8 +409,8 @@ export default function AdminPage() {
       });
       showToast(res.data.message, 'success');
       loadAdminData();
-    } catch (e: any) {
-      showToast(e.response?.data?.message || 'Không thể thay đổi trạng thái VIP.', 'error');
+    } catch (error) {
+      showToast(requestMessage(error, 'Không thể thay đổi trạng thái VIP.'), 'error');
     }
   };
 
@@ -370,8 +421,8 @@ export default function AdminPage() {
       });
       showToast(res.data.message, 'success');
       loadAdminData();
-    } catch (e: any) {
-      showToast(e.response?.data?.message || 'Không thể xác nhận đơn VIP.', 'error');
+    } catch (error) {
+      showToast(requestMessage(error, 'Không thể xác nhận đơn VIP.'), 'error');
     }
   };
 
@@ -382,8 +433,8 @@ export default function AdminPage() {
       });
       showToast(res.data.message, 'success');
       loadAdminData();
-    } catch (e: any) {
-      showToast(e.response?.data?.message || 'Không thể hủy đơn VIP.', 'error');
+    } catch (error) {
+      showToast(requestMessage(error, 'Không thể hủy đơn VIP.'), 'error');
     }
   };
 
@@ -395,8 +446,8 @@ export default function AdminPage() {
       });
       showToast('Báo cáo đã được xử lý!', 'success');
       loadAdminData();
-    } catch (e: any) {
-      showToast(e.response?.data?.message || 'Không thể cập nhật báo cáo.', 'error');
+    } catch (error) {
+      showToast(requestMessage(error, 'Không thể cập nhật báo cáo.'), 'error');
     }
   };
 
@@ -545,7 +596,7 @@ export default function AdminPage() {
                 <Film className="w-4 h-4 text-cyan-400 mr-2" /> Top 5 Phim Có Lượt Xem Cao Nhất
               </h3>
               <div className="space-y-4 text-xs md:text-sm">
-                {stats.topMovies.map((movie: any, idx: number) => {
+                {stats.topMovies.map((movie, idx) => {
                   const maxViews = stats.topMovies[0]?.views || 1;
                   const pct = Math.min(100, Math.floor((movie.views / maxViews) * 100));
                   return (
@@ -815,7 +866,13 @@ export default function AdminPage() {
 
             {/* Movies List Table */}
             <div className="space-y-3">
-              <h3 className="text-sm font-bold uppercase text-slate-300 tracking-wider">Danh sách phim hiện tại ({movies.length})</h3>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h3 className="text-sm font-bold uppercase text-slate-300 tracking-wider">Phim trong cơ sở dữ liệu ({movieTotal})</h3>
+                <div className="relative sm:w-72">
+                  <input value={movieSearch} onChange={(event) => setMovieSearch(event.target.value)} placeholder="Tìm tên phim, tên gốc hoặc slug..." className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 pr-9 text-xs text-white outline-none focus:border-purple-500" />
+                  {movieSearch && <button type="button" onClick={() => setMovieSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"><X className="h-4 w-4" /></button>}
+                </div>
+              </div>
               <div className="overflow-x-auto text-xs md:text-sm">
                 <table className="w-full text-left">
                   <thead>
@@ -880,6 +937,13 @@ export default function AdminPage() {
                   </tbody>
                 </table>
               </div>
+              <div className="flex items-center justify-between border-t border-white/5 pt-3 text-xs text-slate-500">
+                <span>Trang {moviePage}/{movieTotalPages}</span>
+                <div className="flex gap-2">
+                  <button type="button" disabled={moviePage <= 1} onClick={() => void loadMoviesPage(moviePage - 1)} className="rounded-lg border border-white/10 px-3 py-1.5 font-bold text-slate-300 disabled:cursor-not-allowed disabled:opacity-30 hover:bg-white/5">Trang trước</button>
+                  <button type="button" disabled={moviePage >= movieTotalPages} onClick={() => void loadMoviesPage(moviePage + 1)} className="rounded-lg border border-white/10 px-3 py-1.5 font-bold text-slate-300 disabled:cursor-not-allowed disabled:opacity-30 hover:bg-white/5">Trang sau</button>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -893,6 +957,7 @@ export default function AdminPage() {
 
             {/* Select Movie Selector */}
             <div className="bg-slate-900/40 p-5 rounded-2xl border border-white/5 space-y-4">
+              <input value={movieSearch} onChange={(event) => setMovieSearch(event.target.value)} placeholder="Tìm phim cần quản lý tập..." className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2.5 text-xs text-white outline-none focus:border-purple-500" />
               <div className="flex flex-col space-y-1">
                 <span className="text-[10px] text-slate-500 uppercase font-black tracking-wider">Chọn phim để quản lý tập:</span>
                 <select
@@ -907,6 +972,7 @@ export default function AdminPage() {
                     </option>
                   ))}
                 </select>
+                <span className="text-[10px] text-slate-600">Đang hiển thị {movies.length}/{movieTotal} phim · dùng ô tìm kiếm để mở phim khác.</span>
               </div>
 
               {/* Render Existing Episodes of Selected Movie */}
@@ -935,12 +1001,12 @@ export default function AdminPage() {
                           </tr>
                         </thead>
                         <tbody>
-                          {episodes.map((ep: any) => (
+                          {episodes.map((ep) => (
                             <tr key={ep.id} className="border-b border-white/5 text-slate-300">
                               <td className="py-2.5 font-bold">#{ep.episodeOrder}</td>
                               <td className="py-2.5">{ep.title}</td>
                               <td className="py-2.5 text-[10px] text-slate-400 truncate max-w-[250px]">
-                                {ep.videoSources?.map((s: any) => `${s.server} (${s.quality}${s.isPremium ? ' · Premium' : ''})`).join(', ') || 'HLS URL'}
+                                {ep.videoSources?.map((source) => `${source.server} (${source.quality}${source.isPremium ? ' · Premium' : ''})`).join(', ') || 'HLS URL'}
                               </td>
                               <td className="py-2.5 text-right">
                                 <button

@@ -91,16 +91,32 @@ export const getStats = async (req: Request, res: Response) => {
 // CRUD: Manage Movies
 export const getLocalMovies = async (req: Request, res: Response) => {
   try {
-    const movies = await prisma.movie.findMany({
-      include: {
-        country: true,
-        movieGenres: { include: { genre: true } },
-        episodes: { include: { videoSources: true, subtitles: true }, orderBy: { episodeOrder: 'asc' } },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 200,
-    });
-    return res.json(movies);
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(10, Number(req.query.limit) || 20));
+    const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+    const where: Prisma.MovieWhereInput = search
+      ? { OR: [
+          { title: { contains: search, mode: 'insensitive' } },
+          { englishTitle: { contains: search, mode: 'insensitive' } },
+          { slug: { contains: search, mode: 'insensitive' } },
+        ] }
+      : {};
+
+    const [movies, total] = await prisma.$transaction([
+      prisma.movie.findMany({
+        where,
+        include: {
+          country: true,
+          movieGenres: { include: { genre: true } },
+          episodes: { include: { videoSources: true, subtitles: true }, orderBy: { episodeOrder: 'asc' } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.movie.count({ where }),
+    ]);
+    return res.json({ movies, total, page, limit, totalPages: Math.max(1, Math.ceil(total / limit)) });
   } catch (error: any) {
     return internalError(res, 'Error retrieving local movies.', error);
   }

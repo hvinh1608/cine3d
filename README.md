@@ -12,6 +12,12 @@ Luồng VIP mặc định sử dụng xác nhận giao dịch thủ công:
 
 Website xem phim trực tuyến với thiết kế giao diện không gian 3D, chiều sâu điện ảnh cao cấp và mượt mà. 
 
+## Database production và email tài khoản
+
+Backend tự chạy `prisma migrate deploy` khi khởi động. Database cũ được đồng bộ và ghi nhận migration nền đúng một lần, vì vậy Render không cần mở Shell. Từ những lần deploy tiếp theo, hãy tạo migration mới thay vì dùng `prisma db push` trực tiếp trên production.
+
+Khôi phục mật khẩu hỗ trợ Resend qua `RESEND_API_KEY` và `MAIL_FROM`. Sau khi xác minh domain gửi, đặt thêm `PUBLIC_API_URL` và `PASSWORD_RESET_URL` theo URL production. Muốn bắt buộc người đăng ký xác minh email, đặt `REQUIRE_EMAIL_VERIFICATION=true`; backend sẽ từ chối khởi động nếu chế độ này được bật nhưng chưa có cấu hình gửi email.
+
 Dự án được xây dựng trọn vẹn cả Frontend, Backend, Database PostgreSQL và tích hợp Docker Compose để dễ dàng triển khai.
 
 ---

@@ -1,24 +1,46 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Play, Star, Plus, Check, Calendar, Clock, Globe, Film, Send, Trash2, Heart, Video, X, Crown } from 'lucide-react';
+import Image from 'next/image';
+import { Play, Star, Plus, Calendar, Clock, Globe, Film, Send, Trash2, Heart, Video, X, Crown } from 'lucide-react';
 import { useStore } from '../../../hooks/useStore';
 import MovieCardLandscape from '../../../components/ui/MovieCardLandscape';
 import axios from '../../../lib/api';
+import type { Movie } from '../../../types/movie';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
+type MovieDetailData = Movie & {
+  status?: string;
+  isEarlyAccess?: boolean;
+  country?: { name: string };
+  movieGenres?: { genre: { name: string; slug: string } }[];
+  movieActors?: { actor: { name: string } }[];
+  movieDirectors?: { director: { name: string } }[];
+};
+
+type CommentItem = {
+  id: string;
+  userId?: string;
+  content: string;
+  createdAt: string;
+  likesCount: number;
+  isLiked: boolean;
+  parentId?: string | null;
+  user: { username: string; avatar?: string | null; isVip?: boolean };
+  replies?: CommentItem[];
+};
+
 export default function MovieDetail() {
   const params = useParams();
-  const router = useRouter();
   const slug = params.slug as string;
 
   const { user, favorites, setFavorites, accessToken, showToast } = useStore();
-  const [movie, setMovie] = useState<any>(null);
-  const [comments, setComments] = useState<any[]>([]);
-  const [relatedMovies, setRelatedMovies] = useState<any[]>([]);
+  const [movie, setMovie] = useState<MovieDetailData | null>(null);
+  const [comments, setComments] = useState<CommentItem[]>([]);
+  const [relatedMovies, setRelatedMovies] = useState<Movie[]>([]);
   const [newComment, setNewComment] = useState('');
   const [userRating, setUserRating] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -40,11 +62,12 @@ export default function MovieDetail() {
         setMovie(movieRes.data);
 
         // Determine movie formats and query type to find accurate recommendations
-        const genres = movieRes.data.movieGenres || [];
-        const isAnime = genres.some((mg: any) => mg.genre?.slug === 'hoat-hinh');
+        const movieData = movieRes.data as MovieDetailData;
+        const genres = movieData.movieGenres || [];
+        const isAnime = genres.some((movieGenre) => movieGenre.genre?.slug === 'hoat-hinh');
         
         // Use first genre that isn't 'hoat-hinh' as subcategory filter, fallback to first genre
-        const filterGenreObj = genres.find((mg: any) => mg.genre?.slug !== 'hoat-hinh') || genres[0];
+        const filterGenreObj = genres.find((movieGenre) => movieGenre.genre?.slug !== 'hoat-hinh') || genres[0];
         const firstGenreSlug = filterGenreObj?.genre?.slug;
         
         const queryType = isAnime 
@@ -58,7 +81,7 @@ export default function MovieDetail() {
             const relatedRes = await axios.get(`${API_URL}/movies`, {
               params: { genre: firstGenreSlug, type: queryType, limit: 7 }
             });
-            const filtered = (relatedRes.data.movies || []).filter((m: any) => m.id !== movieRes.data.id);
+            const filtered = ((relatedRes.data.movies || []) as Movie[]).filter((relatedMovie) => relatedMovie.id !== movieData.id);
             setRelatedMovies(filtered.slice(0, 6));
           } catch {
             setRelatedMovies([]);
@@ -132,12 +155,10 @@ export default function MovieDetail() {
   const handleSocialShare = (platform: 'facebook' | 'zalo' | 'copy') => {
     if (typeof window === 'undefined') return;
     const shareUrl = encodeURIComponent(window.location.href);
-    const title = encodeURIComponent(movie?.title || '');
-
     if (platform === 'facebook') {
-      window.open(`https://www.facebook.com/sharer/sharer.php?u=${shareUrl}`, '_blank');
+      window.open(`https://www.facebook.com/sharer/sharer.php?u=${shareUrl}`, '_blank', 'noopener,noreferrer');
     } else if (platform === 'zalo') {
-      window.open(`https://sp.zalo.me/share_to_zalo?url=${shareUrl}`, '_blank');
+      window.open(`https://sp.zalo.me/share_to_zalo?url=${shareUrl}`, '_blank', 'noopener,noreferrer');
     } else if (platform === 'copy') {
       navigator.clipboard.writeText(window.location.href);
       showToast('Đã sao chép liên kết phim!', 'success');
@@ -150,7 +171,7 @@ export default function MovieDetail() {
       showToast('Vui lòng đăng nhập để bình luận!', 'info');
       return;
     }
-    if (!newComment.trim()) return;
+    if (!movie || !newComment.trim()) return;
 
     try {
       const res = await axios.post(`${API_URL}/movies/${movie.id}/comments`, {
@@ -166,7 +187,7 @@ export default function MovieDetail() {
         replies: []
       }, ...comments]);
       setNewComment('');
-    } catch (error) {
+    } catch {
       showToast('Không thể đăng bình luận. Vui lòng thử lại.', 'error');
     }
   };
@@ -177,7 +198,7 @@ export default function MovieDetail() {
       showToast('Vui lòng đăng nhập để phản hồi!', 'info');
       return;
     }
-    if (!replyCommentText.trim()) return;
+    if (!movie || !replyCommentText.trim()) return;
 
     try {
       const res = await axios.post(`${API_URL}/movies/${movie.id}/comments`, {
@@ -207,7 +228,7 @@ export default function MovieDetail() {
       );
       setReplyCommentText('');
       setReplyingToId(null);
-    } catch (error) {
+    } catch {
       const mockReply = {
         id: Math.random().toString(),
         content: replyCommentText.trim(),
@@ -254,15 +275,15 @@ export default function MovieDetail() {
             };
           }
           if (c.replies && c.replies.length > 0) {
-            const updatedReplies = c.replies.map((r: any) => {
-              if (r.id === commentId) {
+            const updatedReplies = c.replies.map((reply) => {
+              if (reply.id === commentId) {
                 return {
-                  ...r,
+                  ...reply,
                   isLiked: liked,
-                  likesCount: Math.max(0, r.likesCount + (liked ? 1 : -1))
+                  likesCount: Math.max(0, reply.likesCount + (liked ? 1 : -1))
                 };
               }
-              return r;
+              return reply;
             });
             return { ...c, replies: updatedReplies };
           }
@@ -282,16 +303,16 @@ export default function MovieDetail() {
             };
           }
           if (c.replies && c.replies.length > 0) {
-            const updatedReplies = c.replies.map((r: any) => {
-              if (r.id === commentId) {
-                const liked = !r.isLiked;
+            const updatedReplies = c.replies.map((reply) => {
+              if (reply.id === commentId) {
+                const liked = !reply.isLiked;
                 return {
-                  ...r,
+                  ...reply,
                   isLiked: liked,
-                  likesCount: Math.max(0, r.likesCount + (liked ? 1 : -1))
+                  likesCount: Math.max(0, reply.likesCount + (liked ? 1 : -1))
                 };
               }
-              return r;
+              return reply;
             });
             return { ...c, replies: updatedReplies };
           }
@@ -302,7 +323,7 @@ export default function MovieDetail() {
   };
 
   const handleRate = async (score: number) => {
-    if (!user || !accessToken) {
+    if (!user || !accessToken || !movie) {
       showToast('Vui lòng đăng nhập để đánh giá phim!', 'info');
       return;
     }
@@ -311,8 +332,8 @@ export default function MovieDetail() {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       setUserRating(score);
-      setMovie({ ...movie, ratingAvg: res.data.ratingAvg });
-    } catch (e) {
+      setMovie((current) => current ? { ...current, ratingAvg: res.data.ratingAvg } : current);
+    } catch {
       setUserRating(score);
     }
   };
@@ -327,16 +348,16 @@ export default function MovieDetail() {
           .filter(c => c.id !== commentId)
           .map(c => ({
             ...c,
-            replies: c.replies ? c.replies.filter((r: any) => r.id !== commentId) : []
+            replies: c.replies ? c.replies.filter((reply) => reply.id !== commentId) : []
           }))
       );
-    } catch (e) {
+    } catch {
       setComments(prev =>
         prev
           .filter(c => c.id !== commentId)
           .map(c => ({
             ...c,
-            replies: c.replies ? c.replies.filter((r: any) => r.id !== commentId) : []
+            replies: c.replies ? c.replies.filter((reply) => reply.id !== commentId) : []
           }))
       );
     }
@@ -380,10 +401,13 @@ export default function MovieDetail() {
       {/* Blurred Backdrop Background */}
       <div className="absolute top-0 left-0 w-full h-[60vh] -z-10 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-b from-[#020205]/10 via-[#020205]/70 to-[#020205]" />
-        <img
+        <Image
           src={movie.backdropUrl}
           alt={movie.title}
-          className="w-full h-full object-cover blur-md scale-105 opacity-40"
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover blur-md scale-105 opacity-40"
         />
       </div>
 
@@ -395,7 +419,7 @@ export default function MovieDetail() {
             className="w-[280px] md:w-[320px] aspect-[2/3] rounded-2xl overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.8)] border border-white/10 relative transition-transform duration-500 hover:scale-[1.03] group"
             style={{ transformStyle: 'preserve-3d', perspective: '1000px' }}
           >
-            <img src={movie.posterUrl} alt={movie.title} className="w-full h-full object-cover" />
+            <Image src={movie.posterUrl} alt={movie.title} fill priority sizes="(max-width: 768px) 280px, 320px" className="object-cover" />
             {movie.isVip && (
               <div className="absolute top-3 left-3 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black text-[9px] px-2.5 py-1 rounded-md uppercase tracking-wider shadow-lg">
                 Phim VIP
@@ -506,19 +530,19 @@ export default function MovieDetail() {
               <div className="space-y-1">
                 <span className="text-slate-500 block">Đạo diễn:</span>
                 <span className="font-bold text-slate-200">
-                  {movie.movieDirectors?.map((d: any) => d.director.name).join(', ') || 'Đang cập nhật'}
+                  {movie.movieDirectors?.map((item) => item.director.name).join(', ') || 'Đang cập nhật'}
                 </span>
               </div>
               <div className="space-y-1">
                 <span className="text-slate-500 block">Diễn viên:</span>
                 <span className="font-bold text-slate-200 text-glow">
-                  {movie.movieActors?.map((a: any) => a.actor.name).join(', ') || 'Đang cập nhật'}
+                  {movie.movieActors?.map((item) => item.actor.name).join(', ') || 'Đang cập nhật'}
                 </span>
               </div>
               <div className="space-y-1">
                 <span className="text-slate-500 block">Thể loại:</span>
                 <span className="font-bold text-red-400">
-                  {movie.movieGenres?.map((g: any) => g.genre.name).join(', ') || 'Đang cập nhật'}
+                  {movie.movieGenres?.map((item) => item.genre.name).join(', ') || 'Đang cập nhật'}
                 </span>
               </div>
             </div>
@@ -553,13 +577,13 @@ export default function MovieDetail() {
               <Film className="w-5 h-5 text-red-500 mr-2" /> Chọn Tập Phim
             </h3>
             <div className="flex flex-wrap gap-2.5">
-              {movie.episodes?.map((ep: any) => (
+              {movie.episodes?.map((episode) => (
                 <Link
-                  key={ep.id}
-                  href={`/watch/${movie.slug}?ep=${ep.episodeOrder}`}
+                  key={episode.id}
+                  href={`/watch/${movie.slug}?ep=${episode.episodeOrder}`}
                   className="bg-slate-900/60 border border-white/10 hover:border-red-500 hover:bg-red-600 hover:text-white px-5 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all text-center min-w-[70px] active:scale-95"
                 >
-                  {ep.title}
+                  {episode.title}
                 </Link>
               )) || <p className="text-slate-500 text-xs">Đang cập nhật danh sách tập.</p>}
             </div>
@@ -575,35 +599,35 @@ export default function MovieDetail() {
                 </h3>
               </div>
               <div className="flex gap-4 overflow-x-auto no-scrollbar py-2">
-                {relatedMovies.map((m: any) => (
-                  <div key={m.id} className="w-[180px] sm:w-[220px] shrink-0">
+                {relatedMovies.map((relatedMovie) => (
+                  <div key={relatedMovie.id} className="w-[180px] sm:w-[220px] shrink-0">
                     <MovieCardLandscape
-                      movie={m}
+                      movie={relatedMovie}
                       onToggleFavorite={async () => {
                         if (!user) {
                           showToast('Vui lòng đăng nhập để lưu phim yêu thích!', 'info');
                           return;
                         }
                         try {
-                          const res = await axios.post(`${API_URL}/user/favorites/${m.id}`, {}, {
+                          const res = await axios.post(`${API_URL}/user/favorites/${relatedMovie.id}`, {}, {
                             headers: { Authorization: `Bearer ${accessToken}` }
                           });
                           const currentFavs = [...favorites];
                           if (res.data.favorited) {
-                            setFavorites([...currentFavs, m]);
+                            setFavorites([...currentFavs, relatedMovie]);
                           } else {
-                            setFavorites(currentFavs.filter(f => f.id !== m.id));
+                            setFavorites(currentFavs.filter(f => f.id !== relatedMovie.id));
                           }
                         } catch {
-                          const isAlready = favorites.some(f => f.id === m.id);
+                          const isAlready = favorites.some(f => f.id === relatedMovie.id);
                           if (isAlready) {
-                            setFavorites(favorites.filter(f => f.id !== m.id));
+                            setFavorites(favorites.filter(f => f.id !== relatedMovie.id));
                           } else {
-                            setFavorites([...favorites, m]);
+                            setFavorites([...favorites, relatedMovie]);
                           }
                         }
                       }}
-                      isFavorited={favorites.some((f) => f.id === m.id)}
+                      isFavorited={favorites.some((favorite) => favorite.id === relatedMovie.id)}
                     />
                   </div>
                 ))}
@@ -620,9 +644,11 @@ export default function MovieDetail() {
             {/* Comment Form */}
             {user ? (
               <form onSubmit={handlePostComment} className="flex gap-3">
-                <img
+                <Image
                   src={user.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=40&q=80'}
                   alt={user.username}
+                  width={36}
+                  height={36}
                   className="w-9 h-9 rounded-full object-cover border border-white/10 shrink-0"
                 />
                 <div className="flex-1 relative">
@@ -657,9 +683,11 @@ export default function MovieDetail() {
                   
                   {/* Parent Comment */}
                   <div className="flex gap-3">
-                    <img
+                    <Image
                       src={comment.user?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=40&q=80'}
                       alt={comment.user?.username}
+                      width={36}
+                      height={36}
                       className="w-9 h-9 rounded-full object-cover border border-white/10 shrink-0"
                     />
                     <div className="flex-1 space-y-1">
@@ -707,9 +735,11 @@ export default function MovieDetail() {
                   {/* Reply Input Form under this parent comment */}
                   {replyingToId === comment.id && user && (
                     <form onSubmit={(e) => handlePostReply(e, comment.id)} className="flex gap-3 pl-12 mt-3 w-full">
-                      <img
+                      <Image
                         src={user.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=30&q=80'}
                         alt={user.username}
+                        width={28}
+                        height={28}
                         className="w-7 h-7 rounded-full object-cover border border-white/10 shrink-0"
                       />
                       <div className="flex-1 relative">
@@ -731,14 +761,16 @@ export default function MovieDetail() {
                   {/* Render Replies (Nested list) */}
                   {comment.replies && comment.replies.length > 0 && (
                     <div className="pl-10 md:pl-12 mt-3 space-y-4 border-l border-white/5 relative">
-                      {comment.replies.map((reply: any) => (
+                      {comment.replies.map((reply) => (
                         <div key={reply.id} className="flex gap-3 relative pb-1">
                           {/* L-shaped line indicator */}
                           <div className="absolute -left-[41px] top-4 w-5 h-3.5 border-l border-b border-white/10 rounded-bl-lg" />
                           
-                          <img
+                          <Image
                             src={reply.user?.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=40&q=80'}
                             alt={reply.user?.username}
+                            width={28}
+                            height={28}
                             className="w-7 h-7 rounded-full object-cover border border-white/10 shrink-0"
                           />
                           <div className="flex-1 space-y-1">
