@@ -115,6 +115,23 @@ async function createAvailableUsername(name: string, email: string) {
   return `cine3d-${crypto.randomUUID().slice(0, 8)}`;
 }
 
+async function sendVerificationEmail(
+  req: AuthenticatedRequest,
+  user: { email: string; username: string },
+  token: string
+) {
+  const publicApiUrl = (process.env.PUBLIC_API_URL || `${req.protocol}://${req.get('host')}/api`).replace(/\/$/, '');
+  await sendActionEmail({
+    to: user.email,
+    username: user.username,
+    subject: 'Xác nhận tài khoản CINE3D',
+    heading: 'Xác nhận địa chỉ email',
+    message: 'Nhấn nút bên dưới để kích hoạt tài khoản CINE3D của bạn.',
+    actionLabel: 'Xác nhận tài khoản',
+    actionUrl: `${publicApiUrl}/auth/verify-email?token=${encodeURIComponent(token)}`,
+  });
+}
+
 if (!JWT_ACCESS_SECRET || !JWT_REFRESH_SECRET) {
   throw new Error('JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must be set in environment variables.');
 }
@@ -157,7 +174,33 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
     });
 
     if (existingUser) {
-      return res.status(400).json({ message: 'Username or email already exists.' });
+      if (requireEmailVerification && existingUser.email === email && !existingUser.isVerified) {
+        const verification = createActionToken();
+        await prisma.user.update({
+          where: { id: existingUser.id },
+          data: {
+            emailVerificationToken: verification.tokenHash,
+            emailVerificationExpires: verification.expiresAt,
+          },
+        });
+
+        try {
+          await sendVerificationEmail(req, existingUser, verification.token);
+        } catch (emailError) {
+          console.error('Verification email resend failed.', emailError);
+          return res.status(503).json({ message: 'Không thể gửi lại email xác nhận. Vui lòng thử sau.' });
+        }
+
+        return res.json({
+          message: 'Tài khoản đang chờ xác nhận. Email xác nhận mới đã được gửi lại.',
+          requiresVerification: true,
+        });
+      }
+
+      return res.status(400).json({
+        message: 'Email hoặc tên tài khoản đã được sử dụng. Hãy chuyển sang đăng nhập.',
+        code: 'ACCOUNT_EXISTS',
+      });
     }
 
     // Retrieve default 'USER' role
@@ -183,17 +226,8 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
     });
 
     if (verification) {
-      const publicApiUrl = (process.env.PUBLIC_API_URL || `${req.protocol}://${req.get('host')}/api`).replace(/\/$/, '');
       try {
-        await sendActionEmail({
-          to: user.email,
-          username: user.username,
-          subject: 'Xác nhận tài khoản CINE3D',
-          heading: 'Xác nhận địa chỉ email',
-          message: 'Nhấn nút bên dưới để kích hoạt tài khoản CINE3D của bạn.',
-          actionLabel: 'Xác nhận tài khoản',
-          actionUrl: `${publicApiUrl}/auth/verify-email?token=${encodeURIComponent(verification.token)}`,
-        });
+        await sendVerificationEmail(req, user, verification.token);
       } catch (emailError) {
         console.error('Verification email delivery failed.', emailError);
         await prisma.user.delete({ where: { id: user.id } });

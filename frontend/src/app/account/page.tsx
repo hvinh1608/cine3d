@@ -11,6 +11,7 @@ import GoogleSignInButton from '../../components/auth/GoogleSignInButton';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const requestMessage = (error: unknown, fallback: string) => (error as AxiosError<{ message?: string }>).response?.data?.message || fallback;
+const requestCode = (error: unknown) => (error as AxiosError<{ code?: string }>).response?.data?.code;
 
 const PRESET_AVATARS = [
   'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
@@ -113,6 +114,12 @@ export default function AccountPage() {
       setSession(res.data.user, res.data.accessToken);
       showToast(isLogin ? 'Đăng nhập thành công!' : 'Đăng ký tài khoản thành công!', 'success');
     } catch (error) {
+      if (!isLogin && requestCode(error) === 'ACCOUNT_EXISTS') {
+        setIsLogin(true);
+        setPassword('');
+        setAuthNotice('Tài khoản đã tồn tại. Hãy đăng nhập bằng email và mật khẩu của bạn.');
+        return;
+      }
       setErrorMsg(requestMessage(error, 'Có lỗi xảy ra, vui lòng thử lại.'));
     } finally {
       submittingRef.current = false;
