@@ -1,8 +1,12 @@
 import { Response } from 'express';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 import { prisma } from '../lib/prisma';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { ensureMovieInDb } from '../services/movie.upsert';
 import { internalError } from '../lib/http-error';
+import { hasVipAccess } from '../lib/vip';
 
 
 /** Resolve UUID or KKPhim slug to a DB movie id (upsert from KKPhim if needed). */
@@ -30,6 +34,24 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
       if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Invalid protocol');
     } catch {
       return res.status(400).json({ message: 'Avatar must be a valid HTTP(S) URL.' });
+    }
+
+    try {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: req.user.id },
+        select: { avatar: true, isVip: true, vipExpiresAt: true, isLocked: true },
+      });
+
+      if (!dbUser) return res.status(404).json({ message: 'User not found.' });
+
+      if (dbUser.avatar !== avatar) {
+        const isVip = hasVipAccess(dbUser);
+        if (!isVip && !PRESET_AVATARS.includes(avatar)) {
+          return res.status(403).json({ message: 'Chỉ tài khoản VIP mới được sử dụng avatar tự chọn.' });
+        }
+      }
+    } catch (error: any) {
+      return internalError(res, 'Error checking user VIP status.', error);
     }
   }
 
@@ -306,5 +328,97 @@ export const deleteWatchHistory = async (req: AuthenticatedRequest, res: Respons
     return res.json({ message: 'Watch history record deleted.', deletedId: id });
   } catch (error: any) {
     return internalError(res, 'Error deleting watch history.', error);
+  }
+};
+
+// --- Preset Avatars for Verification ---
+export const PRESET_AVATARS = [
+  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
+  'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=150&q=80',
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80',
+  'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=150&q=80',
+  'https://images.unsplash.com/photo-1628157582853-a796fa650a6a?auto=format&fit=crop&w=150&q=80',
+  'https://images.unsplash.com/photo-1527980965255-d3b416303d12?auto=format&fit=crop&w=150&q=80',
+];
+
+// --- Multer Storage configuration ---
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = path.join(__dirname, '../../uploads/avatars');
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const userId = (req as any).user?.id || 'guest';
+    cb(null, `avatar-${userId}-${uniqueSuffix}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB max
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Chỉ cho phép tải lên các định dạng ảnh: JPEG, PNG, WEBP, GIF.'));
+    }
+  },
+}).single('avatar');
+
+// --- Custom Upload Avatar Controller ---
+export const uploadAvatar = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ message: 'Unauthorized.' });
+  const userId = req.user.id;
+
+  try {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { isVip: true, vipExpiresAt: true, isLocked: true },
+    });
+
+    if (!dbUser) return res.status(404).json({ message: 'User not found.' });
+
+    const isVip = hasVipAccess(dbUser);
+    if (!isVip) {
+      return res.status(403).json({ message: 'Tính năng tải lên ảnh đại diện tự chọn chỉ dành cho tài khoản VIP.' });
+    }
+
+    upload(req, res, async (err: any) => {
+      if (err) {
+        return res.status(400).json({ message: err.message || 'Lỗi tải file lên.' });
+      }
+
+      if (!req.file) {
+        return res.status(400).json({ message: 'Vui lòng chọn một file ảnh để tải lên.' });
+      }
+
+      const publicUrl = `${req.protocol}://${req.get('host')}/uploads/avatars/${req.file.filename}`;
+
+      const updated = await prisma.user.update({
+        where: { id: userId },
+        data: { avatar: publicUrl },
+        include: { role: true },
+      });
+
+      return res.json({
+        message: 'Tải ảnh đại diện mới thành công.',
+        avatar: publicUrl,
+        user: {
+          id: updated.id,
+          email: updated.email,
+          username: updated.username,
+          avatar: updated.avatar,
+          role: updated.role.name,
+        },
+      });
+    });
+  } catch (error: any) {
+    return internalError(res, 'Error processing avatar upload.', error);
   }
 };

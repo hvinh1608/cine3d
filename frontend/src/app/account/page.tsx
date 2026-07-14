@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { AxiosError } from 'axios';
-import { User, Lock, Mail, Heart, History, Play, Bookmark, Trash2, LogOut, Check, Save, Crown } from 'lucide-react';
+import { User, Lock, Mail, Heart, History, Play, Bookmark, Trash2, LogOut, Check, Save, Crown, Upload } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 import GoogleSignInButton from '../../components/auth/GoogleSignInButton';
@@ -63,6 +63,8 @@ export default function AccountPage() {
   const [editUsername, setEditUsername] = useState('');
   const [editAvatar, setEditAvatar] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync edit fields when user logs in
   useEffect(() => {
@@ -171,6 +173,39 @@ export default function AccountPage() {
     } finally {
       submittingRef.current = false;
       setIsSubmitting(false);
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setErrorMsg('Ảnh đại diện không được vượt quá 2MB.');
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    setIsUploading(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    try {
+      const res = await axios.post(`${API_URL}/user/profile/avatar-upload`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+      setEditAvatar(res.data.avatar);
+      setUser(res.data.user);
+      setSuccessMsg('Tải lên ảnh đại diện thành công!');
+    } catch (error) {
+      setErrorMsg(requestMessage(error, 'Lỗi tải ảnh đại diện lên.'));
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -490,15 +525,49 @@ export default function AccountPage() {
                       className="w-full bg-slate-900 border border-white/10 focus:border-red-500 rounded-xl px-4 py-3 text-xs md:text-sm text-white outline-none"
                     />
                   </div>
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Đường dẫn ảnh đại diện (URL):</span>
-                    <input
-                      type="text"
-                      value={editAvatar}
-                      onChange={(e) => setEditAvatar(e.target.value)}
-                      className="w-full bg-slate-900 border border-white/10 focus:border-red-500 rounded-xl px-4 py-3 text-xs md:text-sm text-white outline-none"
-                    />
-                  </div>
+                  {user?.isVip ? (
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Đường dẫn ảnh đại diện (URL):</span>
+                        <input
+                          type="text"
+                          value={editAvatar}
+                          onChange={(e) => setEditAvatar(e.target.value)}
+                          className="w-full bg-slate-900 border border-white/10 focus:border-red-500 rounded-xl px-4 py-3 text-xs md:text-sm text-white outline-none"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Hoặc tải ảnh lên từ thiết bị:</span>
+                        <input
+                          type="file"
+                          ref={fileInputRef}
+                          onChange={handleAvatarUpload}
+                          accept="image/*"
+                          className="hidden"
+                        />
+                        <button
+                          type="button"
+                          disabled={isUploading}
+                          onClick={() => fileInputRef.current?.click()}
+                          className="w-full bg-slate-900 border border-dashed border-white/20 hover:border-amber-400/50 text-slate-300 hover:text-amber-400 text-xs font-bold py-3 rounded-xl transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                        >
+                          {isUploading ? (
+                            <span className="animate-pulse">Đang tải lên...</span>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4" />
+                              <span>Chọn ảnh từ thiết bị</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs px-4 py-3 rounded-xl flex items-start space-x-2 leading-relaxed">
+                      <Crown className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                      <span>Nâng cấp tài khoản lên <strong>VIP</strong> để tải ảnh đại diện từ thiết bị hoặc sử dụng URL tùy thích.</span>
+                    </div>
+                  )}
                   <button type="submit" className="w-full bg-white text-black text-xs md:text-sm font-black py-3 rounded-xl transition-all hover:bg-slate-200 active:scale-95 shadow-md flex items-center justify-center space-x-2">
                     <Save className="w-4 h-4" />
                     <span>Lưu Thay Đổi</span>
