@@ -85,7 +85,7 @@ export default function AdminPage() {
         axios.get(`${API_URL}/admin/movies`, { headers: { Authorization: `Bearer ${accessToken}` } }),
         axios.get(`${API_URL}/admin/users`, { headers: { Authorization: `Bearer ${accessToken}` } }),
         axios.get(`${API_URL}/admin/reports`, { headers: { Authorization: `Bearer ${accessToken}` } }),
-        axios.get(`${API_URL}/countries`),
+        axios.get(`${API_URL}/admin/countries`, { headers: { Authorization: `Bearer ${accessToken}` } }),
         axios.get(`${API_URL}/genres`),
         axios.get(`${API_URL}/admin/vip-orders`, { headers: { Authorization: `Bearer ${accessToken}` } }),
       ]);

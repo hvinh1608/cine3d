@@ -43,6 +43,7 @@ import {
 import {
   getStats,
   getLocalMovies,
+  getAdminCountries,
   createMovie,
   updateMovie,
   deleteMovie,
@@ -160,6 +161,7 @@ router.get('/directors', async (req: Request, res: Response) => {
 // --- Admin Routes ---
 router.get('/admin/stats', authenticateToken as any, requireAdmin as any, getStats);
 router.get('/admin/movies', authenticateToken as any, requireAdmin as any, getLocalMovies);
+router.get('/admin/countries', authenticateToken as any, requireAdmin as any, getAdminCountries);
 router.post('/admin/movies', authenticateToken as any, requireAdmin as any, createMovie);
 router.put('/admin/movies/:id', authenticateToken as any, requireAdmin as any, updateMovie);
 router.delete('/admin/movies/:id', authenticateToken as any, requireAdmin as any, deleteMovie);

@@ -1,7 +1,39 @@
 import { Request, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { internalError } from '../lib/http-error';
 import { AuthenticatedRequest } from '../middleware/auth';
+
+async function resolveCountryId(value: unknown): Promise<string | null> {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const input = value.trim();
+  const country = await prisma.country.findFirst({
+    where: { OR: [{ id: input }, { slug: input }, { name: input }] },
+    select: { id: true },
+  });
+  return country?.id || null;
+}
+
+async function validateGenreIds(value: unknown): Promise<string[] | null> {
+  if (value === undefined) return null;
+  if (!Array.isArray(value)) return [];
+  const ids = [...new Set(value.filter((id): id is string => typeof id === 'string' && !!id))];
+  if (!ids.length) return [];
+  const count = await prisma.genre.count({ where: { id: { in: ids } } });
+  return count === ids.length ? ids : null;
+}
+
+function movieWriteError(res: Response, error: unknown, fallback: string) {
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === 'P2002') {
+      return res.status(409).json({ message: 'Slug phim đã được sử dụng bởi phim khác.' });
+    }
+    if (error.code === 'P2003' || error.code === 'P2025') {
+      return res.status(400).json({ message: 'Quốc gia hoặc thể loại đã chọn không còn hợp lệ. Vui lòng tải lại trang và chọn lại.' });
+    }
+  }
+  return internalError(res, fallback, error);
+}
 
 
 // Get Dashboard Stats
@@ -74,6 +106,15 @@ export const getLocalMovies = async (req: Request, res: Response) => {
   }
 };
 
+export const getAdminCountries = async (_req: Request, res: Response) => {
+  try {
+    const countries = await prisma.country.findMany({ orderBy: { name: 'asc' } });
+    return res.json(countries);
+  } catch (error: any) {
+    return internalError(res, 'Error retrieving admin countries.', error);
+  }
+};
+
 export const createMovie = async (req: Request, res: Response) => {
   const {
     title,
@@ -107,6 +148,15 @@ export const createMovie = async (req: Request, res: Response) => {
   }
 
   try {
+    const resolvedCountryId = await resolveCountryId(countryId);
+    if (!resolvedCountryId) {
+      return res.status(400).json({ message: 'Quốc gia không hợp lệ. Vui lòng chọn lại.' });
+    }
+    const validGenreIds = await validateGenreIds(genreIds || []);
+    if (validGenreIds === null) {
+      return res.status(400).json({ message: 'Danh sách thể loại không hợp lệ.' });
+    }
+
     const existing = await prisma.movie.findUnique({ where: { slug } });
     if (existing) {
       return res.status(400).json({ message: 'Movie slug must be unique.' });
@@ -131,9 +181,9 @@ export const createMovie = async (req: Request, res: Response) => {
         isProposed: isProposed !== undefined ? !!isProposed : false,
         isVip: isVip !== undefined ? !!isVip : false,
         vipEarlyAccessUntil: vipEarlyAccessUntil ? new Date(vipEarlyAccessUntil) : null,
-        countryId,
+        countryId: resolvedCountryId,
         movieGenres: {
-          create: (genreIds || []).map((id: string) => ({ genreId: id })),
+          create: validGenreIds.map((id: string) => ({ genreId: id })),
         },
         movieActors: {
           create: (actorIds || []).map((id: string) => ({ actorId: id })),
@@ -146,7 +196,7 @@ export const createMovie = async (req: Request, res: Response) => {
 
     return res.status(201).json({ message: 'Movie created successfully.', movie });
   } catch (error: any) {
-    return internalError(res, 'Error creating movie.', error);
+    return movieWriteError(res, error, 'Error creating movie.');
   }
 };
 
@@ -184,6 +234,15 @@ export const updateMovie = async (req: Request, res: Response) => {
     const existingMovie = await prisma.movie.findUnique({ where: { id } });
     if (!existingMovie) return res.status(404).json({ message: 'Movie not found.' });
 
+    const resolvedCountryId = countryId !== undefined ? await resolveCountryId(countryId) : undefined;
+    if (countryId !== undefined && !resolvedCountryId) {
+      return res.status(400).json({ message: 'Quốc gia không hợp lệ. Vui lòng chọn lại.' });
+    }
+    const validGenreIds = await validateGenreIds(genreIds);
+    if (genreIds !== undefined && validGenreIds === null) {
+      return res.status(400).json({ message: 'Danh sách thể loại không hợp lệ.' });
+    }
+
     // Update movie and relationships (delete old links and create new ones)
     const movie = await prisma.movie.update({
       where: { id },
@@ -207,11 +266,11 @@ export const updateMovie = async (req: Request, res: Response) => {
         vipEarlyAccessUntil: vipEarlyAccessUntil !== undefined
           ? (vipEarlyAccessUntil ? new Date(vipEarlyAccessUntil) : null)
           : undefined,
-        countryId,
-        movieGenres: genreIds
+        countryId: resolvedCountryId || undefined,
+        movieGenres: validGenreIds
           ? {
               deleteMany: {},
-              create: genreIds.map((gId: string) => ({ genreId: gId })),
+              create: validGenreIds.map((gId: string) => ({ genreId: gId })),
             }
           : undefined,
         movieActors: actorIds
@@ -231,7 +290,7 @@ export const updateMovie = async (req: Request, res: Response) => {
 
     return res.json({ message: 'Movie updated successfully.', movie });
   } catch (error: any) {
-    return internalError(res, 'Error updating movie.', error);
+    return movieWriteError(res, error, 'Error updating movie.');
   }
 };
 
