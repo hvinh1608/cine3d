@@ -19,6 +19,7 @@ const secureCookies = process.env.COOKIE_SECURE === 'true' || process.env.NODE_E
 const requireEmailVerification = process.env.REQUIRE_EMAIL_VERIFICATION === 'true';
 const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim();
 const googleClient = googleClientId ? new OAuth2Client(googleClientId) : null;
+const turnstileSecretKey = process.env.TURNSTILE_SECRET_KEY?.trim();
 const clientUrl = (process.env.CLIENT_URLS || process.env.CLIENT_URL || 'http://localhost:3000')
   .split(',')[0]
   .trim()
@@ -30,6 +31,29 @@ const cookieOptions = {
   maxAge: 7 * 24 * 60 * 60 * 1000,
   path: '/api/auth',
 };
+
+async function verifyTurnstileToken(token: unknown, req: AuthenticatedRequest) {
+  if (!turnstileSecretKey) return true;
+  if (typeof token !== 'string' || !token.trim()) return false;
+
+  try {
+    const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        secret: turnstileSecretKey,
+        response: token,
+        remoteip: req.ip,
+      }),
+    });
+    if (!response.ok) return false;
+    const result = await response.json() as { success?: boolean };
+    return result.success === true;
+  } catch (error) {
+    console.warn('Turnstile verification failed.', error);
+    return false;
+  }
+}
 
 type SessionUser = {
   id: string;
@@ -264,6 +288,10 @@ export const login = async (req: AuthenticatedRequest, res: Response) => {
     return res.status(400).json({ message: 'Email and password are required.' });
   }
 
+  if (!(await verifyTurnstileToken(req.body.turnstileToken, req))) {
+    return res.status(400).json({ message: 'Vui lòng hoàn tất xác minh Cloudflare rồi thử lại.' });
+  }
+
   try {
     const user = await prisma.user.findUnique({
       where: { email },
@@ -305,6 +333,9 @@ export const googleLogin = async (req: AuthenticatedRequest, res: Response) => {
   const credential = typeof req.body.credential === 'string' ? req.body.credential.trim() : '';
   if (!credential) {
     return res.status(400).json({ message: 'Google credential is required.' });
+  }
+  if (!(await verifyTurnstileToken(req.body.turnstileToken, req))) {
+    return res.status(400).json({ message: 'Vui lòng hoàn tất xác minh Cloudflare rồi thử lại.' });
   }
   if (!googleClient || !googleClientId) {
     return res.status(503).json({ message: 'Đăng nhập Google chưa được cấu hình.' });

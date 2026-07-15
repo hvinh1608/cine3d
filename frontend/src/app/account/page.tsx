@@ -8,6 +8,7 @@ import { User, Lock, Mail, Heart, History, Play, Bookmark, Trash2, LogOut, Check
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 import GoogleSignInButton from '../../components/auth/GoogleSignInButton';
+import TurnstileWidget from '../../components/auth/TurnstileWidget';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const requestMessage = (error: unknown, fallback: string) => (error as AxiosError<{ message?: string }>).response?.data?.message || fallback;
@@ -39,6 +40,7 @@ export default function AccountPage() {
   const [errorMsg, setErrorMsg] = useState('');
   const [authNotice, setAuthNotice] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
   const submittingRef = useRef(false);
 
   useEffect(() => {
@@ -101,10 +103,17 @@ export default function AccountPage() {
     setErrorMsg('');
     setAuthNotice('');
 
+    if (isLogin && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !turnstileToken) {
+      setErrorMsg('Vui lòng hoàn tất xác minh Cloudflare trước khi đăng nhập.');
+      submittingRef.current = false;
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const endpoint = isLogin ? '/auth/login' : '/auth/register';
       const payload = isLogin
-        ? { email: email.trim(), password }
+        ? { email: email.trim(), password, turnstileToken }
         : { email: email.trim(), username: username.trim(), password };
       const res = await axios.post(endpoint, payload);
       if (res.data.requiresVerification) {
@@ -131,13 +140,17 @@ export default function AccountPage() {
 
   const handleGoogleCredential = async (credential: string) => {
     if (submittingRef.current) return;
+    if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !turnstileToken) {
+      setErrorMsg('Vui lòng hoàn tất xác minh Cloudflare trước khi đăng nhập.');
+      return;
+    }
     submittingRef.current = true;
     setIsSubmitting(true);
     setErrorMsg('');
     setAuthNotice('');
 
     try {
-      const response = await axios.post('/auth/google', { credential });
+      const response = await axios.post('/auth/google', { credential, turnstileToken });
       setSession(response.data.user, response.data.accessToken);
       showToast('Đăng nhập Google thành công!', 'success');
     } catch (error) {
@@ -297,6 +310,7 @@ export default function AccountPage() {
 
           {recoveryMode === 'none' && (
             <>
+              {isLogin && <TurnstileWidget onToken={setTurnstileToken} />}
               <GoogleSignInButton onCredential={handleGoogleCredential} />
               <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-slate-600">
                 <span className="h-px flex-1 bg-white/10" />
