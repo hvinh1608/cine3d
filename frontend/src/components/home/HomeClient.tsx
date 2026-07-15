@@ -313,11 +313,11 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
                 <button
                   key={item.id}
                   onClick={() => setCurrentBannerIndex(idx)}
-                  className={`relative w-20 md:w-28 aspect-video rounded-lg overflow-hidden border-2 transition-all hover:scale-105 shrink-0 ${
+                    className={`relative w-16 md:w-24 aspect-video rounded-lg overflow-hidden border-2 transition-all hover:scale-105 shrink-0 ${
                     currentBannerIndex === idx ? 'border-yellow-500 shadow-lg scale-105' : 'border-white/10 opacity-60'
                   }`}
                 >
-                  <Image src={item.imageUrl} alt={item.title} fill sizes="112px" className="object-cover" />
+                  <Image src={item.imageUrl} alt={item.title} fill sizes="96px" className="object-cover" />
                   <div className="absolute inset-0 bg-black/40 flex items-end p-1 md:p-1.5">
                     <span className="text-[8px] md:text-[9px] font-bold text-white truncate w-full text-left">
                       {item.title}
@@ -686,13 +686,13 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
                 </div>
 
                 {/* Overlaid Bottom list of posters sitting at the bottom edge (-bottom-10) */}
-                <div ref={animeRowRef} className="movie-row absolute -bottom-10 left-0 right-0 mx-auto w-fit max-w-[95%] z-20 flex justify-start gap-3 overflow-x-auto scroll-smooth px-4 py-1.5 md:gap-4 no-scrollbar">
+                <div ref={animeRowRef} className="movie-row absolute -bottom-10 left-0 right-0 mx-auto w-fit max-w-[95%] z-20 flex justify-start gap-2 overflow-x-auto scroll-smooth px-4 py-1.5 md:translate-x-6 md:gap-3 no-scrollbar">
                   {animeList.map((anime, idx) => (
                     <button
                       key={anime.id}
                       onClick={() => setActiveAnimeIndex(idx)}
                       title={anime.title}
-                      className={`group relative h-[86px] w-[58px] shrink-0 overflow-hidden rounded-xl border-2 bg-slate-900 shadow-lg transition duration-300 hover:-translate-y-1 md:h-[100px] md:w-[68px] xl:h-[120px] xl:w-[80px] ${
+                      className={`group relative h-[72px] w-[48px] shrink-0 overflow-hidden rounded-xl border-2 bg-slate-900 shadow-lg transition duration-300 hover:-translate-y-1 md:h-[86px] md:w-[58px] xl:h-[100px] xl:w-[68px] ${
                         activeAnimeIndex === idx
                           ? 'border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.4)] scale-103'
                           : 'border-white/10 opacity-75'
