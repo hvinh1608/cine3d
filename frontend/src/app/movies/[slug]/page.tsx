@@ -76,17 +76,32 @@ export default function MovieDetail() {
             ? 'series' 
             : 'movie';
 
-        if (firstGenreSlug) {
-          try {
-            const relatedRes = await axios.get(`${API_URL}/movies`, {
-              params: { genre: firstGenreSlug, type: queryType, limit: 7 }
-            });
-            const filtered = ((relatedRes.data.movies || []) as Movie[]).filter((relatedMovie) => relatedMovie.id !== movieData.id);
-            setRelatedMovies(filtered.slice(0, 6));
-          } catch {
-            setRelatedMovies([]);
-          }
-        } else {
+        try {
+          // Prefer sequels/franchise entries before generic genre matches.
+          const franchiseTitle = movieData.title
+            .replace(/\s*[-:|]?\s*(?:phần|part|p|season|mùa)\s*[0-9ivx]+\b/gi, '')
+            .replace(/\s+[0-9]+\s*$/, '')
+            .trim();
+          const recommendationRequests = [
+            axios.get(`${API_URL}/movies`, {
+              params: { search: franchiseTitle || movieData.title, limit: 12 }
+            }),
+            firstGenreSlug
+              ? axios.get(`${API_URL}/movies`, {
+                  params: { genre: firstGenreSlug, type: queryType, limit: 12 }
+                })
+              : Promise.resolve({ data: { movies: [] } }),
+          ];
+          const [franchiseRes, genreRes] = await Promise.all(recommendationRequests);
+          const candidates = [
+            ...((franchiseRes.data.movies || []) as Movie[]),
+            ...((genreRes.data.movies || []) as Movie[]),
+          ];
+          const unique = Array.from(
+            new Map(candidates.filter((relatedMovie) => relatedMovie.id !== movieData.id).map((relatedMovie) => [relatedMovie.id, relatedMovie])).values()
+          );
+          setRelatedMovies(unique.slice(0, 6));
+        } catch {
           setRelatedMovies([]);
         }
 
