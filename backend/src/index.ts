@@ -3,7 +3,7 @@ import express from 'express';
 import { createServer } from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
-import { Server as SocketServer } from 'socket.io';
+import { Server as SocketServer, Socket } from 'socket.io';
 import crypto from 'crypto';
 import path from 'path';
 import apiRouter from './routes/api';
@@ -74,49 +74,88 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 
 const server = createServer(app);
 const io = new SocketServer(server, { cors: { origin: [...allowedOrigins], credentials: true } });
+const WATCH_ROOM_TTL_MS = Math.max(5 * 60_000, Number(process.env.WATCH_ROOM_TTL_MS) || 30 * 60_000);
+const WATCH_ROOM_MAX_USERS = Math.min(50, Math.max(2, Number(process.env.WATCH_ROOM_MAX_USERS) || 20));
 type WatchRoom = { slug: string; episode: number; hostId: string; state: { playing: boolean; currentTime: number; updatedAt: number }; users: Map<string, string>; expiresAt: number };
 const watchRooms = new Map<string, WatchRoom>();
 const getUsers = (room: WatchRoom) => [...room.users.entries()].map(([id, name]) => ({ id, name }));
 const roomSnapshot = (room: WatchRoom) => ({ users: getUsers(room), hostId: room.hostId });
+const cleanName = (name: unknown, fallback: string) => typeof name === 'string' && name.trim() ? name.trim().slice(0, 30) : fallback;
+const touchRoom = (room: WatchRoom) => { room.expiresAt = Date.now() + WATCH_ROOM_TTL_MS; };
+
+function takeRateSlot(socket: Socket, key: string, maximum: number, windowMs: number) {
+  const now = Date.now();
+  const previous = Array.isArray(socket.data[key]) ? socket.data[key] as number[] : [];
+  const recent = previous.filter((timestamp) => timestamp > now - windowMs);
+  if (recent.length >= maximum) return false;
+  recent.push(now); socket.data[key] = recent;
+  return true;
+}
+
+function leaveWatchRoom(socket: Socket) {
+  const roomId = socket.data.roomId as string | undefined;
+  const room = roomId ? watchRooms.get(roomId) : undefined;
+  delete socket.data.roomId;
+  if (!roomId || !room) return;
+  socket.leave(roomId);
+  room.users.delete(socket.id);
+  if (room.hostId === socket.id) room.hostId = room.users.keys().next().value || '';
+  touchRoom(room);
+  if (room.users.size) io.to(roomId).emit('room:users', roomSnapshot(room));
+}
 
 io.on('connection', (socket) => {
   socket.on('room:create', ({ slug, episode, name }, callback) => {
-    if (typeof slug !== 'string' || !slug) return callback({ error: 'Thông tin phim không hợp lệ.' });
+    if (typeof slug !== 'string' || !slug.trim()) return callback({ error: 'Thông tin phim không hợp lệ.' });
+    leaveWatchRoom(socket);
     const roomId = crypto.randomBytes(4).toString('hex');
-    const room: WatchRoom = { slug, episode: Number(episode) || 1, hostId: socket.id, state: { playing: false, currentTime: 0, updatedAt: Date.now() }, users: new Map([[socket.id, name?.trim() || 'Chủ phòng']]), expiresAt: Date.now() + 30 * 60 * 1000 };
+    const room: WatchRoom = { slug: slug.trim(), episode: Math.max(1, Number(episode) || 1), hostId: socket.id, state: { playing: false, currentTime: 0, updatedAt: Date.now() }, users: new Map([[socket.id, cleanName(name, 'Chủ phòng')]]), expiresAt: Date.now() + WATCH_ROOM_TTL_MS };
     watchRooms.set(roomId, room); socket.join(roomId); socket.data.roomId = roomId;
     callback({ roomId, slug: room.slug, episode: room.episode, state: room.state, ...roomSnapshot(room) });
   });
   socket.on('room:join', ({ roomId, name }, callback) => {
+    if (typeof roomId !== 'string' || !roomId) return callback({ error: 'Mã phòng không hợp lệ.' });
     const room = watchRooms.get(roomId);
     if (!room) return callback({ error: 'Phòng không tồn tại hoặc đã đóng.' });
-    if (room.expiresAt < Date.now()) { watchRooms.delete(roomId); return callback({ error: 'Phòng đã hết hạn. Hãy tạo phòng mới.' }); }
-    room.users.set(socket.id, name?.trim() || 'Khách'); socket.join(roomId); socket.data.roomId = roomId;
+    if (!room.users.has(socket.id) && room.users.size >= WATCH_ROOM_MAX_USERS) return callback({ error: `Phòng đã đủ ${WATCH_ROOM_MAX_USERS} người.` });
+    leaveWatchRoom(socket);
+    room.users.set(socket.id, cleanName(name, 'Khách')); socket.join(roomId); socket.data.roomId = roomId;
     if (!room.hostId || !room.users.has(room.hostId)) room.hostId = socket.id;
-    room.expiresAt = Date.now() + 30 * 60 * 1000;
+    touchRoom(room);
     io.to(roomId).emit('room:users', roomSnapshot(room));
     callback({ roomId, slug: room.slug, episode: room.episode, state: room.state, ...roomSnapshot(room) });
   });
   socket.on('room:control', (payload: { type: 'play' | 'pause' | 'seek'; currentTime: number }) => {
     const roomId = socket.data.roomId as string | undefined; const room = roomId ? watchRooms.get(roomId) : undefined;
-    if (!roomId || !room || room.hostId !== socket.id || !Number.isFinite(payload?.currentTime)) return;
+    if (!roomId || !room || room.hostId !== socket.id || !['play', 'pause', 'seek'].includes(payload?.type) || !Number.isFinite(payload?.currentTime) || !takeRateSlot(socket, 'controlEvents', 30, 5_000)) return;
     const playing = payload.type === 'seek' ? room.state.playing : payload.type === 'play';
-    room.state = { playing, currentTime: Math.max(0, payload.currentTime), updatedAt: Date.now() };
-    io.to(roomId!).emit('room:state', room.state);
+    room.state = { playing, currentTime: Math.min(24 * 60 * 60, Math.max(0, payload.currentTime)), updatedAt: Date.now() };
+    touchRoom(room); io.to(roomId).emit('room:state', room.state);
   });
   socket.on('room:message', (message: string) => {
     const roomId = socket.data.roomId as string | undefined; const room = roomId ? watchRooms.get(roomId) : undefined;
-    if (roomId && room && typeof message === 'string' && message.trim()) io.to(roomId).emit('room:message', { name: room.users.get(socket.id) || 'Khách', message: message.trim().slice(0, 300) });
+    if (roomId && room && typeof message === 'string' && message.trim() && takeRateSlot(socket, 'messageEvents', 6, 10_000)) {
+      touchRoom(room); io.to(roomId).emit('room:message', { name: room.users.get(socket.id) || 'Khách', message: message.trim().slice(0, 300) });
+    }
   });
-  socket.on('disconnect', () => {
+  socket.on('room:leave', () => leaveWatchRoom(socket));
+  socket.on('room:close', (callback?: (result: { ok?: boolean; error?: string }) => void) => {
     const roomId = socket.data.roomId as string | undefined; const room = roomId ? watchRooms.get(roomId) : undefined;
-    if (!roomId || !room) return;
-    room.users.delete(socket.id);
-    if (room.hostId === socket.id) room.hostId = room.users.keys().next().value || '';
-    room.expiresAt = Date.now() + 30 * 60 * 1000;
-    if (room.users.size) io.to(roomId).emit('room:users', roomSnapshot(room));
+    if (!roomId || !room || room.hostId !== socket.id) return callback?.({ error: 'Chỉ chủ phòng mới có thể đóng phòng.' });
+    io.to(roomId).emit('room:closed', { message: 'Chủ phòng đã đóng phòng.' });
+    io.in(roomId).socketsLeave(roomId); watchRooms.delete(roomId); delete socket.data.roomId;
+    callback?.({ ok: true });
   });
+  socket.on('disconnect', () => leaveWatchRoom(socket));
 });
+
+const watchRoomCleanup = setInterval(() => {
+  const now = Date.now();
+  for (const [roomId, room] of watchRooms) {
+    if (room.users.size === 0 && room.expiresAt <= now) watchRooms.delete(roomId);
+  }
+}, 60_000);
+watchRoomCleanup.unref();
 
 server.listen(PORT, () => {
   console.log(`===============================================`);
@@ -128,6 +167,7 @@ server.listen(PORT, () => {
 
 async function shutdown(signal: string) {
   console.log(`${signal} received; shutting down.`);
+  clearInterval(watchRoomCleanup);
   server.close(async () => {
     io.close();
     await prisma.$disconnect();
