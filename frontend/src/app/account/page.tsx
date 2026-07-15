@@ -310,7 +310,6 @@ export default function AccountPage() {
 
           {recoveryMode === 'none' && (
             <>
-              {isLogin && <TurnstileWidget onToken={setTurnstileToken} />}
               <GoogleSignInButton onCredential={handleGoogleCredential} />
               <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-slate-600">
                 <span className="h-px flex-1 bg-white/10" />
@@ -395,6 +394,8 @@ export default function AccountPage() {
               />
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
             </div>
+
+            {isLogin && <TurnstileWidget onToken={setTurnstileToken} />}
 
             <button
               type="submit"
