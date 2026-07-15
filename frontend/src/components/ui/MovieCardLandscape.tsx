@@ -37,7 +37,7 @@ export default function MovieCardLandscape({ movie, onToggleFavorite, isFavorite
       </Link>
 
       {/* Shadows/Gradients */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent opacity-80 group-hover:opacity-90 transition-opacity pointer-events-none" />
 
       {/* Badges in corner */}
       <div className="absolute top-2 left-2 z-20 flex flex-col gap-1">
