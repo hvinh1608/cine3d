@@ -77,6 +77,7 @@ const io = new SocketServer(server, { cors: { origin: [...allowedOrigins], crede
 type WatchRoom = { slug: string; episode: number; hostId: string; state: { playing: boolean; currentTime: number; updatedAt: number }; users: Map<string, string>; expiresAt: number };
 const watchRooms = new Map<string, WatchRoom>();
 const getUsers = (room: WatchRoom) => [...room.users.entries()].map(([id, name]) => ({ id, name }));
+const roomSnapshot = (room: WatchRoom) => ({ users: getUsers(room), hostId: room.hostId });
 
 io.on('connection', (socket) => {
   socket.on('room:create', ({ slug, episode, name }, callback) => {
@@ -84,7 +85,7 @@ io.on('connection', (socket) => {
     const roomId = crypto.randomBytes(4).toString('hex');
     const room: WatchRoom = { slug, episode: Number(episode) || 1, hostId: socket.id, state: { playing: false, currentTime: 0, updatedAt: Date.now() }, users: new Map([[socket.id, name?.trim() || 'Chủ phòng']]), expiresAt: Date.now() + 30 * 60 * 1000 };
     watchRooms.set(roomId, room); socket.join(roomId); socket.data.roomId = roomId;
-    callback({ roomId, slug: room.slug, episode: room.episode, state: room.state, users: getUsers(room) });
+    callback({ roomId, slug: room.slug, episode: room.episode, state: room.state, ...roomSnapshot(room) });
   });
   socket.on('room:join', ({ roomId, name }, callback) => {
     const room = watchRooms.get(roomId);
@@ -92,8 +93,8 @@ io.on('connection', (socket) => {
     if (room.expiresAt < Date.now()) { watchRooms.delete(roomId); return callback({ error: 'Phòng đã hết hạn. Hãy tạo phòng mới.' }); }
     room.users.set(socket.id, name?.trim() || 'Khách'); socket.join(roomId); socket.data.roomId = roomId;
     room.expiresAt = Date.now() + 30 * 60 * 1000;
-    io.to(roomId).emit('room:users', getUsers(room));
-    callback({ roomId, slug: room.slug, episode: room.episode, state: room.state, users: getUsers(room) });
+    io.to(roomId).emit('room:users', roomSnapshot(room));
+    callback({ roomId, slug: room.slug, episode: room.episode, state: room.state, ...roomSnapshot(room) });
   });
   socket.on('room:control', (payload: { type: 'play' | 'pause' | 'seek'; currentTime: number }) => {
     const roomId = socket.data.roomId as string | undefined; const room = roomId ? watchRooms.get(roomId) : undefined;
@@ -111,7 +112,7 @@ io.on('connection', (socket) => {
     room.users.delete(socket.id);
     if (room.hostId === socket.id) room.hostId = room.users.keys().next().value || '';
     room.expiresAt = Date.now() + 30 * 60 * 1000;
-    if (room.users.size) io.to(roomId).emit('room:users', getUsers(room));
+    if (room.users.size) io.to(roomId).emit('room:users', roomSnapshot(room));
   });
 });
 
