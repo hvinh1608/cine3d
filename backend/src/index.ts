@@ -92,6 +92,7 @@ io.on('connection', (socket) => {
     if (!room) return callback({ error: 'Phòng không tồn tại hoặc đã đóng.' });
     if (room.expiresAt < Date.now()) { watchRooms.delete(roomId); return callback({ error: 'Phòng đã hết hạn. Hãy tạo phòng mới.' }); }
     room.users.set(socket.id, name?.trim() || 'Khách'); socket.join(roomId); socket.data.roomId = roomId;
+    if (!room.hostId || !room.users.has(room.hostId)) room.hostId = socket.id;
     room.expiresAt = Date.now() + 30 * 60 * 1000;
     io.to(roomId).emit('room:users', roomSnapshot(room));
     callback({ roomId, slug: room.slug, episode: room.episode, state: room.state, ...roomSnapshot(room) });
