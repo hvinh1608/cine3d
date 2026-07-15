@@ -74,7 +74,7 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 
 const server = createServer(app);
 const io = new SocketServer(server, { cors: { origin: [...allowedOrigins], credentials: true } });
-type WatchRoom = { slug: string; episode: number; hostId: string; state: { playing: boolean; currentTime: number; updatedAt: number }; users: Map<string, string> };
+type WatchRoom = { slug: string; episode: number; hostId: string; state: { playing: boolean; currentTime: number; updatedAt: number }; users: Map<string, string>; expiresAt: number };
 const watchRooms = new Map<string, WatchRoom>();
 const getUsers = (room: WatchRoom) => [...room.users.entries()].map(([id, name]) => ({ id, name }));
 
@@ -82,14 +82,16 @@ io.on('connection', (socket) => {
   socket.on('room:create', ({ slug, episode, name }, callback) => {
     if (typeof slug !== 'string' || !slug) return callback({ error: 'Thông tin phim không hợp lệ.' });
     const roomId = crypto.randomBytes(4).toString('hex');
-    const room: WatchRoom = { slug, episode: Number(episode) || 1, hostId: socket.id, state: { playing: false, currentTime: 0, updatedAt: Date.now() }, users: new Map([[socket.id, name?.trim() || 'Chủ phòng']]) };
+    const room: WatchRoom = { slug, episode: Number(episode) || 1, hostId: socket.id, state: { playing: false, currentTime: 0, updatedAt: Date.now() }, users: new Map([[socket.id, name?.trim() || 'Chủ phòng']]), expiresAt: Date.now() + 30 * 60 * 1000 };
     watchRooms.set(roomId, room); socket.join(roomId); socket.data.roomId = roomId;
     callback({ roomId, slug: room.slug, episode: room.episode, state: room.state, users: getUsers(room) });
   });
   socket.on('room:join', ({ roomId, name }, callback) => {
     const room = watchRooms.get(roomId);
     if (!room) return callback({ error: 'Phòng không tồn tại hoặc đã đóng.' });
+    if (room.expiresAt < Date.now()) { watchRooms.delete(roomId); return callback({ error: 'Phòng đã hết hạn. Hãy tạo phòng mới.' }); }
     room.users.set(socket.id, name?.trim() || 'Khách'); socket.join(roomId); socket.data.roomId = roomId;
+    room.expiresAt = Date.now() + 30 * 60 * 1000;
     io.to(roomId).emit('room:users', getUsers(room));
     callback({ roomId, slug: room.slug, episode: room.episode, state: room.state, users: getUsers(room) });
   });
@@ -105,7 +107,11 @@ io.on('connection', (socket) => {
   });
   socket.on('disconnect', () => {
     const roomId = socket.data.roomId as string | undefined; const room = roomId ? watchRooms.get(roomId) : undefined;
-    if (!roomId || !room) return; room.users.delete(socket.id); if (!room.users.size) watchRooms.delete(roomId); else io.to(roomId).emit('room:users', getUsers(room));
+    if (!roomId || !room) return;
+    room.users.delete(socket.id);
+    if (room.hostId === socket.id) room.hostId = room.users.keys().next().value || '';
+    room.expiresAt = Date.now() + 30 * 60 * 1000;
+    if (room.users.size) io.to(roomId).emit('room:users', getUsers(room));
   });
 });
 

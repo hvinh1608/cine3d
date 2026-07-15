@@ -35,7 +35,7 @@ export default function WatchTogetherPage() {
   }, [source, state]);
   useEffect(() => {
     if (!started) return; const socket = io(SOCKET_URL, { withCredentials: true }); socketRef.current = socket;
-    socket.on('connect', () => { setConnected(true); const event = requestedRoom ? 'room:join' : 'room:create'; socket.emit(event, { roomId: requestedRoom, slug, episode, name: name || user?.username }, (result: any) => { if (result?.error) return setError(result.error); setRoomId(result.roomId); setState(result.state); setUsers(result.users || []); window.history.replaceState({}, '', `/watch-together?room=${result.roomId}&slug=${encodeURIComponent(result.slug)}&ep=${result.episode}`); }); });
+    socket.on('connect', () => { setConnected(true); const event = requestedRoom ? 'room:join' : 'room:create'; socket.emit(event, { roomId: requestedRoom, slug, episode, name: name || user?.username }, (result: any) => { if (result?.error) { setError(result.error); setStarted(false); return; } setRoomId(result.roomId); setState(result.state); setUsers(result.users || []); window.history.replaceState({}, '', `/watch-together?room=${result.roomId}&slug=${encodeURIComponent(result.slug)}&ep=${result.episode}`); }); });
     socket.on('room:state', (next: RoomState) => setState(next));
     socket.on('room:users', setUsers); socket.on('room:message', (next: ChatMessage) => setMessages((current) => [...current.slice(-49), next])); socket.on('connect_error', () => setError('Không kết nối được máy chủ xem chung.'));
     return () => { socket.disconnect(); socketRef.current = null; };
