@@ -649,7 +649,7 @@ function WatchPageContent() {
 
                 {/* Unified Settings Panel Menu */}
                 {showControls && showSettings && (
-                  <div className="absolute bottom-16 right-4 w-72 bg-slate-950/95 border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-3 flex flex-col z-40 text-sm animate-fade-in">
+                  <div className="fixed sm:absolute bottom-20 sm:bottom-16 right-2 sm:right-4 w-[calc(100vw-1rem)] sm:w-72 max-h-[70vh] overflow-y-auto bg-slate-950/95 border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-3 flex flex-col z-[60] text-sm animate-fade-in">
                     
                     {/* Tab: Main Menu */}
                     {settingsTab === 'main' && (
@@ -870,7 +870,7 @@ function WatchPageContent() {
                 )}
 
                 {/* Custom Control Overlay */}
-                <div className={`absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col space-y-3 z-30 transition-opacity duration-300 ${
+                <div className={`absolute bottom-0 left-0 w-full px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col space-y-3 z-30 transition-opacity duration-300 ${
                   showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
                 }`}>
                   

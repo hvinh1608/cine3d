@@ -147,7 +147,14 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
     }
   };
 
-  const activeBanner = banners[currentBannerIndex];
+  const fallbackMovie = allMovies[0] || proposed[0] || trending[0];
+  const activeBanner = banners[currentBannerIndex] || (fallbackMovie ? {
+    id: `fallback-banner-${fallbackMovie.id}`,
+    title: fallbackMovie.title,
+    description: fallbackMovie.description || fallbackMovie.englishTitle || fallbackMovie.title,
+    imageUrl: fallbackMovie.backdropUrl || fallbackMovie.posterUrl,
+    movie: fallbackMovie,
+  } : undefined);
 
   // Rotate banner index every 12s
   useEffect(() => {
