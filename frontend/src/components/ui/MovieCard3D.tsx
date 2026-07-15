@@ -99,7 +99,7 @@ export default function MovieCard3D({ movie, onToggleFavorite, isFavorited = fal
       />
 
       {/* Relevant backdrop preview without downloading a fake video per card. */}
-      {movie.backdropUrl && (
+      {hovered && movie.backdropUrl && (
         <Image
           src={movie.backdropUrl}
           alt=""

@@ -241,10 +241,33 @@ export const getHome = async (_req: Request, res: Response) => {
 
     const emptyList = { items: [], total: 0, page: 1, limit: 0, totalPages: 1, cdn: '' };
     const latest = newResult.status === 'fulfilled' ? extractListPagination(newResult.value) : emptyList;
-    const proposed = proposedResult.status === 'fulfilled' ? extractListPagination(proposedResult.value) : emptyList;
+    let proposed = proposedResult.status === 'fulfilled' ? extractListPagination(proposedResult.value) : emptyList;
     const trending = trendingResult.status === 'fulfilled' ? extractListPagination(trendingResult.value) : emptyList;
     const newestMovies = latest.items.map((item) => mapListItem(item, latest.cdn));
     const trendingMovies = trending.items.map((item) => mapListItem(item, trending.cdn));
+
+    // Keep the recommendation row meaningfully different from the latest row.
+    // KKPhim can return the same titles in both lists, especially when the
+    // newest catalog is dominated by series. Fetch the next page only when
+    // the first recommendation page has collisions.
+    const occupiedSlugs = new Set([
+      ...latest.items,
+      ...trending.items,
+    ].map((item) => item.slug).filter(Boolean));
+    let distinctProposedItems = proposed.items.filter((item) => !occupiedSlugs.has(item.slug));
+
+    if (distinctProposedItems.length < Math.min(12, proposed.items.length) && proposed.totalPages > 1) {
+      try {
+        const nextPage = await fetchMovieList('phim-bo', { page: 2, limit: 12 });
+        const nextProposed = extractListPagination(nextPage);
+        distinctProposedItems = [
+          ...distinctProposedItems,
+          ...nextProposed.items.filter((item) => !occupiedSlugs.has(item.slug)),
+        ];
+      } catch {
+        // Keep the first page when the optional follow-up request fails.
+      }
+    }
 
     const bannerMovies = newestMovies.length > 0
       ? newestMovies
@@ -265,7 +288,7 @@ export const getHome = async (_req: Request, res: Response) => {
         isTrending: true,
         isFeatured: index < 3,
       })),
-      proposed: proposed.items.slice(0, 12).map((item) => ({
+      proposed: distinctProposedItems.slice(0, 12).map((item) => ({
         ...mapListItem(item, proposed.cdn),
         isProposed: true,
       })),
