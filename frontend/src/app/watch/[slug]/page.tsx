@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, ChevronRight, ChevronLeft, ListVideo, Server, LightbulbOff, ArrowLeft, Subtitles, Gauge, Tv, Settings, Maximize2, Lock, Crown, Download } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, ChevronRight, ChevronLeft, ListVideo, Server, LightbulbOff, ArrowLeft, Subtitles, Gauge, Tv, Settings, Maximize2, Lock, Crown, Download, Users } from 'lucide-react';
 import { useStore } from '../../../hooks/useStore';
 import axios from '../../../lib/api';
 import Hls from 'hls.js';
@@ -517,6 +517,9 @@ function WatchPageContent() {
         <span className="text-slate-300 text-left sm:text-right truncate max-w-full">
           Đang xem: <span className="text-white font-bold">{movie.title}</span> {activeEpisode.title && ` - ${activeEpisode.title}`}
         </span>
+        <Link href={`/watch-together?slug=${encodeURIComponent(movie.slug)}&ep=${activeEpisode.episodeOrder}`} className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 px-3 py-1.5 text-xs font-bold text-red-300 hover:bg-red-500/10">
+          <Users className="h-3.5 w-3.5" /> Xem chung
+        </Link>
       </div>
 
       <div className={`max-w-7xl mx-auto px-4 md:px-8 mt-6 grid grid-cols-1 ${theaterMode ? 'lg:grid-cols-1' : 'lg:grid-cols-4'} gap-6`}>

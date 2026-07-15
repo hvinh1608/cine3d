@@ -1,7 +1,10 @@
 import 'dotenv/config';
 import express from 'express';
+import { createServer } from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
+import { Server as SocketServer } from 'socket.io';
+import crypto from 'crypto';
 import path from 'path';
 import apiRouter from './routes/api';
 import { prisma } from './lib/prisma';
@@ -69,7 +72,44 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
   });
 });
 
-const server = app.listen(PORT, () => {
+const server = createServer(app);
+const io = new SocketServer(server, { cors: { origin: [...allowedOrigins], credentials: true } });
+type WatchRoom = { slug: string; episode: number; hostId: string; state: { playing: boolean; currentTime: number; updatedAt: number }; users: Map<string, string> };
+const watchRooms = new Map<string, WatchRoom>();
+const getUsers = (room: WatchRoom) => [...room.users.entries()].map(([id, name]) => ({ id, name }));
+
+io.on('connection', (socket) => {
+  socket.on('room:create', ({ slug, episode, name }, callback) => {
+    if (typeof slug !== 'string' || !slug) return callback({ error: 'Thông tin phim không hợp lệ.' });
+    const roomId = crypto.randomBytes(4).toString('hex');
+    const room: WatchRoom = { slug, episode: Number(episode) || 1, hostId: socket.id, state: { playing: false, currentTime: 0, updatedAt: Date.now() }, users: new Map([[socket.id, name?.trim() || 'Chủ phòng']]) };
+    watchRooms.set(roomId, room); socket.join(roomId); socket.data.roomId = roomId;
+    callback({ roomId, slug: room.slug, episode: room.episode, state: room.state, users: getUsers(room) });
+  });
+  socket.on('room:join', ({ roomId, name }, callback) => {
+    const room = watchRooms.get(roomId);
+    if (!room) return callback({ error: 'Phòng không tồn tại hoặc đã đóng.' });
+    room.users.set(socket.id, name?.trim() || 'Khách'); socket.join(roomId); socket.data.roomId = roomId;
+    io.to(roomId).emit('room:users', getUsers(room));
+    callback({ roomId, slug: room.slug, episode: room.episode, state: room.state, users: getUsers(room) });
+  });
+  socket.on('room:control', (payload: { type: 'play' | 'pause' | 'seek'; currentTime: number }) => {
+    const roomId = socket.data.roomId as string | undefined; const room = roomId ? watchRooms.get(roomId) : undefined;
+    if (!roomId || !room || room.hostId !== socket.id || !Number.isFinite(payload?.currentTime)) return;
+    room.state = { playing: payload.type === 'play', currentTime: Math.max(0, payload.currentTime), updatedAt: Date.now() };
+    socket.to(roomId!).emit('room:state', room.state);
+  });
+  socket.on('room:message', (message: string) => {
+    const roomId = socket.data.roomId as string | undefined; const room = roomId ? watchRooms.get(roomId) : undefined;
+    if (roomId && room && typeof message === 'string' && message.trim()) io.to(roomId).emit('room:message', { name: room.users.get(socket.id) || 'Khách', message: message.trim().slice(0, 300) });
+  });
+  socket.on('disconnect', () => {
+    const roomId = socket.data.roomId as string | undefined; const room = roomId ? watchRooms.get(roomId) : undefined;
+    if (!roomId || !room) return; room.users.delete(socket.id); if (!room.users.size) watchRooms.delete(roomId); else io.to(roomId).emit('room:users', getUsers(room));
+  });
+});
+
+server.listen(PORT, () => {
   console.log(`===============================================`);
   console.log(`  3D Movie Streaming Backend is running!     `);
   console.log(`  Port: ${PORT}                               `);
@@ -80,6 +120,7 @@ const server = app.listen(PORT, () => {
 async function shutdown(signal: string) {
   console.log(`${signal} received; shutting down.`);
   server.close(async () => {
+    io.close();
     await prisma.$disconnect();
     process.exit(0);
   });
