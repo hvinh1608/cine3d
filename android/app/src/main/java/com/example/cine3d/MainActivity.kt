@@ -78,6 +78,7 @@ class MainActivity : ComponentActivity() {
                 settings.useWideViewPort = true
                 settings.loadWithOverviewMode = true
                 settings.mediaPlaybackRequiresUserGesture = false
+                settings.cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
 
                 // Clear WebView cache on app startup to prevent cached old layout states
                 clearCache(true)
@@ -118,7 +119,7 @@ class MainActivity : ComponentActivity() {
                     return true
                   }
                 }
-                loadUrl("https://cine3d.vercel.app")
+                loadUrl("https://cine3d.vercel.app/?appVersion=1.0.1")
               }
 
               swipeRefreshLayout.addView(web)
