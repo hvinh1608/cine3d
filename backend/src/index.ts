@@ -100,7 +100,8 @@ io.on('connection', (socket) => {
   socket.on('room:control', (payload: { type: 'play' | 'pause' | 'seek'; currentTime: number }) => {
     const roomId = socket.data.roomId as string | undefined; const room = roomId ? watchRooms.get(roomId) : undefined;
     if (!roomId || !room || room.hostId !== socket.id || !Number.isFinite(payload?.currentTime)) return;
-    room.state = { playing: payload.type === 'play', currentTime: Math.max(0, payload.currentTime), updatedAt: Date.now() };
+    const playing = payload.type === 'seek' ? room.state.playing : payload.type === 'play';
+    room.state = { playing, currentTime: Math.max(0, payload.currentTime), updatedAt: Date.now() };
     io.to(roomId!).emit('room:state', room.state);
   });
   socket.on('room:message', (message: string) => {
