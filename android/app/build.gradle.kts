@@ -81,4 +81,7 @@ dependencies {
   implementation(libs.androidx.navigation3.ui)
   implementation(libs.androidx.navigation3.runtime)
   implementation(libs.androidx.lifecycle.viewmodel.navigation3)
+
+  // Swipe Refresh for WebView force-reload
+  implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
 }

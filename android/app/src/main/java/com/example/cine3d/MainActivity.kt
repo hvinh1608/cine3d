@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.example.cine3d.theme.Cine3DTheme
 
 class MainActivity : ComponentActivity() {
@@ -68,18 +69,29 @@ class MainActivity : ComponentActivity() {
 
           AndroidView(
             factory = { context ->
-              WebView(context).apply {
+              val swipeRefreshLayout = SwipeRefreshLayout(context)
+
+              val web = WebView(context).apply {
                 webView = this
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
                 settings.useWideViewPort = true
                 settings.loadWithOverviewMode = true
                 settings.mediaPlaybackRequiresUserGesture = false
+
+                // Clear WebView cache on app startup to prevent cached old layout states
+                clearCache(true)
+
                 webViewClient = object : WebViewClient() {
                   @Deprecated("Deprecated in Java")
                   override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
                     url?.let { view?.loadUrl(it) }
                     return true
+                  }
+
+                  override fun onPageFinished(view: WebView?, url: String?) {
+                    super.onPageFinished(view, url)
+                    swipeRefreshLayout.isRefreshing = false
                   }
                 }
                 webChromeClient = object : WebChromeClient() {
@@ -108,6 +120,18 @@ class MainActivity : ComponentActivity() {
                 }
                 loadUrl("https://cine3d.vercel.app")
               }
+
+              swipeRefreshLayout.addView(web)
+              swipeRefreshLayout.setOnRefreshListener {
+                web.reload()
+              }
+
+              // Trigger swipe refresh pull ONLY when scrolled to the very top
+              web.viewTreeObserver.addOnScrollChangedListener {
+                swipeRefreshLayout.isEnabled = web.scrollY == 0
+              }
+
+              swipeRefreshLayout
             },
             modifier = Modifier.fillMaxSize()
           )
