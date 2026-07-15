@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { ArrowRight, Search, SearchX, Film, LogOut, ShieldAlert, Sparkles, Menu, X, Bell, Crown, History, Trash2, Home, User } from 'lucide-react';
+import { ArrowRight, Search, SearchX, LogOut, ShieldAlert, Sparkles, Menu, X, Bell, Crown, History, Trash2, Home, User } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 import type { Movie } from '../../types/movie';
@@ -378,13 +378,15 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between">
         
         {/* LOGO */}
-        <Link href="/" className="flex items-center space-x-2 group">
-          <div className="relative w-8 h-8 rounded-lg bg-gradient-to-tr from-yellow-500 to-red-600 flex items-center justify-center shadow-[0_0_15px_rgba(234,179,8,0.3)] transition-all">
-            <Film className="w-4.5 h-4.5 text-black" />
-          </div>
-          <span className="text-xl font-black tracking-tighter bg-gradient-to-r from-white via-slate-100 to-yellow-500 bg-clip-text text-transparent">
-            CINE<span className="text-yellow-500">3D</span>
-          </span>
+        <Link href="/" className="flex items-center group" aria-label="CINE3D - Trang chủ">
+          <Image
+            src="/cine3d-logo-v2.png"
+            alt="CINE3D"
+            width={174}
+            height={48}
+            priority
+            className="h-10 w-auto object-contain transition-transform duration-300 group-hover:scale-[1.03]"
+          />
         </Link>
 
         {/* NAVIGATION LINKS - DESKTOP */}
