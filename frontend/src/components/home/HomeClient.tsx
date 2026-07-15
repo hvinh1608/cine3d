@@ -151,9 +151,10 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
 
   // Rotate banner index every 12s
   useEffect(() => {
-    if (banners.length <= 1) return;
+    const bannerCount = Math.min(banners.length, 6);
+    if (bannerCount <= 1) return;
     const timer = setInterval(() => {
-      setCurrentBannerIndex((prev) => (prev === banners.length - 1 ? 0 : prev + 1));
+      setCurrentBannerIndex((prev) => (prev >= bannerCount - 1 ? 0 : prev + 1));
     }, 12000);
     return () => clearInterval(timer);
   }, [banners]);
@@ -309,7 +310,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               className="flex items-center space-x-3 overflow-x-auto pl-8 pr-4 md:pl-[34%] md:pr-8 py-2 justify-start [&::-webkit-scrollbar]:hidden"
             >
-              {banners.map((item, idx) => (
+              {banners.slice(0, 6).map((item, idx) => (
                 <button
                   key={item.id}
                   onClick={() => setCurrentBannerIndex(idx)}
