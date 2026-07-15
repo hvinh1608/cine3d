@@ -419,17 +419,34 @@ function WatchPageContent() {
   };
 
   // Skip buttons
-  const skipForward = () => {
+  const skipForward = useCallback(() => {
     if (!videoRef.current) return;
     videoRef.current.currentTime = Math.min(videoRef.current.duration || 0, videoRef.current.currentTime + 10);
     triggerControls();
-  };
+  }, [triggerControls]);
 
-  const skipBackward = () => {
+  const skipBackward = useCallback(() => {
     if (!videoRef.current) return;
     videoRef.current.currentTime = Math.max(0, videoRef.current.currentTime - 10);
     triggerControls();
-  };
+  }, [triggerControls]);
+
+  // Desktop keyboard seeking: left/right arrows move 10 seconds.
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      if (!videoRef.current || !activeSource) return;
+
+      event.preventDefault();
+      if (event.key === 'ArrowLeft') skipBackward();
+      else skipForward();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeSource, skipBackward, skipForward]);
 
   // Double tap feedback helper
   const lastClickTimeRef = useRef<number>(0);

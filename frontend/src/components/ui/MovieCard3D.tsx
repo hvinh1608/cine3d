@@ -87,27 +87,29 @@ export default function MovieCard3D({ movie, onToggleFavorite, isFavorited = fal
         />
       )}
 
-      {/* Main Image Poster */}
-      <Image
-        src={movie.posterUrl}
-        alt={movie.title}
-        fill
-        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 220px"
-        className={`absolute inset-0 h-full w-full object-cover transition-transform duration-700 ${
-          hovered && !reduceMotion ? 'scale-105 opacity-20' : 'scale-100 opacity-100'
-        }`}
-      />
-
-      {/* Relevant backdrop preview without downloading a fake video per card. */}
-      {hovered && movie.backdropUrl && (
+      {/* Clicking either image opens the movie page. */}
+      <Link href={`/movies/${movie.slug}`} className="absolute inset-0 z-0">
         <Image
-          src={movie.backdropUrl}
-          alt=""
+          src={movie.posterUrl}
+          alt={movie.title}
           fill
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 220px"
-          className="absolute inset-0 z-10 h-full w-full object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-80"
+          className={`absolute inset-0 h-full w-full object-cover transition-transform duration-700 ${
+            hovered && !reduceMotion ? 'scale-105 opacity-20' : 'scale-100 opacity-100'
+          }`}
         />
-      )}
+
+        {/* Load the backdrop only after hover to avoid downloading hidden images. */}
+        {hovered && movie.backdropUrl && (
+          <Image
+            src={movie.backdropUrl}
+            alt=""
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 220px"
+            className="absolute inset-0 z-10 h-full w-full object-cover opacity-0 transition-opacity duration-500 group-hover:opacity-80"
+          />
+        )}
+      </Link>
 
       {/* Glassmorphism details overlay (pops out on Z axis) */}
       <div
