@@ -4,6 +4,9 @@ const nextConfig: NextConfig = {
   output: 'standalone',
   transpilePackages: ['three', '@react-three/fiber', '@react-three/drei'],
   images: {
+    // phimimg.com rejects requests coming from Vercel's image optimizer with 402.
+    // Load the public CDN images directly in the browser instead.
+    unoptimized: true,
     remotePatterns: [
       { protocol: 'https', hostname: 'phimimg.com' },
       { protocol: 'https', hostname: 'images.unsplash.com' },
