@@ -23,16 +23,18 @@ export default function MovieCardLandscape({ movie, onToggleFavorite, isFavorite
       onMouseLeave={() => setHovered(false)}
       className="relative aspect-video w-full rounded-xl overflow-hidden cursor-pointer bg-slate-900 border border-white/5 shadow-lg group select-none"
     >
-      {/* Background/Poster Image */}
-      <Image
-        src={displayImage}
-        alt={movie.title}
-        fill
-        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 350px"
-        className={`absolute inset-0 h-full w-full object-cover transition-transform duration-500 ${
-          hovered ? 'scale-105' : 'scale-100'
-        }`}
-      />
+      {/* Clicking the image opens the movie details page. */}
+      <Link href={`/movies/${movie.slug}`} className="absolute inset-0 z-0">
+        <Image
+          src={displayImage}
+          alt={movie.title}
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 350px"
+          className={`absolute inset-0 h-full w-full object-cover transition-transform duration-500 ${
+            hovered ? 'scale-105' : 'scale-100'
+          }`}
+        />
+      </Link>
 
       {/* Shadows/Gradients */}
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
@@ -53,7 +55,7 @@ export default function MovieCardLandscape({ movie, onToggleFavorite, isFavorite
       )}
 
       {/* Overlay details */}
-      <div className="absolute inset-0 z-10 flex flex-col justify-end p-3 text-left">
+      <div className="absolute inset-0 z-10 flex flex-col justify-end p-3 text-left pointer-events-none">
         <h3 className="text-white font-bold text-sm md:text-base leading-tight tracking-wide truncate group-hover:text-red-400 transition-colors">
           {movie.title}
         </h3>
@@ -74,7 +76,7 @@ export default function MovieCardLandscape({ movie, onToggleFavorite, isFavorite
           <div className="flex items-center space-x-1.5">
             <Link
               href={`/movies/${movie.slug}`}
-              className="flex items-center justify-center bg-white text-black rounded-full p-1 hover:bg-red-600 hover:text-white transition-colors"
+              className="flex items-center justify-center bg-white text-black rounded-full p-1 hover:bg-red-600 hover:text-white transition-colors pointer-events-auto"
               title="Xem Chi Tiết"
             >
               <Play className="w-3 h-3 fill-current" />
@@ -87,7 +89,7 @@ export default function MovieCardLandscape({ movie, onToggleFavorite, isFavorite
                   e.preventDefault();
                   onToggleFavorite(movie.id, movie);
                 }}
-                className="flex items-center justify-center p-1 rounded-full border border-white/20 bg-black/40 hover:bg-white/20 text-white transition-all"
+                className="flex items-center justify-center p-1 rounded-full border border-white/20 bg-black/40 hover:bg-white/20 text-white transition-all pointer-events-auto"
                 title="Yêu Thích"
               >
                 {isFavorited ? <Check className="w-3 h-3 text-green-400" /> : <Plus className="w-3 h-3" />}

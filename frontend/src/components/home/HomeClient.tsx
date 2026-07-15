@@ -129,6 +129,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
       } else {
         setFavorites(currentFavs.filter(f => f.id !== movieId));
       }
+      showToast(res.data.favorited ? 'Đã thêm phim vào yêu thích.' : 'Đã xóa phim khỏi yêu thích.', 'success');
     } catch {
       showToast('Không thể cập nhật danh sách yêu thích.', 'error');
     }

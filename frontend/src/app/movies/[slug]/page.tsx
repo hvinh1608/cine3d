@@ -147,6 +147,7 @@ export default function MovieDetail() {
       } else {
         setFavorites(currentFavs.filter(f => f.id !== movie.id));
       }
+      showToast(res.data.favorited ? 'Đã thêm phim vào yêu thích.' : 'Đã xóa phim khỏi yêu thích.', 'success');
     } catch {
       showToast('Không thể cập nhật danh sách yêu thích.', 'error');
     }
@@ -618,6 +619,7 @@ export default function MovieDetail() {
                           } else {
                             setFavorites(currentFavs.filter(f => f.id !== relatedMovie.id));
                           }
+                          showToast(res.data.favorited ? 'Đã thêm phim vào yêu thích.' : 'Đã xóa phim khỏi yêu thích.', 'success');
                         } catch {
                           const isAlready = favorites.some(f => f.id === relatedMovie.id);
                           if (isAlready) {

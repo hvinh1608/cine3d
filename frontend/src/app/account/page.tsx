@@ -605,7 +605,9 @@ export default function AccountPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
               {favorites.map((movie) => (
                 <div key={movie.id} className="relative aspect-[2/3] rounded-2xl overflow-hidden group shadow-lg border border-white/5 bg-slate-950">
-                  <Image src={movie.posterUrl} alt={movie.title} fill sizes="(max-width: 640px) 50vw, 20vw" className="object-cover" />
+                  <Link href={`/movies/${movie.slug}`} className="absolute inset-0 z-0">
+                    <Image src={movie.posterUrl} alt={movie.title} fill sizes="(max-width: 640px) 50vw, 20vw" className="object-cover" />
+                  </Link>
                   
                   {/* Remove favorite button */}
                   <button
@@ -616,11 +618,11 @@ export default function AccountPage() {
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
 
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent flex flex-col justify-end p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent flex flex-col justify-end p-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                     <span className="text-xs font-bold text-white mb-2 line-clamp-2 text-left">{movie.title}</span>
                     <Link
                       href={`/movies/${movie.slug}`}
-                      className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-full text-center text-xs flex items-center justify-center active:scale-95"
+                      className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-full text-center text-xs flex items-center justify-center active:scale-95 pointer-events-auto"
                     >
                       <Play className="w-3.5 h-3.5 fill-current mr-1" /> Chi Tiết
                     </Link>
@@ -639,7 +641,9 @@ export default function AccountPage() {
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
               {watchlist.map((movie) => (
                 <div key={movie.id} className="relative aspect-[2/3] rounded-2xl overflow-hidden group shadow-lg border border-white/5 bg-slate-950">
-                  <Image src={movie.posterUrl} alt={movie.title} fill sizes="(max-width: 640px) 50vw, 20vw" className="object-cover" />
+                  <Link href={`/movies/${movie.slug}`} className="absolute inset-0 z-0">
+                    <Image src={movie.posterUrl} alt={movie.title} fill sizes="(max-width: 640px) 50vw, 20vw" className="object-cover" />
+                  </Link>
                   
                   {/* Remove watchlist button */}
                   <button
@@ -650,11 +654,11 @@ export default function AccountPage() {
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
 
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent flex flex-col justify-end p-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent flex flex-col justify-end p-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                     <span className="text-xs font-bold text-white mb-2 line-clamp-2 text-left">{movie.title}</span>
                     <Link
                       href={`/movies/${movie.slug}`}
-                      className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-full text-center text-xs flex items-center justify-center active:scale-95"
+                      className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-full text-center text-xs flex items-center justify-center active:scale-95 pointer-events-auto"
                     >
                       <Play className="w-3.5 h-3.5 fill-current mr-1" /> Chi Tiết
                     </Link>

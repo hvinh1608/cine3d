@@ -245,6 +245,7 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
       } else {
         setFavorites(favorites.filter((movie) => movie.id !== movieId));
       }
+      showToast(response.data.favorited ? 'Đã thêm phim vào yêu thích.' : 'Đã xóa phim khỏi yêu thích.', 'success');
     } catch {
       showToast('Không thể cập nhật danh sách yêu thích.', 'error');
     }
