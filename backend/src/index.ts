@@ -12,6 +12,8 @@ app.set('trust proxy', 1);
 const allowedOrigins = new Set([
   'http://localhost:3000',
   'https://cine3d.vercel.app',
+  'https://cine3d.id.vn',
+  'https://www.cine3d.id.vn',
   ...(process.env.CLIENT_URLS || process.env.CLIENT_URL || '')
     .split(',')
     .map((origin) => origin.trim())

@@ -119,7 +119,7 @@ class MainActivity : ComponentActivity() {
                     return true
                   }
                 }
-                loadUrl("https://cine3d.vercel.app/?appVersion=1.0.1")
+                loadUrl("https://cine3d.id.vn/?appVersion=1.0.2")
               }
 
               swipeRefreshLayout.addView(web)
