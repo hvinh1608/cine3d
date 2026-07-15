@@ -7,6 +7,7 @@ import Footer from '../components/ui/Footer';
 import CinemaBackground from '../components/canvas/DynamicCinemaBackground';
 import AuthBootstrap from '../components/auth/AuthBootstrap';
 import ToastViewport from '../components/ui/ToastViewport';
+import PwaBootstrap from '../components/pwa/PwaBootstrap';
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
@@ -31,6 +32,7 @@ export default function RootLayout({
     <html lang="vi" className="h-full antialiased">
       <body className="min-h-full flex flex-col bg-[#020205] text-slate-100 relative">
         <AuthBootstrap />
+        <PwaBootstrap />
         <ToastViewport />
         <CinemaBackground />
 

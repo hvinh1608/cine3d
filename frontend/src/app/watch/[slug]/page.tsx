@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, Suspense, useCallback } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, ChevronRight, ChevronLeft, ListVideo, Server, LightbulbOff, ArrowLeft, Subtitles, Gauge, Tv, Settings, Maximize2, Lock, Crown, Download, Users } from 'lucide-react';
 import { useStore } from '../../../hooks/useStore';
@@ -32,10 +32,11 @@ export default function WatchPage() {
 function WatchPageContent() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const slug = params.slug as string;
   const activeEpOrder = parseInt(searchParams.get('ep') || '1', 10);
 
-  const { user, accessToken, showToast } = useStore();
+  const { user, accessToken, showToast, selectedProfileId } = useStore();
   const [movie, setMovie] = useState<PlaybackMovie | null>(null);
   const [activeEpisode, setActiveEpisode] = useState<PlaybackEpisode | null>(null);
   const [activeSource, setActiveSource] = useState<VideoSource | null>(null);
@@ -66,11 +67,31 @@ function WatchPageContent() {
   const [showSettings, setShowSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'main' | 'quality' | 'speed' | 'subtitle' | 'ratio'>('main');
   const [doubleTapFeedback, setDoubleTapFeedback] = useState<'forward' | 'backward' | null>(null);
+  const [autoNext, setAutoNext] = useState(true);
+  const [nextEpisodeCountdown, setNextEpisodeCountdown] = useState<number | null>(null);
+  const [subtitleStyle, setSubtitleStyle] = useState({ fontSize: 100, color: '#ffffff', background: 65 });
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const playTrackedEpisodeRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('cine3d-player-preferences') || '{}');
+      queueMicrotask(() => {
+        if (typeof saved.autoNext === 'boolean') setAutoNext(saved.autoNext);
+        if (saved.subtitleStyle && typeof saved.subtitleStyle === 'object') {
+          setSubtitleStyle((current) => ({ ...current, ...saved.subtitleStyle }));
+        }
+      });
+    } catch { /* use defaults */ }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('cine3d-player-preferences', JSON.stringify({ autoNext, subtitleStyle }));
+  }, [autoNext, subtitleStyle]);
 
   // Helper to trigger controls visibility and reset auto-hide timer
   const triggerControls = useCallback(() => {
@@ -178,6 +199,13 @@ function WatchPageContent() {
           }));
           setQualities(loadedLevels);
         });
+        instance.on(Hls.Events.ERROR, (_event, data) => {
+          if (!data.fatal) return;
+          void axios.post('/analytics/events', {
+            name: 'player_error', path: window.location.pathname, movieId: movie?.id,
+            metadata: { source: activeSource.server, type: data.type, details: data.details },
+          }).catch(() => undefined);
+        });
 
         hlsRef.current = instance;
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
@@ -218,6 +246,32 @@ function WatchPageContent() {
     };
   }, [activeSource, movie, activeEpisode, user, accessToken]);
 
+  const nextEpisode = movie?.episodes
+    ?.filter((episode) => episode.episodeOrder > (activeEpisode?.episodeOrder || 0))
+    .sort((first, second) => first.episodeOrder - second.episodeOrder)[0] || null;
+
+  const playNextEpisode = useCallback(() => {
+    if (!movie || !nextEpisode) return;
+    setNextEpisodeCountdown(null);
+    router.push(`/watch/${movie.slug}?ep=${nextEpisode.episodeOrder}`);
+  }, [movie, nextEpisode, router]);
+
+  useEffect(() => {
+    if (nextEpisodeCountdown === null) return;
+    const timer = window.setTimeout(() => {
+      if (nextEpisodeCountdown <= 0) playNextEpisode();
+      else setNextEpisodeCountdown((current) => current === null ? null : current - 1);
+    }, nextEpisodeCountdown <= 0 ? 0 : 1000);
+    return () => window.clearTimeout(timer);
+  }, [nextEpisodeCountdown, playNextEpisode]);
+
+  const handleEnded = () => {
+    setPlaying(false);
+    saveProgress();
+    if (movie) void axios.post('/analytics/events', { name: 'movie_complete', path: window.location.pathname, movieId: movie.id, metadata: { episode: activeEpisode?.episodeOrder } }).catch(() => undefined);
+    if (autoNext && nextEpisode) setNextEpisodeCountdown(5);
+  };
+
   // Save progress helper
   const saveProgress = useCallback((keepalive = false) => {
     if (!user || !accessToken || !movie || !activeEpisode || !videoRef.current) return;
@@ -235,13 +289,17 @@ function WatchPageContent() {
       void fetch(`${API_URL}/user/history`, {
         method: 'POST',
         keepalive: true,
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+          ...(selectedProfileId ? { 'X-Profile-Id': selectedProfileId } : {}),
+        },
         body: JSON.stringify(payload),
       }).catch(() => undefined);
       return;
     }
     axios.post(`${API_URL}/user/history`, payload).catch(() => {});
-  }, [user, accessToken, movie, activeEpisode]);
+  }, [user, accessToken, movie, activeEpisode, selectedProfileId]);
 
   // Periodic Save History (every 10 seconds of play) and immediate save on pause/unload
   useEffect(() => {
@@ -250,7 +308,7 @@ function WatchPageContent() {
       return;
     }
 
-    const interval = window.setInterval(() => saveProgress(), 30_000);
+    const interval = window.setInterval(() => saveProgress(), 10_000);
 
     return () => {
       window.clearInterval(interval);
@@ -321,7 +379,6 @@ function WatchPageContent() {
     } else {
       videoRef.current.play().catch(() => {});
     }
-    setPlaying(!playing);
   };
 
   const handleQualityChange = (index: number) => {
@@ -360,6 +417,25 @@ function WatchPageContent() {
   const handleLoadedMetadata = () => {
     if (!videoRef.current) return;
     setDuration(videoRef.current.duration);
+  };
+
+  const handleVideoPlay = () => {
+    setPlaying(true);
+    if (movie && activeEpisode && playTrackedEpisodeRef.current !== activeEpisode.id) {
+      playTrackedEpisodeRef.current = activeEpisode.id;
+      void axios.post('/analytics/events', {
+        name: 'movie_play', path: window.location.pathname, movieId: movie.id,
+        metadata: { episode: activeEpisode.episodeOrder },
+      }).catch(() => undefined);
+    }
+  };
+
+  const handleVideoError = () => {
+    setPlaying(false);
+    if (movie) void axios.post('/analytics/events', {
+      name: 'player_error', path: window.location.pathname, movieId: movie.id,
+      metadata: { source: activeSource?.server, code: videoRef.current?.error?.code || 0 },
+    }).catch(() => undefined);
   };
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -508,6 +584,7 @@ function WatchPageContent() {
 
   return (
     <div className={`flex-1 w-full pb-20 transition-all duration-700 ${lightsOff ? 'bg-black/95 z-40' : 'bg-transparent'}`}>
+      <style>{`video::cue { color: ${subtitleStyle.color}; font-size: ${subtitleStyle.fontSize}%; background: rgba(0, 0, 0, ${subtitleStyle.background / 100}); text-shadow: 0 2px 4px #000; }`}</style>
       
       {/* Return to Info Bar */}
       <div className="max-w-7xl mx-auto px-4 md:px-8 pt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs md:text-sm font-semibold text-slate-400">
@@ -585,6 +662,10 @@ function WatchPageContent() {
                   ref={videoRef}
                   onTimeUpdate={handleTimeUpdate}
                   onLoadedMetadata={handleLoadedMetadata}
+                  onPlay={handleVideoPlay}
+                  onPause={() => setPlaying(false)}
+                  onEnded={handleEnded}
+                  onError={handleVideoError}
                   className={`w-full h-full object-contain cursor-pointer object-${aspectRatio}`}
                 >
                   {activeEpisode.subtitles?.map((subtitle) => (
@@ -598,6 +679,22 @@ function WatchPageContent() {
                     />
                   ))}
                 </video>
+
+                {activeEpisode.introEndSeconds && currentTime > 0 && currentTime < activeEpisode.introEndSeconds && (
+                  <button onClick={() => { if (videoRef.current) videoRef.current.currentTime = activeEpisode.introEndSeconds || 0; }} className="absolute right-4 top-4 z-40 rounded-lg border border-white/20 bg-black/75 px-4 py-2 text-xs font-black text-white backdrop-blur hover:bg-white hover:text-black">
+                    Bỏ qua mở đầu
+                  </button>
+                )}
+                {nextEpisode && activeEpisode.outroStartSeconds && currentTime >= activeEpisode.outroStartSeconds && (
+                  <button onClick={playNextEpisode} className="absolute right-4 top-4 z-40 rounded-lg bg-red-600 px-4 py-2 text-xs font-black text-white shadow-lg hover:bg-red-500">
+                    Tập tiếp theo <ChevronRight className="ml-1 inline h-4 w-4" />
+                  </button>
+                )}
+                {nextEpisodeCountdown !== null && (
+                  <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/75 p-6 text-center backdrop-blur-sm">
+                    <div className="space-y-4"><p className="text-xs font-bold uppercase tracking-widest text-red-400">Tự động phát tập tiếp theo</p><h3 className="text-xl font-black">{nextEpisode?.title} sau {nextEpisodeCountdown}s</h3><div className="flex justify-center gap-3"><button onClick={playNextEpisode} className="rounded-full bg-red-600 px-5 py-2 text-xs font-black">Xem ngay</button><button onClick={() => setNextEpisodeCountdown(null)} className="rounded-full border border-white/20 px-5 py-2 text-xs font-bold">Hủy</button></div></div>
+                  </div>
+                )}
 
                 {/* Tap gesture overlay */}
                 <div onClick={handleOverlayClick} className="absolute inset-0 z-10 cursor-pointer" />
@@ -725,6 +822,14 @@ function WatchPageContent() {
                             <ChevronRight className="w-3.5 h-3.5 ml-1 text-slate-500" />
                           </span>
                         </button>
+
+                        <button
+                          onClick={() => setAutoNext((current) => !current)}
+                          className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-white/5 transition-colors cursor-pointer text-left w-full"
+                        >
+                          <span className="flex items-center text-slate-300"><ListVideo className="w-4 h-4 mr-2 text-red-400" /> Tự động phát tập tiếp</span>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${autoNext ? 'bg-emerald-500/15 text-emerald-300' : 'bg-slate-800 text-slate-500'}`}>{autoNext ? 'BẬT' : 'TẮT'}</span>
+                        </button>
                       </div>
                     )}
 
@@ -835,6 +940,11 @@ function WatchPageContent() {
                             {subtitle.language}
                           </button>
                         ))}
+                        <div className="mt-2 border-t border-white/10 px-3 pt-3 space-y-3">
+                          <label className="block text-[10px] font-bold uppercase text-slate-500">Cỡ chữ: {subtitleStyle.fontSize}%<input type="range" min="75" max="160" step="5" value={subtitleStyle.fontSize} onChange={(event) => setSubtitleStyle((current) => ({ ...current, fontSize: Number(event.target.value) }))} className="mt-2 w-full accent-red-500" /></label>
+                          <label className="flex items-center justify-between text-xs text-slate-300">Màu chữ<input type="color" value={subtitleStyle.color} onChange={(event) => setSubtitleStyle((current) => ({ ...current, color: event.target.value }))} className="h-7 w-12 rounded border-0 bg-transparent" /></label>
+                          <label className="block text-[10px] font-bold uppercase text-slate-500">Nền phụ đề: {subtitleStyle.background}%<input type="range" min="0" max="100" step="5" value={subtitleStyle.background} onChange={(event) => setSubtitleStyle((current) => ({ ...current, background: Number(event.target.value) }))} className="mt-2 w-full accent-red-500" /></label>
+                        </div>
                       </div>
                     )}
 

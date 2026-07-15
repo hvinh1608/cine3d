@@ -20,6 +20,19 @@ Email tài khoản ưu tiên Brevo HTTPS API qua `BREVO_API_KEY` và `MAIL_FROM`
 
 Đăng nhập/đăng ký Google dùng cùng một OAuth 2.0 Web Client ID: đặt `GOOGLE_CLIENT_ID` ở backend và `NEXT_PUBLIC_GOOGLE_CLIENT_ID` ở frontend. Backend xác minh Google ID token trước khi tạo session CINE3D; người dùng Google không cần mật khẩu hay email xác minh riêng.
 
+## Tính năng trải nghiệm nâng cao
+
+- Hồ sơ người xem riêng (tối đa 5), có PIN; lịch sử, yêu thích và xem sau tách biệt theo hồ sơ.
+- Theo dõi phim và nhận thông báo khi admin thêm tập mới.
+- Playlist riêng tư/công khai, chia sẻ bằng liên kết.
+- Quản lý các thiết bị đã đăng nhập và thu hồi phiên từ xa.
+- PWA cài được lên màn hình chính, service worker và Web Push.
+- Trình phát tự chuyển tập, bỏ mở đầu/phần kết và lưu kiểu phụ đề.
+- Phòng xem chung có mật khẩu, đổi tập đồng bộ, chuyển chủ và mời thành viên ra.
+- Analytics nội bộ 7 ngày cùng bảng lỗi phát trong Admin Dashboard.
+
+Để bật Web Push trên production, tại backend chạy `npx web-push generate-vapid-keys`, sau đó thêm `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` và `VAPID_SUBJECT=mailto:email-cua-ban` vào Render rồi deploy lại. Không đưa private key sang Vercel; frontend tự lấy public key qua API.
+
 Dự án được xây dựng trọn vẹn cả Frontend, Backend, Database PostgreSQL và tích hợp Docker Compose để dễ dàng triển khai.
 
 ---

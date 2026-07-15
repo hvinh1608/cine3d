@@ -16,24 +16,24 @@ model Role {
 }
 
 model User {
-  id                   String    @id @default(uuid())
-  email                String    @unique
-  googleId             String?   @unique
-  username             String    @unique
-  password             String
-  avatar               String?
-  isVerified           Boolean   @default(false)
-  isLocked             Boolean   @default(false)
-  isVip                Boolean   @default(false)
-  vipExpiresAt         DateTime?
-  passwordResetToken   String?
-  passwordResetExpires DateTime?
+  id                       String    @id @default(uuid())
+  email                    String    @unique
+  googleId                 String?   @unique
+  username                 String    @unique
+  password                 String
+  avatar                   String?
+  isVerified               Boolean   @default(false)
+  isLocked                 Boolean   @default(false)
+  isVip                    Boolean   @default(false)
+  vipExpiresAt             DateTime?
+  passwordResetToken       String?
+  passwordResetExpires     DateTime?
   emailVerificationToken   String?
   emailVerificationExpires DateTime?
-  roleId               String
-  role                 Role      @relation(fields: [roleId], references: [id])
-  createdAt            DateTime  @default(now())
-  updatedAt            DateTime  @updatedAt
+  roleId                   String
+  role                     Role      @relation(fields: [roleId], references: [id])
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
 
   comments           Comment[]
   commentLikes       CommentLike[]
@@ -44,8 +44,13 @@ model User {
   notifications      Notification[]
   reports            Report[]
   refreshTokens      RefreshToken[]
-  vipOrders          VipOrder[]     @relation("VipOrderUser")
-  confirmedVipOrders VipOrder[]     @relation("VipOrderConfirmer")
+  vipOrders          VipOrder[]         @relation("VipOrderUser")
+  confirmedVipOrders VipOrder[]         @relation("VipOrderConfirmer")
+  movieFollows       MovieFollow[]
+  playlists          Playlist[]
+  profiles           UserProfile[]
+  pushSubscriptions  PushSubscription[]
+  analyticsEvents    AnalyticsEvent[]
 
   @@index([email])
   @@index([username])
@@ -162,16 +167,21 @@ model Movie {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  episodes       Episode[]
-  movieActors    MovieActor[]
-  movieGenres    MovieGenre[]
-  movieDirectors MovieDirector[]
-  ratings        Rating[]
-  favorites      Favorite[]
-  watchlist      Watchlist[]
-  watchHistory   WatchHistory[]
-  banners        Banner[]
-  reports        Report[]
+  episodes            Episode[]
+  movieActors         MovieActor[]
+  movieGenres         MovieGenre[]
+  movieDirectors      MovieDirector[]
+  ratings             Rating[]
+  favorites           Favorite[]
+  watchlist           Watchlist[]
+  watchHistory        WatchHistory[]
+  banners             Banner[]
+  reports             Report[]
+  followers           MovieFollow[]
+  playlistItems       PlaylistItem[]
+  profileFavorites    ProfileFavorite[]
+  profileWatchlist    ProfileWatchlist[]
+  profileWatchHistory ProfileWatchHistory[]
 
   @@index([slug])
   @@index([title])
@@ -222,16 +232,19 @@ model MovieDirector {
 }
 
 model Episode {
-  id           String   @id @default(uuid())
-  movieId      String
-  movie        Movie    @relation(fields: [movieId], references: [id], onDelete: Cascade)
-  title        String // e.g. "Tập 1", "Tập 2", "Full"
-  episodeOrder Int // e.g. 1, 2, 3
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                String   @id @default(uuid())
+  movieId           String
+  movie             Movie    @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  title             String // e.g. "Tập 1", "Tập 2", "Full"
+  episodeOrder      Int // e.g. 1, 2, 3
+  introEndSeconds   Int?
+  outroStartSeconds Int?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  videoSources VideoSource[]
-  subtitles    Subtitle[]
+  videoSources        VideoSource[]
+  subtitles           Subtitle[]
+  profileWatchHistory ProfileWatchHistory[]
 
   @@unique([movieId, episodeOrder])
 }
@@ -406,13 +419,143 @@ model Report {
 }
 
 model RefreshToken {
-  id        String   @id @default(uuid())
-  token     String   @unique
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
-  createdAt DateTime @default(now())
+  id         String   @id @default(uuid())
+  token      String   @unique
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt  DateTime
+  deviceName String?
+  userAgent  String?
+  ipAddress  String?
+  lastUsedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 
   @@index([userId, expiresAt])
   @@index([expiresAt])
+}
+
+model MovieFollow {
+  id        String   @id @default(uuid())
+  userId    String
+  movieId   String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movie     Movie    @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, movieId])
+  @@index([movieId, createdAt])
+}
+
+model Playlist {
+  id          String         @id @default(uuid())
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  isPublic    Boolean        @default(false)
+  items       PlaylistItem[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@index([userId, updatedAt])
+}
+
+model PlaylistItem {
+  id         String   @id @default(uuid())
+  playlistId String
+  movieId    String
+  playlist   Playlist @relation(fields: [playlistId], references: [id], onDelete: Cascade)
+  movie      Movie    @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  position   Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  @@unique([playlistId, movieId])
+  @@index([playlistId, position])
+  @@index([movieId])
+}
+
+model UserProfile {
+  id           String                @id @default(uuid())
+  userId       String
+  user         User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String
+  avatar       String?
+  isKids       Boolean               @default(false)
+  pinHash      String?
+  favorites    ProfileFavorite[]
+  watchlist    ProfileWatchlist[]
+  watchHistory ProfileWatchHistory[]
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@index([userId, createdAt])
+}
+
+model ProfileFavorite {
+  id        String      @id @default(uuid())
+  profileId String
+  movieId   String
+  profile   UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  movie     Movie       @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+
+  @@unique([profileId, movieId])
+  @@index([profileId, createdAt])
+}
+
+model ProfileWatchlist {
+  id        String      @id @default(uuid())
+  profileId String
+  movieId   String
+  profile   UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  movie     Movie       @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  createdAt DateTime    @default(now())
+
+  @@unique([profileId, movieId])
+  @@index([profileId, createdAt])
+}
+
+model ProfileWatchHistory {
+  id          String      @id @default(uuid())
+  profileId   String
+  movieId     String
+  episodeId   String?
+  watchedTime Int         @default(0)
+  duration    Int         @default(0)
+  profile     UserProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  movie       Movie       @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  episode     Episode?    @relation(fields: [episodeId], references: [id], onDelete: SetNull)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([profileId, movieId])
+  @@index([profileId, updatedAt])
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model AnalyticsEvent {
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name      String
+  path      String?
+  movieId   String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([name, createdAt])
+  @@index([userId, createdAt])
+  @@index([movieId, createdAt])
 }

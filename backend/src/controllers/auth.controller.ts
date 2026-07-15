@@ -65,7 +65,20 @@ type SessionUser = {
   role: { name: string };
 };
 
-async function createSession(user: SessionUser) {
+function getSessionMetadata(req: AuthenticatedRequest) {
+  const userAgent = req.get('user-agent')?.slice(0, 500) || null;
+  const browser = userAgent?.match(/(Edg|Chrome|Firefox|Safari|OPR)\/[\d.]+/)?.[1] || 'Trình duyệt';
+  const os = userAgent?.match(/Windows NT|Android|iPhone|iPad|Mac OS X|Linux/)?.[0]?.replace('Windows NT', 'Windows') || 'Thiết bị';
+  const forwarded = req.get('x-forwarded-for')?.split(',')[0]?.trim();
+  return {
+    deviceName: `${browser} · ${os}`.slice(0, 100),
+    userAgent,
+    ipAddress: (forwarded || req.ip || '').slice(0, 100) || null,
+    lastUsedAt: new Date(),
+  };
+}
+
+async function createSession(user: SessionUser, req: AuthenticatedRequest) {
   const payload = {
     id: user.id,
     email: user.email,
@@ -87,6 +100,7 @@ async function createSession(user: SessionUser) {
         token: hashToken(refreshToken),
         userId: user.id,
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        ...getSessionMetadata(req),
       },
     }),
   ]);
@@ -267,7 +281,7 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    const session = await createSession(user);
+    const session = await createSession(user, req);
     res.cookie(REFRESH_COOKIE, session.refreshToken, cookieOptions);
 
     return res.status(201).json({
@@ -318,7 +332,7 @@ export const login = async (req: AuthenticatedRequest, res: Response) => {
       return res.status(401).json({ message: 'Invalid credentials.' });
     }
 
-    const session = await createSession(user);
+    const session = await createSession(user, req);
     res.cookie(REFRESH_COOKIE, session.refreshToken, cookieOptions);
     return res.json({
       accessToken: session.accessToken,
@@ -421,7 +435,7 @@ export const googleLogin = async (req: AuthenticatedRequest, res: Response) => {
       });
     }
 
-    const session = await createSession(user);
+    const session = await createSession(user, req);
     res.cookie(REFRESH_COOKIE, session.refreshToken, cookieOptions);
     return res.json({
       message: 'Đăng nhập Google thành công.',
@@ -487,6 +501,7 @@ export const refresh = async (req: AuthenticatedRequest, res: Response) => {
           token: hashToken(newRefreshToken),
           userId: storedToken.user.id,
           expiresAt,
+          ...getSessionMetadata(req),
         },
       }),
     ]);

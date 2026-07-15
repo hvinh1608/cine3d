@@ -7,6 +7,7 @@ import { AuthenticatedRequest } from '../middleware/auth';
 import { ensureMovieInDb } from '../services/movie.upsert';
 import { internalError } from '../lib/http-error';
 import { hasVipAccess } from '../lib/vip';
+import { getOwnedProfileId, hasRequestedProfile } from '../lib/profile';
 
 
 /** Resolve UUID or KKPhim slug to a DB movie id (upsert from KKPhim if needed). */
@@ -87,6 +88,18 @@ export const getFavorites = async (req: AuthenticatedRequest, res: Response) => 
   if (!req.user) return res.status(401).json({ message: 'Unauthorized.' });
 
   try {
+    const profileId = await getOwnedProfileId(req);
+    if (hasRequestedProfile(req) && !profileId) return res.status(403).json({ message: 'Hồ sơ không hợp lệ.' });
+    if (profileId) {
+      const favorites = await prisma.profileFavorite.findMany({
+        where: { profileId },
+        orderBy: { createdAt: 'desc' },
+        take: 200,
+        include: { movie: { include: { country: true, movieGenres: { include: { genre: true } } } } },
+      });
+      return res.json(favorites.map((favorite) => favorite.movie));
+    }
+
     const favorites = await prisma.favorite.findMany({
       where: { userId: req.user.id },
       orderBy: { createdAt: 'desc' },
@@ -113,6 +126,18 @@ export const toggleFavorite = async (req: AuthenticatedRequest, res: Response) =
 
   try {
     const movieId = await resolveMovieId(movieRef);
+    const profileId = await getOwnedProfileId(req);
+    if (hasRequestedProfile(req) && !profileId) return res.status(403).json({ message: 'Hồ sơ không hợp lệ.' });
+
+    if (profileId) {
+      const existing = await prisma.profileFavorite.findUnique({ where: { profileId_movieId: { profileId, movieId } } });
+      if (existing) {
+        await prisma.profileFavorite.delete({ where: { id: existing.id } });
+        return res.json({ favorited: false, movieId, message: 'Đã bỏ yêu thích.' });
+      }
+      await prisma.profileFavorite.create({ data: { profileId, movieId } });
+      return res.json({ favorited: true, movieId, message: 'Đã thêm vào phim yêu thích.' });
+    }
 
     const existing = await prisma.favorite.findUnique({
       where: {
@@ -147,6 +172,18 @@ export const getWatchlist = async (req: AuthenticatedRequest, res: Response) => 
   if (!req.user) return res.status(401).json({ message: 'Unauthorized.' });
 
   try {
+    const profileId = await getOwnedProfileId(req);
+    if (hasRequestedProfile(req) && !profileId) return res.status(403).json({ message: 'Hồ sơ không hợp lệ.' });
+    if (profileId) {
+      const watchlist = await prisma.profileWatchlist.findMany({
+        where: { profileId },
+        orderBy: { createdAt: 'desc' },
+        take: 200,
+        include: { movie: { include: { country: true, movieGenres: { include: { genre: true } } } } },
+      });
+      return res.json(watchlist.map((entry) => entry.movie));
+    }
+
     const watchlist = await prisma.watchlist.findMany({
       where: { userId: req.user.id },
       orderBy: { createdAt: 'desc' },
@@ -173,6 +210,18 @@ export const toggleWatchlist = async (req: AuthenticatedRequest, res: Response) 
 
   try {
     const movieId = await resolveMovieId(movieRef);
+    const profileId = await getOwnedProfileId(req);
+    if (hasRequestedProfile(req) && !profileId) return res.status(403).json({ message: 'Hồ sơ không hợp lệ.' });
+
+    if (profileId) {
+      const existing = await prisma.profileWatchlist.findUnique({ where: { profileId_movieId: { profileId, movieId } } });
+      if (existing) {
+        await prisma.profileWatchlist.delete({ where: { id: existing.id } });
+        return res.json({ inWatchlist: false, movieId, message: 'Đã xóa khỏi danh sách.' });
+      }
+      await prisma.profileWatchlist.create({ data: { profileId, movieId } });
+      return res.json({ inWatchlist: true, movieId, message: 'Đã thêm vào danh sách.' });
+    }
 
     const existing = await prisma.watchlist.findUnique({
       where: {
@@ -207,6 +256,18 @@ export const getWatchHistory = async (req: AuthenticatedRequest, res: Response) 
   if (!req.user) return res.status(401).json({ message: 'Unauthorized.' });
 
   try {
+    const profileId = await getOwnedProfileId(req);
+    if (hasRequestedProfile(req) && !profileId) return res.status(403).json({ message: 'Hồ sơ không hợp lệ.' });
+    if (profileId) {
+      const history = await prisma.profileWatchHistory.findMany({
+        where: { profileId },
+        orderBy: { updatedAt: 'desc' },
+        take: 100,
+        include: { movie: { include: { country: true, movieGenres: { include: { genre: true } }, episodes: true } } },
+      });
+      return res.json(history);
+    }
+
     const history = await prisma.watchHistory.findMany({
       where: { userId: req.user.id },
       orderBy: { updatedAt: 'desc' },
@@ -238,6 +299,8 @@ export const saveWatchProgress = async (req: AuthenticatedRequest, res: Response
 
   try {
     const movieId = await resolveMovieId(movieRef);
+    const profileId = await getOwnedProfileId(req);
+    if (hasRequestedProfile(req) && !profileId) return res.status(403).json({ message: 'Hồ sơ không hợp lệ.' });
 
     const parsedTime = Number(watchedTime);
     const parsedDuration = Number(duration);
@@ -250,7 +313,23 @@ export const saveWatchProgress = async (req: AuthenticatedRequest, res: Response
       if (!episode) return res.status(400).json({ message: 'Episode does not belong to this movie.' });
     }
 
-    const progress = await prisma.watchHistory.upsert({
+    const progress = profileId
+      ? await prisma.profileWatchHistory.upsert({
+          where: { profileId_movieId: { profileId, movieId } },
+          update: {
+            episodeId: episodeId || null,
+            watchedTime: Math.floor(parsedTime),
+            duration: Math.floor(parsedDuration),
+          },
+          create: {
+            profileId,
+            movieId,
+            episodeId: episodeId || null,
+            watchedTime: Math.floor(parsedTime),
+            duration: Math.floor(parsedDuration),
+          },
+        })
+      : await prisma.watchHistory.upsert({
       where: { movieId_userId: { movieId, userId: req.user.id } },
       update: {
         episodeId: episodeId || null,
@@ -264,7 +343,7 @@ export const saveWatchProgress = async (req: AuthenticatedRequest, res: Response
         watchedTime: Math.floor(parsedTime),
         duration: Math.floor(parsedDuration),
       },
-    });
+        });
     return res.json({ message: 'Watch progress saved.', progress });
   } catch (error: any) {
     return internalError(res, 'Error saving watch progress.', error);
@@ -315,6 +394,15 @@ export const deleteWatchHistory = async (req: AuthenticatedRequest, res: Respons
   const { id } = req.params;
 
   try {
+    const profileId = await getOwnedProfileId(req);
+    if (hasRequestedProfile(req) && !profileId) return res.status(403).json({ message: 'Hồ sơ không hợp lệ.' });
+    if (profileId) {
+      const existing = await prisma.profileWatchHistory.findFirst({ where: { id, profileId } });
+      if (!existing) return res.status(404).json({ message: 'History record not found.' });
+      await prisma.profileWatchHistory.delete({ where: { id } });
+      return res.json({ message: 'Watch history record deleted.', deletedId: id });
+    }
+
     const existing = await prisma.watchHistory.findFirst({
       where: { id, userId: req.user.id },
     });

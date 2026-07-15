@@ -7,8 +7,12 @@ let refreshRequest: Promise<string> | null = null;
 
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = useStore.getState().accessToken;
+  const profileId = useStore.getState().selectedProfileId;
   if (token && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  if (profileId && !config.headers['X-Profile-Id']) {
+    config.headers['X-Profile-Id'] = profileId;
   }
   return config;
 });

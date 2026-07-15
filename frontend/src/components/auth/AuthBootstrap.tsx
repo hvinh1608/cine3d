@@ -12,6 +12,7 @@ export default function AuthBootstrap() {
   const setSession = useStore((state) => state.setSession);
   const setAuthReady = useStore((state) => state.setAuthReady);
   const logout = useStore((state) => state.logout);
+  const setProfiles = useStore((state) => state.setProfiles);
 
   useEffect(() => {
     if (!hasHydrated || authReady) return;
@@ -25,7 +26,12 @@ export default function AuthBootstrap() {
     // from the HttpOnly refresh cookie before private components can fetch.
     api.post('/auth/refresh')
       .then(({ data }) => {
-        if (active) setSession(data.user, data.accessToken);
+        if (active) {
+          setSession(data.user, data.accessToken);
+          api.get('/user/profiles').then((response) => {
+            if (active) setProfiles(response.data);
+          }).catch(() => undefined);
+        }
       })
       .catch(() => {
         if (active) logout();
@@ -37,7 +43,7 @@ export default function AuthBootstrap() {
     return () => {
       active = false;
     };
-  }, [authReady, hasHydrated, logout, setAuthReady, setSession, user]);
+  }, [authReady, hasHydrated, logout, setAuthReady, setProfiles, setSession, user]);
 
   return null;
 }

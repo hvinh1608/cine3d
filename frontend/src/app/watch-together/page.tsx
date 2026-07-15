@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Hls from 'hls.js';
 import { io, Socket } from 'socket.io-client';
-import { ArrowLeft, Copy, MessageCircle, Send, Users, XCircle } from 'lucide-react';
+import { ArrowLeft, Copy, ListVideo, LockKeyhole, MessageCircle, Send, UserMinus, Users, XCircle } from 'lucide-react';
 import axios from '../../lib/api';
 import { useStore } from '../../hooks/useStore';
 import type { Movie } from '../../types/movie';
@@ -15,8 +15,8 @@ const SOCKET_URL = API_URL.replace(/\/api\/?$/, '');
 type RoomState = { playing: boolean; currentTime: number; updatedAt: number };
 type RoomUser = { id: string; name: string };
 type ChatMessage = { name: string; message: string };
-type RoomSnapshot = { users: RoomUser[]; hostId: string };
-type RoomResult = RoomSnapshot & { error?: string; roomId: string; slug: string; episode: number; state: RoomState };
+type RoomSnapshot = { users: RoomUser[]; hostId: string; episode?: number; isPrivate?: boolean };
+type RoomResult = RoomSnapshot & { error?: string; passwordRequired?: boolean; roomId: string; slug: string; episode: number; state: RoomState };
 
 export default function WatchTogetherPage() {
   const query = useSearchParams();
@@ -41,6 +41,9 @@ export default function WatchTogetherPage() {
   const [socketId, setSocketId] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [playbackBlocked, setPlaybackBlocked] = useState(false);
+  const [roomEpisode, setRoomEpisode] = useState(episode);
+  const [privateRoom, setPrivateRoom] = useState(false);
+  const [password, setPassword] = useState('');
 
   const socketRef = useRef<Socket | null>(null);
   const activeRoomIdRef = useRef(initialRoomId);
@@ -48,8 +51,8 @@ export default function WatchTogetherPage() {
   const hlsRef = useRef<Hls | null>(null);
   const pendingSeekHandler = useRef<(() => void) | null>(null);
   const source = useMemo(
-    () => movie?.episodes?.find((item) => item.episodeOrder === episode)?.videoSources?.[0],
-    [episode, movie]
+    () => movie?.episodes?.find((item) => item.episodeOrder === roomEpisode)?.videoSources?.[0],
+    [roomEpisode, movie]
   );
   const isHost = Boolean(hostId && hostId === socketId);
 
@@ -163,6 +166,8 @@ export default function WatchTogetherPage() {
         slug,
         episode,
         name: name || 'Khách',
+        privateRoom,
+        password,
       }, (result: RoomResult) => {
         if (result?.error) {
           setError(result.error);
@@ -174,8 +179,10 @@ export default function WatchTogetherPage() {
         setState(result.state);
         setUsers(result.users || []);
         setHostId(result.hostId || '');
+        setRoomEpisode(result.episode || episode);
         setConnected(true);
         window.history.replaceState({}, '', `/watch-together?room=${result.roomId}&slug=${encodeURIComponent(result.slug)}&ep=${result.episode}`);
+        void axios.post('/analytics/events', { name: reconnectRoomId ? 'watch_room_join' : 'watch_room_create', path: '/watch-together', movieId: result.slug }).catch(() => undefined);
       });
     };
 
@@ -187,6 +194,17 @@ export default function WatchTogetherPage() {
       setHostId(snapshot.hostId || '');
     });
     socket.on('room:message', (next: ChatMessage) => setMessages((current) => [...current.slice(-49), next]));
+    socket.on('room:episode', ({ episode: nextEpisode, state: nextState }: { episode: number; state: RoomState }) => {
+      setRoomEpisode(nextEpisode);
+      setState(nextState);
+      window.history.replaceState({}, '', `/watch-together?room=${activeRoomIdRef.current}&slug=${encodeURIComponent(slug)}&ep=${nextEpisode}`);
+    });
+    socket.on('room:kicked', ({ message: reason }: { message?: string }) => {
+      activeRoomIdRef.current = '';
+      setError(reason || 'Bạn đã rời phòng.');
+      setStarted(false);
+      setConnected(false);
+    });
     socket.on('room:closed', ({ message: reason }: { message?: string }) => {
       activeRoomIdRef.current = '';
       setError(reason || 'Phòng đã đóng.');
@@ -204,7 +222,7 @@ export default function WatchTogetherPage() {
       socketRef.current = null;
       setSocketId('');
     };
-  }, [episode, name, slug, started]);
+  }, [episode, name, password, privateRoom, slug, started]);
 
   useEffect(() => () => {
     const video = videoRef.current;
@@ -241,6 +259,20 @@ export default function WatchTogetherPage() {
     });
   };
 
+  const changeEpisode = (nextEpisode: number) => {
+    if (!isHost) return;
+    socketRef.current?.emit('room:episode', nextEpisode, (result: { ok?: boolean; error?: string }) => {
+      if (result?.error) showToast(result.error, 'error');
+    });
+  };
+
+  const kickUser = (target: RoomUser) => {
+    if (!window.confirm(`Mời ${target.name} ra khỏi phòng?`)) return;
+    socketRef.current?.emit('room:kick', target.id, (result: { ok?: boolean; error?: string }) => {
+      if (result?.error) showToast(result.error, 'error');
+    });
+  };
+
   if (!started) {
     return <main className="mx-auto flex min-h-[70vh] max-w-xl items-center px-4 py-12">
       <div className="glass-panel w-full space-y-5 rounded-3xl p-7 text-center">
@@ -248,9 +280,15 @@ export default function WatchTogetherPage() {
         <h1 className="text-2xl font-black text-white">Xem phim cùng nhau</h1>
         <p className="text-sm text-slate-400">Tạo phòng rồi gửi đường dẫn cho bạn bè để cùng xem.</p>
         <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Tên hiển thị" maxLength={30} className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white" />
+        {initialRoomId ? (
+          <div className="relative"><LockKeyhole className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" /><input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="Mật khẩu nếu là phòng riêng" maxLength={50} className="w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 pr-4 text-sm text-white" /></div>
+        ) : <>
+          <label className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-slate-300"><span className="flex items-center gap-2"><LockKeyhole className="h-4 w-4" /> Phòng riêng tư</span><input type="checkbox" checked={privateRoom} onChange={(event) => setPrivateRoom(event.target.checked)} className="h-4 w-4 accent-red-500" /></label>
+          {privateRoom && <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" minLength={4} maxLength={50} placeholder="Đặt mật khẩu phòng (ít nhất 4 ký tự)" className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white" />}
+        </>}
         {!slug && <p className="text-xs text-amber-300">Hãy mở tính năng này từ trang xem phim.</p>}
         {error && <p className="text-sm text-red-400">{error}</p>}
-        <button disabled={!slug} onClick={() => { setError(''); setStarted(true); }} className="w-full rounded-xl bg-red-600 py-3 font-bold text-white disabled:opacity-50">
+        <button disabled={!slug || (!initialRoomId && privateRoom && password.length < 4)} onClick={() => { setError(''); setStarted(true); }} className="w-full rounded-xl bg-red-600 py-3 font-bold text-white disabled:opacity-50">
           {initialRoomId ? 'Tham gia lại phòng' : 'Tạo phòng xem chung'}
         </button>
         <Link href={slug ? `/watch/${slug}?ep=${episode}` : '/'} className="block text-sm text-slate-400 hover:text-white"><ArrowLeft className="mr-1 inline h-4 w-4" /> Quay lại</Link>
@@ -260,7 +298,7 @@ export default function WatchTogetherPage() {
 
   return <main className="mx-auto max-w-7xl space-y-5 px-4 py-6 text-white md:px-8">
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <Link onClick={() => socketRef.current?.emit('room:leave')} href={movie ? `/watch/${movie.slug}?ep=${episode}` : '/'} className="text-sm text-slate-400 hover:text-white"><ArrowLeft className="mr-1 inline h-4 w-4" /> Thoát phòng</Link>
+      <Link onClick={() => socketRef.current?.emit('room:leave')} href={movie ? `/watch/${movie.slug}?ep=${roomEpisode}` : '/'} className="text-sm text-slate-400 hover:text-white"><ArrowLeft className="mr-1 inline h-4 w-4" /> Thoát phòng</Link>
       <span className={`rounded-full px-3 py-1 text-xs ${connected ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'}`}>{connected ? 'Đã kết nối' : 'Đang kết nối lại...'}</span>
     </div>
 
@@ -282,7 +320,8 @@ export default function WatchTogetherPage() {
       </section>
 
       <aside className="glass-panel space-y-4 rounded-2xl p-4">
-        <div><h2 className="flex items-center gap-2 font-bold"><Users className="h-4 w-4 text-red-400" /> Đang xem ({users.length})</h2><div className="mt-2 space-y-1 text-sm text-slate-300">{users.map((item) => <div key={item.id}>• {item.name}{item.id === hostId ? ' (chủ phòng)' : ''}</div>)}</div></div>
+        {isHost && movie?.episodes && movie.episodes.length > 1 && <label className="block"><span className="mb-2 flex items-center gap-2 text-sm font-bold"><ListVideo className="h-4 w-4 text-purple-400" /> Tập đang chiếu</span><select value={roomEpisode} onChange={(event) => changeEpisode(Number(event.target.value))} className="w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-xs outline-none">{movie.episodes.map((item) => <option key={item.id} value={item.episodeOrder}>{item.title}</option>)}</select></label>}
+        <div><h2 className="flex items-center gap-2 font-bold"><Users className="h-4 w-4 text-red-400" /> Đang xem ({users.length})</h2><div className="mt-2 space-y-1 text-sm text-slate-300">{users.map((item) => <div key={item.id} className="flex items-center justify-between gap-2 rounded-lg px-1 py-0.5"><span>• {item.name}{item.id === hostId ? ' (chủ phòng)' : ''}</span>{isHost && item.id !== socketId && <button onClick={() => kickUser(item)} title="Mời khỏi phòng" className="text-slate-600 hover:text-red-400"><UserMinus className="h-3.5 w-3.5" /></button>}</div>)}</div></div>
         <div><h2 className="flex items-center gap-2 font-bold"><MessageCircle className="h-4 w-4 text-red-400" /> Chat</h2><div className="mt-2 h-48 space-y-2 overflow-y-auto rounded-xl bg-black/20 p-2 text-xs">{messages.map((item, index) => <p key={`${item.name}-${index}`}><b className="text-red-300">{item.name}:</b> {item.message}</p>)}</div><form onSubmit={submitMessage} className="mt-2 flex gap-2"><input value={message} onChange={(event) => setMessage(event.target.value)} maxLength={300} placeholder="Nhắn tin..." className="min-w-0 flex-1 rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-xs" /><button className="rounded-lg bg-red-600 px-3" aria-label="Gửi tin nhắn"><Send className="h-4 w-4" /></button></form></div>
       </aside>
     </div>

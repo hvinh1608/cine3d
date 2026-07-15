@@ -12,6 +12,15 @@ interface User {
   vipExpiresAt?: string | null;
 }
 
+export interface ViewerProfile {
+  id: string;
+  name: string;
+  avatar?: string | null;
+  isKids: boolean;
+  hasPin: boolean;
+  createdAt: string;
+}
+
 interface WatchHistoryItem {
   id: string;
   movieId: string;
@@ -38,6 +47,8 @@ interface AppState {
   favorites: Movie[];
   watchlist: Movie[];
   watchHistory: WatchHistoryItem[];
+  profiles: ViewerProfile[];
+  selectedProfileId: string | null;
   reduceMotion: boolean;
   toast: { id: number; message: string; tone: 'info' | 'success' | 'error' } | null;
   
@@ -49,6 +60,8 @@ interface AppState {
   setFavorites: (favorites: Movie[]) => void;
   setWatchlist: (watchlist: Movie[]) => void;
   setWatchHistory: (history: WatchHistoryItem[]) => void;
+  setProfiles: (profiles: ViewerProfile[]) => void;
+  selectProfile: (profileId: string | null) => void;
   setReduceMotion: (reduce: boolean) => void;
   showToast: (message: string, tone?: 'info' | 'success' | 'error') => void;
   clearToast: () => void;
@@ -65,6 +78,8 @@ export const useStore = create<AppState>()(persist((set, get) => ({
   favorites: [],
   watchlist: [],
   watchHistory: [],
+  profiles: [],
+  selectedProfileId: null,
   reduceMotion: false,
   toast: null,
 
@@ -81,12 +96,20 @@ export const useStore = create<AppState>()(persist((set, get) => ({
   setFavorites: (favorites) => set({ favorites }),
   setWatchlist: (watchlist) => set({ watchlist }),
   setWatchHistory: (watchHistory) => set({ watchHistory }),
+  setProfiles: (profiles) => set((state) => ({
+    profiles,
+    selectedProfileId: profiles.some((profile) => profile.id === state.selectedProfileId)
+      ? state.selectedProfileId
+      : profiles[0]?.id || null,
+  })),
+  selectProfile: (selectedProfileId) => set({ selectedProfileId, favorites: [], watchlist: [], watchHistory: [] }),
   setReduceMotion: (reduceMotion) => set({ reduceMotion }),
   showToast: (message, tone = 'info') => set({ toast: { id: Date.now(), message, tone } }),
   clearToast: () => set({ toast: null }),
 
   logout: () => {
     const refreshToken = get().refreshToken;
+    const accessToken = get().accessToken;
     set({
       user: null,
       accessToken: null,
@@ -95,9 +118,25 @@ export const useStore = create<AppState>()(persist((set, get) => ({
       favorites: [],
       watchlist: [],
       watchHistory: [],
+      profiles: [],
+      selectedProfileId: null,
     });
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      void navigator.serviceWorker.ready.then(async (registration) => {
+        const subscription = await registration.pushManager.getSubscription();
+        if (!subscription) return;
+        if (accessToken) {
+          await fetch(`${apiUrl}/push/subscribe`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+            body: JSON.stringify({ endpoint: subscription.endpoint }),
+          }).catch(() => undefined);
+        }
+        await subscription.unsubscribe().catch(() => false);
+      }).catch(() => undefined);
+    }
     void fetch(`${apiUrl}/auth/logout`, {
       method: 'POST',
       credentials: 'include',
@@ -110,6 +149,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
   partialize: (state) => ({
     user: state.user,
     reduceMotion: state.reduceMotion,
+    selectedProfileId: state.selectedProfileId,
   }),
   onRehydrateStorage: () => (state) => {
     state?.setHasHydrated(true);

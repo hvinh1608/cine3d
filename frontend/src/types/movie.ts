@@ -1,6 +1,6 @@
 export interface VideoSource { id: string; server: string; quality: string; url: string; type: 'hls' | 'mp4'; isPremium?: boolean }
 export interface Subtitle { id: string; language: string; url: string }
-export interface Episode { id: string; title: string; episodeOrder: number; videoSources: VideoSource[]; subtitles?: Subtitle[]; premiumSourcesLocked?: number }
+export interface Episode { id: string; title: string; episodeOrder: number; videoSources: VideoSource[]; subtitles?: Subtitle[]; premiumSourcesLocked?: number; introEndSeconds?: number | null; outroStartSeconds?: number | null }
 export interface Movie {
   id: string; title: string; englishTitle?: string | null; slug: string;
   description?: string; posterUrl: string; backdropUrl: string; trailerUrl?: string | null;

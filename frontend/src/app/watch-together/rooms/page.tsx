@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { CirclePlus, Clock3, Film, Radio, Search, SlidersHorizontal, Users } from 'lucide-react';
+import { CirclePlus, Clock3, Film, LockKeyhole, Radio, Search, SlidersHorizontal, Users } from 'lucide-react';
 import { io } from 'socket.io-client';
 import axios from '../../../lib/api';
 import { useStore } from '../../../hooks/useStore';
@@ -11,7 +11,7 @@ import type { Movie } from '../../../types/movie';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const SOCKET_URL = API_URL.replace(/\/api\/?$/, '');
-type PublicRoom = { id: string; slug: string; episode: number; hostName: string; viewerCount: number; playing: boolean; createdAt: number };
+type PublicRoom = { id: string; slug: string; episode: number; hostName: string; viewerCount: number; playing: boolean; isPrivate?: boolean; createdAt: number };
 
 function timeAgo(timestamp: number) {
   const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60_000));
@@ -104,6 +104,7 @@ export default function WatchTogetherRoomsPage() {
               {image ? <Image src={image} alt={movie?.title || room.slug} fill sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw" className="object-cover transition duration-500 group-hover:scale-105" /> : <div className="flex h-full items-center justify-center"><Film className="h-10 w-10 text-slate-700" /></div>}
               <div className="absolute inset-0 bg-gradient-to-t from-black via-black/10 to-transparent" />
               <span className={`absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-black ${room.playing ? 'bg-red-600 text-white' : 'bg-slate-950/85 text-slate-300'}`}>{room.playing && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" />}{room.playing ? 'LIVE' : 'ĐANG CHỜ'}</span>
+              {room.isPrivate && <span className="absolute right-3 top-3 rounded-md bg-black/75 p-1.5 text-amber-300" title="Phòng có mật khẩu"><LockKeyhole className="h-3.5 w-3.5" /></span>}
               <span className="absolute bottom-3 right-3 inline-flex items-center gap-1 rounded-md bg-black/70 px-2 py-1 text-[10px] font-bold"><Users className="h-3 w-3" /> {room.viewerCount}</span>
             </div>
             <div className="mt-3 flex gap-3"><div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-red-500 bg-gradient-to-br from-red-500/30 to-purple-500/30 text-xs font-black">{room.hostName.charAt(0).toUpperCase()}</div><div className="min-w-0"><h3 className="truncate text-sm font-black text-white group-hover:text-red-300">Cùng xem {movie?.title || room.slug}</h3><p className="mt-0.5 truncate text-xs text-slate-400">Tập {room.episode} · {room.hostName}</p><p className="mt-1 flex items-center gap-1 text-[10px] text-slate-600"><Clock3 className="h-3 w-3" /> {timeAgo(room.createdAt)}</p></div></div>

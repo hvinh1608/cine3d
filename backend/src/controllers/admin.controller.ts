@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { internalError } from '../lib/http-error';
 import { AuthenticatedRequest } from '../middleware/auth';
+import { sendPushToUsers } from '../services/push.service';
 
 async function resolveCountryId(value: unknown): Promise<string | null> {
   if (typeof value !== 'string' || !value.trim()) return null;
@@ -335,7 +336,7 @@ export const deleteMovie = async (req: Request, res: Response) => {
 
 // CRUD: Manage Episodes
 export const createEpisode = async (req: Request, res: Response) => {
-  const { movieId, title, episodeOrder, videoSources, subtitles } = req.body;
+  const { movieId, title, episodeOrder, videoSources, subtitles, introEndSeconds, outroStartSeconds } = req.body;
 
   if (!movieId || !title || episodeOrder === undefined) {
     return res.status(400).json({ message: 'movieId, title, and episodeOrder are required.' });
@@ -347,6 +348,8 @@ export const createEpisode = async (req: Request, res: Response) => {
         movieId,
         title,
         episodeOrder: parseInt(episodeOrder, 10),
+        introEndSeconds: introEndSeconds === undefined || introEndSeconds === '' ? null : Math.max(0, parseInt(introEndSeconds, 10)),
+        outroStartSeconds: outroStartSeconds === undefined || outroStartSeconds === '' ? null : Math.max(0, parseInt(outroStartSeconds, 10)),
         videoSources: {
           create: (videoSources || []).map((src: any) => ({
             server: src.server,
@@ -372,6 +375,21 @@ export const createEpisode = async (req: Request, res: Response) => {
       data: { episodeCount: count },
     });
 
+    const [movie, followers] = await Promise.all([
+      prisma.movie.findUnique({ where: { id: movieId }, select: { title: true, slug: true } }),
+      prisma.movieFollow.findMany({ where: { movieId }, select: { userId: true } }),
+    ]);
+    if (movie && followers.length > 0) {
+      const userIds = followers.map((entry) => entry.userId);
+      const notification = {
+        title: `${movie.title} có tập mới`,
+        message: `${title} vừa được cập nhật. Xem ngay trên CINE3D.`,
+        url: `/watch/${movie.slug}?ep=${Math.max(1, parseInt(episodeOrder, 10))}`,
+      };
+      await prisma.notification.createMany({ data: userIds.map((userId) => ({ userId, ...notification })) });
+      void sendPushToUsers(userIds, { title: notification.title, body: notification.message, url: notification.url });
+    }
+
     return res.status(201).json({ message: 'Episode created successfully.', episode });
   } catch (error: any) {
     return internalError(res, 'Error creating episode.', error);
@@ -380,7 +398,7 @@ export const createEpisode = async (req: Request, res: Response) => {
 
 export const updateEpisode = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { title, episodeOrder, videoSources, subtitles } = req.body;
+  const { title, episodeOrder, videoSources, subtitles, introEndSeconds, outroStartSeconds } = req.body;
 
   try {
     const existing = await prisma.episode.findUnique({ where: { id } });
@@ -391,6 +409,8 @@ export const updateEpisode = async (req: Request, res: Response) => {
       data: {
         title,
         episodeOrder: episodeOrder !== undefined ? parseInt(episodeOrder, 10) : undefined,
+        introEndSeconds: introEndSeconds === undefined ? undefined : (introEndSeconds === '' || introEndSeconds === null ? null : Math.max(0, parseInt(introEndSeconds, 10))),
+        outroStartSeconds: outroStartSeconds === undefined ? undefined : (outroStartSeconds === '' || outroStartSeconds === null ? null : Math.max(0, parseInt(outroStartSeconds, 10))),
         videoSources: videoSources
           ? {
               deleteMany: {},

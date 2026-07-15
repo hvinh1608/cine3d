@@ -4,11 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Play, Star, Plus, Calendar, Clock, Globe, Film, Send, Trash2, Heart, Video, X, Crown } from 'lucide-react';
+import { Play, Star, Plus, Calendar, Clock, Globe, Film, Send, Trash2, Heart, Video, X, Crown, BellRing, ListPlus } from 'lucide-react';
 import { useStore } from '../../../hooks/useStore';
 import MovieCardLandscape from '../../../components/ui/MovieCardLandscape';
 import axios from '../../../lib/api';
 import type { Movie } from '../../../types/movie';
+import type { AxiosError } from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -33,6 +34,8 @@ type CommentItem = {
   replies?: CommentItem[];
 };
 
+type PlaylistOption = { id: string; name: string; _count?: { items: number } };
+
 export default function MovieDetail() {
   const params = useParams();
   const slug = params.slug as string;
@@ -45,6 +48,8 @@ export default function MovieDetail() {
   const [userRating, setUserRating] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [following, setFollowing] = useState(false);
+  const [playlists, setPlaylists] = useState<PlaylistOption[]>([]);
 
   // Replying states
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
@@ -145,6 +150,20 @@ export default function MovieDetail() {
     }
   }, [slug, user, accessToken]);
 
+  useEffect(() => {
+    if (!user || !movie?.id) return;
+    let active = true;
+    Promise.all([
+      axios.get(`/user/follows/${movie.id}`),
+      axios.get('/user/playlists'),
+    ]).then(([followResponse, playlistResponse]) => {
+      if (!active) return;
+      setFollowing(Boolean(followResponse.data.following));
+      setPlaylists(playlistResponse.data);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [movie?.id, user]);
+
   const handleToggleFavorite = async () => {
     if (!movie) return;
     if (!user) {
@@ -165,6 +184,26 @@ export default function MovieDetail() {
       showToast(res.data.favorited ? 'Đã thêm phim vào yêu thích.' : 'Đã xóa phim khỏi yêu thích.', 'success');
     } catch {
       showToast('Không thể cập nhật danh sách yêu thích.', 'error');
+    }
+  };
+
+  const handleToggleFollow = async () => {
+    if (!movie) return;
+    if (!user) { showToast('Vui lòng đăng nhập để theo dõi phim.', 'info'); return; }
+    try {
+      const response = await axios.post(`/user/follows/${movie.id}`);
+      setFollowing(response.data.following);
+      showToast(response.data.message, 'success');
+    } catch { showToast('Không thể cập nhật theo dõi phim.', 'error'); }
+  };
+
+  const handleAddToPlaylist = async (playlistId: string) => {
+    if (!movie || !playlistId) return;
+    try {
+      await axios.post(`/user/playlists/${playlistId}/movies/${movie.id}`);
+      showToast('Đã thêm phim vào playlist.', 'success');
+    } catch (error: unknown) {
+      showToast((error as AxiosError<{ message?: string }>).response?.data?.message || 'Không thể thêm vào playlist.', 'error');
     }
   };
 
@@ -463,6 +502,19 @@ export default function MovieDetail() {
               >
                 {isFavorited ? <Heart className="w-5 h-5 text-red-500 fill-current" /> : <Plus className="w-5 h-5" />}
               </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <button onClick={handleToggleFollow} className={`flex items-center justify-center gap-2 rounded-full border py-2.5 text-xs font-black transition ${following ? 'border-amber-400/40 bg-amber-400/10 text-amber-300' : 'border-white/10 bg-slate-950/40 text-slate-300 hover:bg-white/10'}`}>
+                <BellRing className={`h-4 w-4 ${following ? 'fill-current' : ''}`} /> {following ? 'Đang theo dõi' : 'Theo dõi tập mới'}
+              </button>
+              {user ? <label className="relative flex items-center rounded-full border border-white/10 bg-slate-950/40 text-slate-300">
+                <ListPlus className="pointer-events-none absolute left-3 h-4 w-4" />
+                <select defaultValue="" onChange={(event) => { void handleAddToPlaylist(event.target.value); event.target.value = ''; }} className="w-full appearance-none bg-transparent py-2.5 pl-9 pr-3 text-xs font-black outline-none">
+                  <option value="" disabled className="bg-slate-950">Thêm vào playlist</option>
+                  {playlists.map((playlist) => <option key={playlist.id} value={playlist.id} className="bg-slate-950">{playlist.name}</option>)}
+                </select>
+              </label> : <Link href="/account" className="flex items-center justify-center gap-2 rounded-full border border-white/10 py-2.5 text-xs font-bold text-slate-400"><ListPlus className="h-4 w-4" /> Đăng nhập để tạo playlist</Link>}
             </div>
 
             {/* Watch trailer button */}

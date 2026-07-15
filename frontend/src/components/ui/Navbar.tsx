@@ -220,6 +220,7 @@ export default function Navbar() {
     const keyword = searchQuery.trim();
     if (keyword) {
       saveRecentSearch(keyword);
+      void axios.post('/analytics/events', { name: 'search', path: '/search', metadata: { length: keyword.length } }).catch(() => undefined);
       setSuggestionsOpen(false);
       setMobileMenuOpen(false);
       router.push(`/search?q=${encodeURIComponent(keyword)}`);

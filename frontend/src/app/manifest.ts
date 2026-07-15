@@ -7,6 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Khám phá và xem phim trực tuyến chất lượng cao.',
     start_url: '/',
     display: 'standalone',
+    scope: '/',
+    orientation: 'any',
     background_color: '#020205',
     theme_color: '#dc2626',
     icons: [

@@ -74,6 +74,33 @@ import {
   confirmVipOrder,
   cancelAdminVipOrder,
 } from '../controllers/vip.controller';
+import {
+  getProfiles,
+  createProfile,
+  updateViewerProfile,
+  verifyProfilePin,
+  deleteViewerProfile,
+} from '../controllers/profile.controller';
+import {
+  getFollows,
+  getFollowStatus,
+  toggleFollow,
+  getPlaylists,
+  getPlaylist,
+  createPlaylist,
+  updatePlaylist,
+  deletePlaylist,
+  addPlaylistMovie,
+  removePlaylistMovie,
+  getPushKey,
+  subscribePush,
+  unsubscribePush,
+  trackAnalytics,
+  getAnalyticsSummary,
+  getSessions,
+  revokeSession,
+  revokeOtherSessions,
+} from '../controllers/experience.controller';
 
 const router = Router();
 
@@ -90,6 +117,9 @@ router.get('/auth/me', authenticateToken as any, getProfile as any);
 router.post('/auth/forgot-password', resetLimiter, forgotPassword as any);
 router.post('/auth/reset-password', resetLimiter, resetPassword as any);
 router.get('/auth/verify-email', resetLimiter, verifyEmail as any);
+router.get('/auth/sessions', authenticateToken as any, getSessions as any);
+router.delete('/auth/sessions/others', authenticateToken as any, revokeOtherSessions as any);
+router.delete('/auth/sessions/:id', authenticateToken as any, revokeSession as any);
 
 // --- Movie Routes ---
 router.get('/movies', getMovies);
@@ -112,6 +142,25 @@ router.post('/user/history', authenticateToken as any, saveWatchProgress as any)
 router.delete('/user/history/:id', authenticateToken as any, deleteWatchHistory as any);
 router.get('/user/notifications', authenticateToken as any, getNotifications as any);
 router.put('/user/notifications/:id/read', authenticateToken as any, markNotificationRead as any);
+router.get('/user/profiles', authenticateToken as any, getProfiles as any);
+router.post('/user/profiles', authenticateToken as any, createProfile as any);
+router.put('/user/profiles/:id', authenticateToken as any, updateViewerProfile as any);
+router.post('/user/profiles/:id/verify-pin', authenticateToken as any, verifyProfilePin as any);
+router.delete('/user/profiles/:id', authenticateToken as any, deleteViewerProfile as any);
+router.get('/user/follows', authenticateToken as any, getFollows as any);
+router.get('/user/follows/:movieId', authenticateToken as any, getFollowStatus as any);
+router.post('/user/follows/:movieId', authenticateToken as any, toggleFollow as any);
+router.get('/user/playlists', authenticateToken as any, getPlaylists as any);
+router.post('/user/playlists', authenticateToken as any, createPlaylist as any);
+router.put('/user/playlists/:id', authenticateToken as any, updatePlaylist as any);
+router.delete('/user/playlists/:id', authenticateToken as any, deletePlaylist as any);
+router.post('/user/playlists/:id/movies/:movieId', authenticateToken as any, addPlaylistMovie as any);
+router.delete('/user/playlists/:id/movies/:movieId', authenticateToken as any, removePlaylistMovie as any);
+router.get('/playlists/:id', optionalAuthenticate as any, getPlaylist as any);
+router.get('/push/public-key', getPushKey as any);
+router.post('/push/subscribe', authenticateToken as any, subscribePush as any);
+router.delete('/push/subscribe', authenticateToken as any, unsubscribePush as any);
+router.post('/analytics/events', rateLimit(60 * 1000, 120), optionalAuthenticate as any, trackAnalytics as any);
 
 // --- VIP Checkout Routes ---
 router.get('/vip/plans', getVipPlans as any);
@@ -169,6 +218,7 @@ router.get('/directors', async (req: Request, res: Response) => {
 
 // --- Admin Routes ---
 router.get('/admin/stats', authenticateToken as any, requireAdmin as any, getStats);
+router.get('/admin/analytics', authenticateToken as any, requireAdmin as any, getAnalyticsSummary as any);
 router.get('/admin/movies', authenticateToken as any, requireAdmin as any, getLocalMovies);
 router.get('/admin/countries', authenticateToken as any, requireAdmin as any, getAdminCountries);
 router.get('/admin/genres', authenticateToken as any, requireAdmin as any, getAdminGenres);

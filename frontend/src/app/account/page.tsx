@@ -4,11 +4,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { AxiosError } from 'axios';
-import { User, Lock, Mail, Heart, History, Play, Bookmark, Trash2, LogOut, Check, Save, Crown, Upload } from 'lucide-react';
+import { User, Lock, Mail, Heart, History, Play, Bookmark, Trash2, LogOut, Check, Save, Crown, Upload, SlidersHorizontal } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 import GoogleSignInButton from '../../components/auth/GoogleSignInButton';
 import TurnstileWidget from '../../components/auth/TurnstileWidget';
+import ExperienceCenter from '../../components/account/ExperienceCenter';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const requestMessage = (error: unknown, fallback: string) => (error as AxiosError<{ message?: string }>).response?.data?.message || fallback;
@@ -24,10 +25,10 @@ const PRESET_AVATARS = [
 ];
 
 export default function AccountPage() {
-  const { user, setUser, accessToken, setSession, hasHydrated, authReady, favorites, setFavorites, watchHistory, setWatchHistory, watchlist, setWatchlist, logout, showToast } = useStore();
+  const { user, setUser, accessToken, setSession, hasHydrated, authReady, favorites, setFavorites, watchHistory, setWatchHistory, watchlist, setWatchlist, logout, showToast, selectedProfileId, setProfiles } = useStore();
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<'profile' | 'favorites' | 'watchlist' | 'history'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'experience' | 'favorites' | 'watchlist' | 'history'>('profile');
 
   // Form States
   const [isLogin, setIsLogin] = useState(true);
@@ -92,7 +93,7 @@ export default function AccountPage() {
     });
 
     return () => { active = false; };
-  }, [user, accessToken, setFavorites, setWatchHistory, setWatchlist]);
+  }, [user, accessToken, selectedProfileId, setFavorites, setWatchHistory, setWatchlist]);
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,6 +124,8 @@ export default function AccountPage() {
         return;
       }
       setSession(res.data.user, res.data.accessToken);
+      const profilesResponse = await axios.get('/user/profiles').catch(() => null);
+      if (profilesResponse) setProfiles(profilesResponse.data);
       showToast(isLogin ? 'Đăng nhập thành công!' : 'Đăng ký tài khoản thành công!', 'success');
     } catch (error) {
       if (!isLogin && requestCode(error) === 'ACCOUNT_EXISTS') {
@@ -152,6 +155,8 @@ export default function AccountPage() {
     try {
       const response = await axios.post('/auth/google', { credential, turnstileToken });
       setSession(response.data.user, response.data.accessToken);
+      const profilesResponse = await axios.get('/user/profiles').catch(() => null);
+      if (profilesResponse) setProfiles(profilesResponse.data);
       showToast('Đăng nhập Google thành công!', 'success');
     } catch (error) {
       setErrorMsg(requestMessage(error, 'Không thể đăng nhập bằng Google. Vui lòng thử lại.'));
@@ -487,6 +492,16 @@ export default function AccountPage() {
             <User className="w-4 h-4" />
             <span>Hồ Sơ Cá Nhân</span>
           </button>
+
+          <button
+            onClick={() => setActiveTab('experience')}
+            className={`pb-3 flex items-center space-x-1.5 transition-colors border-b-2 ${
+              activeTab === 'experience' ? 'border-purple-500 text-white' : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            <span>Trung Tâm Trải Nghiệm</span>
+          </button>
           
           <button
             onClick={() => setActiveTab('favorites')}
@@ -521,6 +536,8 @@ export default function AccountPage() {
 
         {/* Tab Content Panels */}
         <div className="flex-grow min-w-0">
+          {activeTab === 'experience' && <ExperienceCenter />}
+
           {activeTab === 'profile' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Form editing */}

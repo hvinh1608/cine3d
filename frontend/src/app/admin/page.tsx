@@ -11,7 +11,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const formatVnd = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value);
 type AdminVideoSource = { id?: string; server: string; quality: string; url: string; type: string; isPremium: boolean };
 type AdminSubtitle = { id?: string; language: string; url: string };
-type AdminEpisode = { id: string; title: string; episodeOrder: number; videoSources: AdminVideoSource[]; subtitles: AdminSubtitle[] };
+type AdminEpisode = { id: string; title: string; episodeOrder: number; introEndSeconds?: number | null; outroStartSeconds?: number | null; videoSources: AdminVideoSource[]; subtitles: AdminSubtitle[] };
 type AdminMovie = {
   id: string; title: string; englishTitle?: string | null; slug: string; description: string; posterUrl: string; backdropUrl: string;
   trailerUrl?: string | null; releaseYear: number; duration: number; countryId: string; quality: string; isSeries: boolean; status: string;
@@ -23,6 +23,7 @@ type AdminReport = { id: string; type: string; content: string; status: string; 
 type AdminVipOrder = { id: string; orderCode: string; status: string; amount: number; durationDays: number; createdAt: string; paidAt?: string | null; user?: { username: string; email: string }; plan?: { name: string } };
 type MetaEntity = { id: string; name: string; slug: string };
 type AdminStats = { totalUsers: number; totalMovies: number; totalEpisodes: number; totalViews: number; pendingReports: number; topMovies: { id: string; title: string; views: number; ratingAvg: number }[]; recentReports: AdminReport[] };
+type AnalyticsSummary = { periodDays: number; activeUsers: number; events: Record<string, number>; recentPlayerErrors: { id: string; path?: string | null; movieId?: string | null; metadata?: unknown; createdAt: string }[] };
 
 const isUserVipActive = (user: AdminUser) => Boolean(user.isVip || (user.vipExpiresAt && new Date(user.vipExpiresAt).getTime() > Date.now()));
 const requestMessage = (error: unknown, fallback: string) => (error as AxiosError<{ message?: string }>).response?.data?.message || fallback;
@@ -39,7 +40,7 @@ export default function AdminPage() {
   }, [user, router]);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'stats' | 'movies' | 'episodes' | 'users' | 'vip' | 'reports'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'analytics' | 'movies' | 'episodes' | 'users' | 'vip' | 'reports'>('stats');
 
   // Stats States
   const [stats, setStats] = useState<AdminStats>({
@@ -51,6 +52,7 @@ export default function AdminPage() {
     topMovies: [],
     recentReports: [],
   });
+  const [analytics, setAnalytics] = useState<AnalyticsSummary>({ periodDays: 7, activeUsers: 0, events: {}, recentPlayerErrors: [] });
 
   // Entities List States
   const [movies, setMovies] = useState<AdminMovie[]>([]);
@@ -90,6 +92,8 @@ export default function AdminPage() {
   const [selectedMovieId, setSelectedMovieId] = useState<string>('');
   const [epTitle, setEpTitle] = useState('');
   const [epOrder, setEpOrder] = useState('1');
+  const [introEndSeconds, setIntroEndSeconds] = useState('');
+  const [outroStartSeconds, setOutroStartSeconds] = useState('');
   const [videoSources, setVideoSources] = useState<AdminVideoSource[]>([{ server: 'Main Server', quality: '1080p', url: '', type: 'hls', isPremium: false }]);
   const [subtitles, setSubtitles] = useState<AdminSubtitle[]>([{ language: 'Vietnamese', url: '' }]);
 
@@ -102,7 +106,7 @@ export default function AdminPage() {
     if (!accessToken) return;
     setLoading(true);
     try {
-      const [statsRes, moviesRes, usersRes, reportsRes, countriesRes, genresRes, vipOrdersRes] = await Promise.all([
+      const [statsRes, moviesRes, usersRes, reportsRes, countriesRes, genresRes, vipOrdersRes, analyticsRes] = await Promise.all([
         axios.get(`${API_URL}/admin/stats`, { headers: { Authorization: `Bearer ${accessToken}` } }),
         axios.get(`${API_URL}/admin/movies`, { params: { page: 1, limit: 20 }, headers: { Authorization: `Bearer ${accessToken}` } }),
         axios.get(`${API_URL}/admin/users`, { headers: { Authorization: `Bearer ${accessToken}` } }),
@@ -110,6 +114,7 @@ export default function AdminPage() {
         axios.get(`${API_URL}/admin/countries`, { headers: { Authorization: `Bearer ${accessToken}` } }),
         axios.get(`${API_URL}/admin/genres`, { headers: { Authorization: `Bearer ${accessToken}` } }),
         axios.get(`${API_URL}/admin/vip-orders`, { headers: { Authorization: `Bearer ${accessToken}` } }),
+        axios.get(`${API_URL}/admin/analytics`, { headers: { Authorization: `Bearer ${accessToken}` } }),
       ]);
 
       setStats(statsRes.data);
@@ -122,6 +127,7 @@ export default function AdminPage() {
       setCountries(countriesRes.data || []);
       setGenres(genresRes.data || []);
       setVipOrders(vipOrdersRes.data || []);
+      setAnalytics(analyticsRes.data);
 
       if (!movieCountry && countriesRes.data?.[0]?.id) {
         setMovieCountry(countriesRes.data[0].id);
@@ -356,6 +362,8 @@ export default function AdminPage() {
         movieId: selectedMovieId,
         title: epTitle,
         episodeOrder: epOrder,
+        introEndSeconds,
+        outroStartSeconds,
         videoSources,
         subtitles: subtitles.filter(sub => sub.url.trim() !== ''),
       }, {
@@ -367,6 +375,8 @@ export default function AdminPage() {
       
       // Reset forms
       setEpTitle('');
+      setIntroEndSeconds('');
+      setOutroStartSeconds('');
       setVideoSources([{ server: 'Main Server', quality: '1080p', url: '', type: 'hls', isPremium: false }]);
       setSubtitles([{ language: 'Vietnamese', url: '' }]);
     } catch (error) {
@@ -502,6 +512,16 @@ export default function AdminPage() {
         </button>
 
         <button
+          onClick={() => setActiveTab('analytics')}
+          className={`flex items-center space-x-2.5 px-4 py-3 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
+            activeTab === 'analytics' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4" />
+          <span>Hành Vi & Lỗi Phát</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('episodes')}
           className={`flex items-center space-x-2.5 px-4 py-3 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
             activeTab === 'episodes' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'
@@ -628,6 +648,16 @@ export default function AdminPage() {
                 })}
               </div>
             </div>
+          </div>
+        )}
+
+        {activeTab === 'analytics' && (
+          <div className="space-y-7 animate-fade-in">
+            <div><h2 className="flex items-center text-xl font-black uppercase tracking-wide text-purple-400"><BarChart3 className="mr-2 h-5 w-5" /> Analytics 7 ngày</h2><p className="mt-2 text-xs text-slate-500">Số liệu nội bộ, không gửi dữ liệu người dùng sang bên thứ ba.</p></div>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {[['Người dùng hoạt động', analytics.activeUsers], ['Lượt mở trang', analytics.events.page_view || 0], ['Lượt phát phim', analytics.events.movie_play || 0], ['Lỗi trình phát', analytics.events.player_error || 0]].map(([label, value]) => <div key={String(label)} className="rounded-2xl border border-white/5 bg-slate-900/60 p-5"><p className="text-[10px] font-black uppercase text-slate-500">{label}</p><p className="mt-1 text-2xl font-black">{value}</p></div>)}
+            </div>
+            <div><h3 className="mb-3 text-sm font-black uppercase text-slate-300">Lỗi phát gần đây</h3><div className="space-y-2">{analytics.recentPlayerErrors.map((event) => <div key={event.id} className="rounded-xl border border-red-500/10 bg-red-950/10 p-3"><div className="flex flex-wrap justify-between gap-2 text-xs"><span className="font-bold text-red-300">{event.movieId || event.path || 'Không xác định'}</span><span className="text-slate-600">{new Date(event.createdAt).toLocaleString('vi-VN')}</span></div><pre className="mt-2 overflow-x-auto text-[10px] text-slate-500">{JSON.stringify(event.metadata || {}, null, 2)}</pre></div>)}{!analytics.recentPlayerErrors.length && <p className="py-8 text-center text-xs text-emerald-400">Chưa ghi nhận lỗi phát nào.</p>}</div></div>
           </div>
         )}
 
@@ -1075,6 +1105,16 @@ export default function AdminPage() {
                     placeholder="Tiêu đề tập (e.g. Tập 1, Tập đặc biệt, Full Movie)"
                     className="bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs md:text-sm outline-none"
                   />
+                </div>
+
+                <div className="flex flex-col space-y-1">
+                  <span className="text-[9px] text-slate-500 uppercase font-black tracking-wider">Kết thúc mở đầu (giây, tùy chọn):</span>
+                  <input type="number" min="0" value={introEndSeconds} onChange={(event) => setIntroEndSeconds(event.target.value)} placeholder="Ví dụ: 90" className="bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs md:text-sm outline-none" />
+                </div>
+
+                <div className="flex flex-col space-y-1">
+                  <span className="text-[9px] text-slate-500 uppercase font-black tracking-wider">Bắt đầu phần kết (giây, tùy chọn):</span>
+                  <input type="number" min="0" value={outroStartSeconds} onChange={(event) => setOutroStartSeconds(event.target.value)} placeholder="Ví dụ: 2400" className="bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs md:text-sm outline-none" />
                 </div>
 
                 {/* Multiple Video Sources Sub-form (NEW array editor) */}
