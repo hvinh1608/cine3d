@@ -12,7 +12,10 @@ import { emailDeliveryConfigured, sendActionEmail } from '../services/email.serv
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 const REFRESH_COOKIE = 'cine3d_refresh';
-const secureCookies = process.env.COOKIE_SECURE === 'true';
+// Production frontend and API usually live on different domains
+// (for example cine3d.id.vn and *.onrender.com), so the refresh cookie
+// must be Secure + SameSite=None or it will disappear on page reload.
+const secureCookies = process.env.COOKIE_SECURE === 'true' || process.env.NODE_ENV === 'production';
 const requireEmailVerification = process.env.REQUIRE_EMAIL_VERIFICATION === 'true';
 const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim();
 const googleClient = googleClientId ? new OAuth2Client(googleClientId) : null;
