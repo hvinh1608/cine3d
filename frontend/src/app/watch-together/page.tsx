@@ -23,7 +23,7 @@ export default function WatchTogetherPage() {
   const source = movie?.episodes?.find((item: any) => item.episodeOrder === episode)?.videoSources?.[0]; const isHost = users[0]?.id === socketRef.current?.id;
 
   useEffect(() => { if (slug) axios.get(`${API_URL}/movies/${slug}`).then((res) => setMovie(res.data)).catch(() => setError('Không tải được phim.')); }, [slug]);
-  useEffect(() => { if (!source || !videoRef.current) return; const video = videoRef.current; hlsRef.current?.destroy(); if (source.type === 'hls' && Hls.isSupported()) { const hls = new Hls(); hls.loadSource(source.url); hls.attachMedia(video); hlsRef.current = hls; } else if (source.type === 'hls' && video.canPlayType('application/vnd.apple.mpegurl')) video.src = source.url; else video.src = source.url; return () => { hlsRef.current?.destroy(); hlsRef.current = null; }; }, [source]);
+  useEffect(() => { if (!started || !source || !videoRef.current) return; const video = videoRef.current; hlsRef.current?.destroy(); if (source.type === 'hls' && Hls.isSupported()) { const hls = new Hls(); hls.loadSource(source.url); hls.attachMedia(video); hlsRef.current = hls; } else if (source.type === 'hls' && video.canPlayType('application/vnd.apple.mpegurl')) video.src = source.url; else video.src = source.url; return () => { hlsRef.current?.destroy(); hlsRef.current = null; }; }, [started, source]);
 
   useEffect(() => {
     const video = videoRef.current;
