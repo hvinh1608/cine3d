@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { ArrowRight, Search, SearchX, LogOut, ShieldAlert, Sparkles, Menu, X, Bell, Crown, History, Trash2, Home, User } from 'lucide-react';
+import { ArrowRight, Search, SearchX, LogOut, ShieldAlert, Sparkles, Menu, X, Bell, Crown, History, Trash2, Home, User, Users } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 import type { Movie } from '../../types/movie';
@@ -390,12 +390,15 @@ export default function Navbar() {
         </Link>
 
         {/* NAVIGATION LINKS - DESKTOP */}
-        <div className="hidden lg:flex items-center space-x-6 text-sm font-semibold text-slate-300">
+        <div className="hidden lg:flex items-center space-x-4 text-xs font-semibold text-slate-300 xl:space-x-6 xl:text-sm">
           <Link href="/" className="hover:text-yellow-500 transition-colors">Trang Chủ</Link>
           <Link href="/search?type=series" className="hover:text-yellow-500 transition-colors">Phim Bộ</Link>
           <Link href="/search?type=movie" className="hover:text-yellow-500 transition-colors">Phim Lẻ</Link>
           <Link href="/search" className="hover:text-yellow-500 transition-colors flex items-center">
             <Sparkles className="w-3.5 h-3.5 text-purple-400 mr-1 animate-pulse" /> Khám Phá
+          </Link>
+          <Link href="/watch-together/rooms" className="flex items-center transition-colors hover:text-red-400">
+            <Users className="mr-1 h-3.5 w-3.5 text-red-400" /> Xem Chung
           </Link>
           <Link href="/vip" className="flex items-center text-amber-400 transition-colors hover:text-amber-300">
             <Crown className="mr-1 h-3.5 w-3.5" /> VIP
@@ -592,6 +595,9 @@ export default function Navbar() {
             <Link href="/search" onClick={() => setMobileMenuOpen(false)} className="hover:text-yellow-500 py-1 border-b border-white/5 flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-purple-400 mr-1 animate-pulse" /> Khám Phá
             </Link>
+            <Link href="/watch-together/rooms" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center border-b border-white/5 py-1 text-red-300 hover:text-red-200">
+              <Users className="mr-1 h-4 w-4" /> Xem Chung
+            </Link>
             <Link href="/vip" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center border-b border-white/5 py-1 text-amber-400 hover:text-amber-300">
               <Crown className="mr-1 h-4 w-4" /> Nâng cấp VIP
             </Link>
@@ -637,6 +643,10 @@ export default function Navbar() {
         <Link href="/search" className={`flex flex-col items-center gap-0.5 active:scale-95 transition-all ${isTabActive('/search') ? 'text-yellow-500 font-bold' : 'text-slate-400 hover:text-white'}`}>
           <Search className="w-5 h-5" />
           <span className="text-[10px] font-medium">Tìm kiếm</span>
+        </Link>
+        <Link href="/watch-together/rooms" className={`flex flex-col items-center gap-0.5 active:scale-95 transition-all ${isTabActive('/watch-together') ? 'text-red-400 font-bold' : 'text-slate-400 hover:text-red-300'}`}>
+          <Users className="w-5 h-5" />
+          <span className="text-[10px] font-medium">Xem chung</span>
         </Link>
         <Link href="/vip" className={`flex flex-col items-center gap-0.5 active:scale-95 transition-all ${isTabActive('/vip') ? 'text-amber-500 font-bold' : 'text-slate-400 hover:text-amber-400'}`}>
           <Crown className="w-5 h-5" />
