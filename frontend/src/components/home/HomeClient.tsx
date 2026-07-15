@@ -307,7 +307,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
           <div className="absolute bottom-6 left-0 right-0 z-30 max-w-7xl mx-auto px-4 md:px-8 w-full">
             <div
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-              className="flex items-center space-x-3 overflow-x-auto py-2 justify-start md:justify-end [&::-webkit-scrollbar]:hidden"
+              className="flex items-center space-x-3 overflow-x-auto px-2 md:px-4 py-2 justify-start md:justify-center [&::-webkit-scrollbar]:hidden"
             >
               {banners.map((item, idx) => (
                 <button
