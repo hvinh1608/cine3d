@@ -102,8 +102,16 @@ export default function MovieDetail() {
             ...((franchiseRes.data.movies || []) as Movie[]),
             ...((genreRes.data.movies || []) as Movie[]),
           ];
+          const currentSlug = movieData.slug.trim().toLocaleLowerCase('vi');
           const unique = Array.from(
-            new Map(candidates.filter((relatedMovie) => relatedMovie.id !== movieData.id).map((relatedMovie) => [relatedMovie.id, relatedMovie])).values()
+            new Map(
+              candidates
+                .filter((relatedMovie) => {
+                  const candidateSlug = relatedMovie.slug?.trim().toLocaleLowerCase('vi');
+                  return relatedMovie.id !== movieData.id && candidateSlug !== currentSlug;
+                })
+                .map((relatedMovie) => [relatedMovie.slug?.trim().toLocaleLowerCase('vi') || relatedMovie.id, relatedMovie])
+            ).values()
           );
           setRelatedMovies(unique.slice(0, 6));
         } catch {
