@@ -12,11 +12,14 @@ function publicCommentUser(user: { id: string; username: string; avatar: string 
 // Comments
 export const getComments = async (req: AuthenticatedRequest, res: Response) => {
   const { movieId } = req.params;
+  const sort = req.query.sort === 'popular' ? 'popular' : 'newest';
 
   try {
     const comments = await prisma.comment.findMany({
       where: { movieId, parentId: null }, // Top level comments
-      orderBy: { createdAt: 'desc' },
+      orderBy: sort === 'popular'
+        ? [{ isPinned: 'desc' }, { commentLikes: { _count: 'desc' } }, { createdAt: 'desc' }]
+        : [{ isPinned: 'desc' }, { createdAt: 'desc' }],
       take: 50,
       include: {
         user: {
@@ -67,6 +70,20 @@ export const getComments = async (req: AuthenticatedRequest, res: Response) => {
     return res.json(formattedComments);
   } catch (error: any) {
     return internalError(res, 'Error retrieving comments.', error);
+  }
+};
+
+export const togglePinComment = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user || req.user.role !== 'ADMIN') return res.status(403).json({ message: 'Admin access required.' });
+  const { commentId } = req.params;
+  try {
+    const comment = await prisma.comment.findUnique({ where: { id: commentId }, select: { id: true, parentId: true, isPinned: true } });
+    if (!comment) return res.status(404).json({ message: 'Comment not found.' });
+    if (comment.parentId) return res.status(400).json({ message: 'Only top-level comments can be pinned.' });
+    const updated = await prisma.comment.update({ where: { id: commentId }, data: { isPinned: !comment.isPinned }, select: { isPinned: true } });
+    return res.json(updated);
+  } catch (error) {
+    return internalError(res, 'Error pinning comment.', error);
   }
 };
 
@@ -223,6 +240,11 @@ export const reportContent = async (req: AuthenticatedRequest, res: Response) =>
   }
 
   try {
+    if (commentId) {
+      const comment = await prisma.comment.findUnique({ where: { id: commentId }, select: { movieId: true } });
+      if (!comment) return res.status(404).json({ message: 'Comment not found.' });
+      if (movieId && comment.movieId !== movieId) return res.status(400).json({ message: 'Comment does not belong to this movie.' });
+    }
     const report = await prisma.report.create({
       data: {
         userId: req.user.id,

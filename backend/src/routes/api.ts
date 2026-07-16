@@ -40,6 +40,7 @@ import {
   getComments,
   createComment,
   toggleLikeComment,
+  togglePinComment,
   deleteComment,
   rateMovie,
   getMovieRatingByUser,
@@ -176,6 +177,7 @@ router.post('/vip/orders/:id/cancel', authenticateToken as any, cancelMyVipOrder
 router.get('/movies/:movieId/comments', optionalAuthenticate as any, getComments as any);
 router.post('/movies/:movieId/comments', interactionLimiter, authenticateToken as any, createComment as any);
 router.post('/comments/:commentId/like', interactionLimiter, authenticateToken as any, toggleLikeComment as any);
+router.put('/comments/:commentId/pin', authenticateToken as any, requireAdmin as any, togglePinComment as any);
 router.delete('/comments/:commentId', authenticateToken as any, deleteComment as any);
 router.post('/movies/:movieId/ratings', authenticateToken as any, rateMovie as any);
 router.get('/movies/:movieId/ratings/me', authenticateToken as any, getMovieRatingByUser as any);

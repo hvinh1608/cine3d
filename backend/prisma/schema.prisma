@@ -289,6 +289,7 @@ model Comment {
   userId           String
   content          String
   isSpoiler        Boolean  @default(false)
+  isPinned         Boolean  @default(false)
   timestampSeconds Int?
   parentId         String? // For threaded replies
   createdAt        DateTime @default(now())
@@ -300,7 +301,7 @@ model Comment {
   commentLikes CommentLike[]
   reports      Report[]
 
-  @@index([movieId, parentId, createdAt])
+  @@index([movieId, parentId, isPinned, createdAt])
   @@index([userId])
   @@index([parentId])
 }

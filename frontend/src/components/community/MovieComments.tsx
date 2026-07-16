@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
-import { Clock3, Crown, Eye, Heart, MessageCircle, Send, Trash2 } from 'lucide-react';
+import { Clock3, Crown, Eye, Flag, Heart, MessageCircle, Pin, Send, Trash2 } from 'lucide-react';
 import api from '../../lib/api';
 import { useStore } from '../../hooks/useStore';
 
@@ -15,6 +15,7 @@ type CommentItem = {
   likesCount: number;
   isLiked: boolean;
   isSpoiler?: boolean;
+  isPinned?: boolean;
   timestampSeconds?: number | null;
   user: { username: string; avatar?: string | null; isVip?: boolean };
   replies?: CommentItem[];
@@ -33,10 +34,11 @@ export default function MovieComments({ movieId, currentTime = 0, onSeek }: { mo
   const [isSpoiler, setIsSpoiler] = useState(false);
   const [attachTimestamp, setAttachTimestamp] = useState(false);
   const [revealedSpoilers, setRevealedSpoilers] = useState<Set<string>>(() => new Set());
+  const [sort, setSort] = useState<'newest' | 'popular'>('newest');
 
   useEffect(() => {
     let active = true;
-    api.get(`/movies/${movieId}/comments`)
+    api.get(`/movies/${movieId}/comments`, { params: { sort } })
       .then((response) => {
         if (active) setComments(response.data);
       })
@@ -47,7 +49,7 @@ export default function MovieComments({ movieId, currentTime = 0, onSeek }: { mo
         if (active) setLoading(false);
       });
     return () => { active = false; };
-  }, [movieId, user?.id]);
+  }, [movieId, sort, user?.id]);
 
   const postComment = async (event: FormEvent) => {
     event.preventDefault();
@@ -117,12 +119,40 @@ export default function MovieComments({ movieId, currentTime = 0, onSeek }: { mo
     }
   };
 
+  const togglePin = async (commentId: string) => {
+    try {
+      const response = await api.put(`/comments/${commentId}/pin`);
+      setComments((current) => current.map((comment) => comment.id === commentId ? { ...comment, isPinned: response.data.isPinned } : comment)
+        .sort((first, second) => Number(Boolean(second.isPinned)) - Number(Boolean(first.isPinned))));
+      showToast(response.data.isPinned ? 'Đã ghim bình luận.' : 'Đã bỏ ghim bình luận.', 'success');
+    } catch {
+      showToast('Không thể cập nhật ghim.', 'error');
+    }
+  };
+
+  const reportComment = async (comment: CommentItem) => {
+    if (!user) {
+      showToast('Vui lòng đăng nhập để báo cáo.', 'info');
+      return;
+    }
+    const reason = window.prompt('Mô tả lý do báo cáo bình luận này:');
+    if (!reason?.trim()) return;
+    try {
+      await api.post('/reports', { movieId, commentId: comment.id, type: 'abusive_comment', content: reason.trim() });
+      showToast('Đã gửi báo cáo cho quản trị viên.', 'success');
+    } catch {
+      showToast('Không thể gửi báo cáo.', 'error');
+    }
+  };
+
   const actions = (comment: CommentItem, canReply: boolean) => (
     <div className="mt-2 flex items-center gap-4 text-[11px] font-bold text-slate-500">
       <button type="button" onClick={() => void toggleLike(comment.id)} className={`flex items-center gap-1 transition hover:text-red-400 ${comment.isLiked ? 'text-red-400' : ''}`}>
         <Heart className={`h-3.5 w-3.5 ${comment.isLiked ? 'fill-current' : ''}`} /> {comment.likesCount || 0}
       </button>
       {canReply && user && <button type="button" onClick={() => { setReplyingTo(comment.id); setReplyContent(''); }} className="transition hover:text-white">Trả lời</button>}
+      {user && user.id !== comment.userId && <button type="button" onClick={() => void reportComment(comment)} className="flex items-center gap-1 transition hover:text-amber-400"><Flag className="h-3.5 w-3.5" /> Báo cáo</button>}
+      {canReply && user?.role === 'ADMIN' && <button type="button" onClick={() => void togglePin(comment.id)} className={`flex items-center gap-1 transition hover:text-purple-300 ${comment.isPinned ? 'text-purple-300' : ''}`}><Pin className={`h-3.5 w-3.5 ${comment.isPinned ? 'fill-current' : ''}`} /> {comment.isPinned ? 'Bỏ ghim' : 'Ghim'}</button>}
       {user && (user.id === comment.userId || user.role === 'ADMIN') && (
         <button type="button" onClick={() => void deleteComment(comment.id)} className="flex items-center gap-1 transition hover:text-red-400"><Trash2 className="h-3.5 w-3.5" /> Xóa</button>
       )}
@@ -140,9 +170,9 @@ export default function MovieComments({ movieId, currentTime = 0, onSeek }: { mo
 
   return (
     <section className="mt-8 rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-left shadow-2xl backdrop-blur md:p-6">
-      <div className="mb-5 flex items-center justify-between gap-3">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 text-lg font-black text-white"><MessageCircle className="h-5 w-5 text-red-500" /> Bình luận</h2>
-        <span className="rounded-full bg-white/5 px-3 py-1 text-[11px] font-bold text-slate-400">{comments.length} thảo luận</span>
+        <div className="flex items-center gap-2"><span className="rounded-full bg-white/5 px-3 py-1 text-[11px] font-bold text-slate-400">{comments.length} thảo luận</span><select value={sort} onChange={(event) => setSort(event.target.value as 'newest' | 'popular')} aria-label="Sắp xếp bình luận" className="rounded-full border border-white/10 bg-slate-900 px-3 py-1.5 text-[10px] font-bold text-slate-300 outline-none"><option value="newest">Mới nhất</option><option value="popular">Nổi bật</option></select></div>
       </div>
 
       {user ? (
@@ -168,7 +198,7 @@ export default function MovieComments({ movieId, currentTime = 0, onSeek }: { mo
               <div className="flex gap-3">
                 <Image src={comment.user.avatar || fallbackAvatar} alt={comment.user.username} width={40} height={40} className="h-10 w-10 shrink-0 rounded-full object-cover" />
                 <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-bold text-slate-200">{comment.user.username}</span>{comment.user.isVip && <span className="flex items-center gap-1 rounded bg-amber-400/10 px-1.5 py-0.5 text-[8px] font-black text-amber-300"><Crown className="h-2.5 w-2.5" /> VIP</span>}<time className="text-[10px] text-slate-600">{new Date(comment.createdAt).toLocaleDateString('vi-VN')}</time></div>
+                  <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-bold text-slate-200">{comment.user.username}</span>{comment.user.isVip && <span className="flex items-center gap-1 rounded bg-amber-400/10 px-1.5 py-0.5 text-[8px] font-black text-amber-300"><Crown className="h-2.5 w-2.5" /> VIP</span>}{comment.isPinned && <span className="flex items-center gap-1 rounded bg-purple-400/10 px-1.5 py-0.5 text-[8px] font-black text-purple-300"><Pin className="h-2.5 w-2.5 fill-current" /> Đã ghim</span>}<time className="text-[10px] text-slate-600">{new Date(comment.createdAt).toLocaleDateString('vi-VN')}</time></div>
                   {commentBody(comment, 'text-sm leading-relaxed text-slate-300')}
                   {actions(comment, true)}
                 </div>
