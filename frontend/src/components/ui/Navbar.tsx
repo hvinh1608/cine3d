@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { ArrowRight, Search, SearchX, LogOut, ShieldAlert, Sparkles, Menu, X, Bell, Crown, History, Trash2, Home, User, Users } from 'lucide-react';
+import { ArrowRight, Search, SearchX, LogOut, ShieldAlert, Sparkles, Menu, X, Bell, Crown, History, Trash2, Home, User, Users, ChevronDown, CalendarDays, Clapperboard } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 import type { Movie } from '../../types/movie';
@@ -36,6 +36,8 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [discoverOpen, setDiscoverOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [suggestions, setSuggestions] = useState<Movie[]>([]);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
@@ -47,6 +49,8 @@ export default function Navbar() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [notiOpen, setNotiOpen] = useState(false);
   const notiRef = useRef<HTMLDivElement>(null);
+  const discoverRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLFormElement>(null);
   const desktopSearchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
@@ -66,6 +70,12 @@ export default function Navbar() {
     const handleOutsideClick = (e: MouseEvent) => {
       if (notiRef.current && !notiRef.current.contains(e.target as Node)) {
         setNotiOpen(false);
+      }
+      if (discoverRef.current && !discoverRef.current.contains(e.target as Node)) {
+        setDiscoverOpen(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false);
       }
       const target = e.target as HTMLElement;
       if (!target.closest('[data-search-form]')) {
@@ -99,7 +109,7 @@ export default function Navbar() {
       event.preventDefault();
       setSuggestionsOpen(true);
 
-      if (window.matchMedia('(min-width: 768px)').matches) {
+      if (window.matchMedia('(min-width: 1280px)').matches) {
         desktopSearchInputRef.current?.focus();
       } else {
         setMobileMenuOpen(true);
@@ -370,45 +380,48 @@ export default function Navbar() {
 
   return (
     <nav
-      className={`fixed top-0 left-0 w-full z-50 transition-all duration-500 ${
+      className={`fixed left-0 top-0 z-50 w-full border-b transition-all duration-300 ${
         scrolled
-          ? 'bg-black/75 backdrop-blur-md border-b border-white/5 py-3'
-          : 'bg-gradient-to-b from-black/80 to-transparent py-5'
+          ? 'border-white/[0.08] bg-[#050507]/90 shadow-2xl shadow-black/20 backdrop-blur-xl'
+          : 'border-white/[0.04] bg-black/70 backdrop-blur-lg'
       }`}
     >
-      <div className="max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between">
+      <div className="mx-auto flex h-[68px] max-w-[1500px] items-center gap-5 px-4 md:px-8">
         
         {/* LOGO */}
-        <Link href="/" className="flex items-center group" aria-label="CINE3D - Trang chủ">
+        <Link href="/" className="group flex shrink-0 items-center" aria-label="CINE3D - Trang chủ">
           <Image
             src="/cine3d-logo-v2.png"
             alt="CINE3D"
             width={174}
             height={48}
             priority
-            className="h-10 w-auto object-contain transition-transform duration-300 group-hover:scale-[1.03]"
+            className="h-8 w-auto object-contain transition-transform duration-300 group-hover:scale-[1.03] 2xl:h-9"
           />
         </Link>
 
         {/* NAVIGATION LINKS - DESKTOP */}
-        <div className="hidden lg:flex items-center space-x-4 text-xs font-semibold text-slate-300 xl:space-x-6 xl:text-sm">
-          <Link href="/" className="hover:text-yellow-500 transition-colors">Trang Chủ</Link>
-          <Link href="/search?type=series" className="hover:text-yellow-500 transition-colors">Phim Bộ</Link>
-          <Link href="/search?type=movie" className="hover:text-yellow-500 transition-colors">Phim Lẻ</Link>
-          <Link href="/search" className="hover:text-yellow-500 transition-colors flex items-center">
-            <Sparkles className="w-3.5 h-3.5 text-purple-400 mr-1 animate-pulse" /> Khám Phá
-          </Link>
-          <Link href="/watch-together/rooms" className="flex items-center transition-colors hover:text-red-400">
-            <Users className="mr-1 h-3.5 w-3.5 text-red-400" /> Xem Chung
-          </Link>
-          <Link href="/schedule" className="hover:text-yellow-500 transition-colors">Lịch Chiếu</Link>
-          <Link href="/vip" className="flex items-center text-amber-400 transition-colors hover:text-amber-300">
-            <Crown className="mr-1 h-3.5 w-3.5" /> VIP
-          </Link>
+        <div className="hidden items-center gap-1 text-sm font-semibold text-slate-300 xl:flex">
+          <Link href="/" className={`rounded-full px-3.5 py-2 transition ${isTabActive('/') ? 'bg-white/10 text-white' : 'hover:bg-white/5 hover:text-white'}`}>Trang Chủ</Link>
+          <div className="relative" ref={discoverRef}>
+            <button type="button" onClick={() => setDiscoverOpen((open) => !open)} className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 transition ${pathname?.startsWith('/search') || pathname?.startsWith('/schedule') ? 'bg-white/10 text-white' : 'hover:bg-white/5 hover:text-white'}`} aria-expanded={discoverOpen}>
+              Khám Phá <ChevronDown className={`h-3.5 w-3.5 transition-transform ${discoverOpen ? 'rotate-180' : ''}`} />
+            </button>
+            {discoverOpen && (
+              <div className="absolute left-0 top-full mt-3 grid w-56 gap-1 rounded-2xl border border-white/10 bg-[#0b0c12]/95 p-2 shadow-2xl backdrop-blur-xl">
+                <Link href="/search" onClick={() => setDiscoverOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs hover:bg-white/5 hover:text-yellow-400"><Sparkles className="h-4 w-4 text-purple-400" /> Tất cả phim</Link>
+                <Link href="/search?type=series" onClick={() => setDiscoverOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs hover:bg-white/5 hover:text-yellow-400"><Clapperboard className="h-4 w-4 text-sky-400" /> Phim bộ</Link>
+                <Link href="/search?type=movie" onClick={() => setDiscoverOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs hover:bg-white/5 hover:text-yellow-400"><Clapperboard className="h-4 w-4 text-emerald-400" /> Phim lẻ</Link>
+                <Link href="/schedule" onClick={() => setDiscoverOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs hover:bg-white/5 hover:text-yellow-400"><CalendarDays className="h-4 w-4 text-amber-400" /> Lịch chiếu</Link>
+              </div>
+            )}
+          </div>
+          <Link href="/watch-together/rooms" className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 transition ${isTabActive('/watch-together') ? 'bg-white/10 text-white' : 'hover:bg-white/5 hover:text-white'}`}><Users className="h-4 w-4 text-red-400" /> Xem Chung</Link>
+          <Link href="/vip" className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-amber-400 transition ${isTabActive('/vip') ? 'bg-amber-400/10' : 'hover:bg-amber-400/10 hover:text-amber-300'}`}><Crown className="h-4 w-4" /> VIP</Link>
         </div>
 
         {/* SEARCH & USER ACTIONS - DESKTOP */}
-        <div className="hidden md:flex items-center space-x-4">
+        <div className="ml-auto hidden items-center gap-2.5 xl:flex">
           {/* Search Form */}
           <form ref={searchRef} data-search-form onSubmit={handleSearchSubmit} className="relative">
             <input
@@ -424,7 +437,7 @@ export default function Navbar() {
               aria-controls="desktop-search-suggestions"
               autoComplete="off"
               placeholder="Tìm nhanh tên phim..."
-              className="bg-slate-900/60 border border-white/10 hover:border-white/20 focus:border-yellow-500 text-white rounded-full pl-4 pr-20 py-2 text-xs w-52 focus:w-72 transition-all duration-300 outline-none backdrop-blur-sm"
+              className="w-56 rounded-full border border-white/10 bg-slate-900/60 py-2.5 pl-4 pr-20 text-xs text-white outline-none backdrop-blur-sm transition hover:border-white/20 focus:border-yellow-500 2xl:w-72"
             />
             <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
               {searchQuery ? (
@@ -445,17 +458,7 @@ export default function Navbar() {
           {!hasHydrated || !authReady ? (
             <div className="h-9 w-28 animate-pulse rounded-full bg-white/5" />
           ) : user ? (
-            <div className="flex items-center space-x-3">
-              {user.role === 'ADMIN' && (
-                <Link
-                  href="/admin"
-                  title="Admin Dashboard"
-                  className="p-2 rounded-full border border-purple-500/20 bg-purple-950/20 text-purple-400 hover:bg-purple-950/40 hover:text-white transition-all"
-                >
-                  <ShieldAlert className="w-4 h-4" />
-                </Link>
-              )}
-
+            <div className="flex items-center gap-2.5">
               {/* Notifications Dropdown Bell */}
               <div className="relative" ref={notiRef}>
                 <button
@@ -508,32 +511,27 @@ export default function Navbar() {
                 )}
               </div>
 
-              {/* Profile Link */}
-              <Link
-                href="/account"
-                className="flex items-center space-x-2 border border-white/10 bg-slate-950/40 px-3 py-1.5 rounded-full hover:bg-white/5 transition-all"
-              >
-                <Image
-                  src={user.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=40&q=80'}
-                  alt={user.username}
-                  width={20}
-                  height={20}
-                  className="w-5 h-5 rounded-full object-cover border border-white/20"
-                />
-                <span className="text-xs font-bold text-white max-w-[80px] truncate">{user.username}</span>
-              </Link>
-
-              {/* Logout Button */}
-              <button
-                onClick={() => {
-                  logout();
-                  router.push('/account');
-                }}
-                title="Đăng xuất"
-                className="p-2 rounded-full border border-white/10 hover:bg-red-600/20 hover:text-red-500 text-slate-400 transition-all cursor-pointer"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
+              {/* Compact account menu */}
+              <div className="relative" ref={profileRef}>
+                <button type="button" onClick={() => setProfileOpen((open) => !open)} className="flex items-center gap-2 rounded-full border border-white/10 bg-slate-950/40 py-1.5 pl-1.5 pr-3 transition hover:border-white/20 hover:bg-white/5" aria-expanded={profileOpen}>
+                  <Image
+                    src={user.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=40&q=80'}
+                    alt={user.username}
+                    width={28}
+                    height={28}
+                    className="h-7 w-7 rounded-full border border-white/20 object-cover"
+                  />
+                  <span className="max-w-[72px] truncate text-xs font-bold text-white 2xl:max-w-[110px]">{user.username}</span>
+                  <ChevronDown className={`h-3.5 w-3.5 text-slate-500 transition-transform ${profileOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {profileOpen && (
+                  <div className="absolute right-0 top-full mt-3 w-52 rounded-2xl border border-white/10 bg-[#0b0c12]/95 p-2 text-xs font-semibold text-slate-300 shadow-2xl backdrop-blur-xl">
+                    <Link href="/account" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-white/5 hover:text-white"><User className="h-4 w-4" /> Tài khoản</Link>
+                    {user.role === 'ADMIN' && <Link href="/admin" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-purple-300 transition hover:bg-purple-500/10"><ShieldAlert className="h-4 w-4" /> Quản trị</Link>}
+                    <button type="button" onClick={() => { logout(); setProfileOpen(false); router.push('/account'); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-red-400 transition hover:bg-red-500/10"><LogOut className="h-4 w-4" /> Đăng xuất</button>
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <Link
@@ -546,7 +544,7 @@ export default function Navbar() {
         </div>
 
         {/* MOBILE MENU TOGGLE */}
-        <div className="flex md:hidden items-center space-x-2">
+        <div className="ml-auto flex items-center space-x-2 xl:hidden">
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="text-slate-300 hover:text-white p-1.5 rounded-lg border border-white/10 cursor-pointer"
@@ -558,7 +556,7 @@ export default function Navbar() {
 
       {/* MOBILE DRAWER */}
       {mobileMenuOpen && (
-        <div className="md:hidden absolute top-full left-0 w-full bg-black/95 border-b border-white/10 p-5 flex flex-col space-y-4 animate-fade-in backdrop-blur-xl">
+        <div className="absolute left-0 top-full flex w-full flex-col space-y-4 border-b border-white/10 bg-black/95 p-5 backdrop-blur-xl animate-fade-in xl:hidden">
           {/* Mobile Search */}
           <form data-search-form onSubmit={handleSearchSubmit} className="relative w-full">
             <input
