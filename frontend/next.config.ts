@@ -3,6 +3,17 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   output: 'standalone',
   transpilePackages: ['three', '@react-three/fiber', '@react-three/drei'],
+  async headers() {
+    return [
+      {
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
+          { key: 'Service-Worker-Allowed', value: '/' },
+        ],
+      },
+    ];
+  },
   images: {
     // phimimg.com rejects requests coming from Vercel's image optimizer with 402.
     // Load the public CDN images directly in the browser instead.
