@@ -18,7 +18,7 @@ test('extendVipExpiry stacks new time on an active subscription', () => {
   assert.equal(extendVipExpiry(null, 30, now).toISOString(), '2026-08-13T00:00:00.000Z');
 });
 
-test('free viewers only receive free sources while VIP viewers receive Premium and 4K first', () => {
+test('free viewers only receive free sources while VIP viewers receive Premium, 2K and 4K first', () => {
   const movie = {
     isVip: false,
     episodes: [{
@@ -26,6 +26,7 @@ test('free viewers only receive free sources while VIP viewers receive Premium a
       videoSources: [
         { id: 'free', quality: '1080p', isPremium: false },
         { id: 'premium', quality: '1080p', isPremium: true },
+        { id: '2k', quality: '1440p', isPremium: false },
         { id: '4k', quality: '2160p', isPremium: false },
       ],
     }],
@@ -33,10 +34,10 @@ test('free viewers only receive free sources while VIP viewers receive Premium a
 
   const freeResult = shapeMovieForViewer(movie, false);
   assert.deepEqual(freeResult.episodes[0].videoSources.map((source) => source.id), ['free']);
-  assert.equal(freeResult.episodes[0].premiumSourcesLocked, 2);
+  assert.equal(freeResult.episodes[0].premiumSourcesLocked, 3);
 
   const vipResult = shapeMovieForViewer(movie, true);
-  assert.deepEqual(vipResult.episodes[0].videoSources.map((source) => source.id), ['premium', '4k', 'free']);
+  assert.deepEqual(vipResult.episodes[0].videoSources.map((source) => source.id), ['premium', '2k', '4k', 'free']);
   assert.equal(vipResult.episodes[0].videoSources[1].isPremium, true);
   assert.equal(vipResult.episodes[0].premiumSourcesLocked, 0);
 });

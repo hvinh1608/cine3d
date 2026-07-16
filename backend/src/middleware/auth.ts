@@ -24,7 +24,7 @@ type AccessTokenPayload = jwt.JwtPayload & {
   role: string;
 };
 
-function decodeAccessToken(token: string): AccessTokenPayload {
+export function decodeAccessToken(token: string): AccessTokenPayload {
   const decoded = jwt.verify(token, JWT_ACCESS_SECRET!);
   if (
     typeof decoded === 'string' ||

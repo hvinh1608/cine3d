@@ -587,14 +587,20 @@ function WatchPageContent() {
       else if (event.code === 'Space') void (videoRef.current.paused ? videoRef.current.play() : videoRef.current.pause());
       else if (event.key.toLowerCase() === 'f') void handleFullscreen();
       else if (event.key.toLowerCase() === 'm') setMuted((current) => { videoRef.current!.muted = !current; return !current; });
-      else if (event.key.toLowerCase() === 'p' && document.pictureInPictureEnabled) void (document.pictureInPictureElement ? document.exitPictureInPicture() : videoRef.current.requestPictureInPicture());
+      else if (event.key.toLowerCase() === 'p' && document.pictureInPictureEnabled) {
+        if (!user) { showToast('Đăng nhập để sử dụng cửa sổ nổi.', 'info'); router.push('/account'); }
+        else if (!user.isVip) { showToast('Picture-in-Picture dành cho thành viên VIP.', 'info'); router.push('/vip'); }
+        else void (document.pictureInPictureElement ? document.exitPictureInPicture() : videoRef.current.requestPictureInPicture());
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeSource, skipBackward, skipForward]);
+  }, [activeSource, router, showToast, skipBackward, skipForward, user]);
 
   const handlePictureInPicture = async () => {
+    if (!user) { showToast('Đăng nhập để sử dụng cửa sổ nổi.', 'info'); router.push('/account'); return; }
+    if (!user.isVip) { showToast('Picture-in-Picture dành cho thành viên VIP.', 'info'); router.push('/vip'); return; }
     if (!videoRef.current || !document.pictureInPictureEnabled) return showToast('Trình duyệt không hỗ trợ Picture-in-Picture.', 'info');
     try { if (document.pictureInPictureElement) await document.exitPictureInPicture(); else await videoRef.current.requestPictureInPicture(); } catch { showToast('Không thể bật cửa sổ nổi.', 'error'); }
   };
@@ -1196,7 +1202,7 @@ function WatchPageContent() {
             <Link href={`/watch-together?slug=${encodeURIComponent(movie.slug)}&ep=${activeEpisode.episodeOrder}`} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-white/5 hover:text-red-300"><Users className="h-3.5 w-3.5" /> Xem chung</Link>
             <button type="button" onClick={() => { void navigator.clipboard.writeText(window.location.href); showToast('Đã sao chép liên kết xem phim.', 'success'); }} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-white/5 hover:text-white"><Share2 className="h-3.5 w-3.5" /> Chia sẻ</button>
             <button type="button" onClick={() => setLightsOff((current) => !current)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-white/5 ${lightsOff ? 'text-red-400' : 'hover:text-white'}`}><LightbulbOff className="h-3.5 w-3.5" /> Tắt đèn</button>
-            <button type="button" onClick={() => void handlePictureInPicture()} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-white/5 hover:text-white"><PictureInPicture2 className="h-3.5 w-3.5" /> Cửa sổ nổi</button>
+            <button type="button" onClick={() => void handlePictureInPicture()} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-white/5 ${user?.isVip ? 'text-amber-300 hover:text-amber-200' : 'hover:text-white'}`}><PictureInPicture2 className="h-3.5 w-3.5" /> Cửa sổ nổi <Crown className="h-3 w-3 text-amber-400" /></button>
             <button type="button" onClick={() => setDataSaver((current) => !current)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-white/5 ${dataSaver ? 'text-emerald-300' : 'hover:text-white'}`}><Wifi className="h-3.5 w-3.5" /> Tiết kiệm data {dataSaver ? 'Bật' : 'Tắt'}</button>
             <button type="button" onClick={() => void reportPlayback()} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-red-500/10 hover:text-red-300"><Flag className="h-3.5 w-3.5" /> Báo lỗi</button>
             <div className="ml-auto hidden items-center gap-2 px-2 text-slate-600 sm:flex"><span>← → tua 10 giây</span><span>•</span><span>Nhấp đúp để tua</span></div>

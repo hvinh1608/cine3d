@@ -21,7 +21,7 @@ function timeAgo(timestamp: number) {
 }
 
 export default function WatchTogetherRoomsPage() {
-  const { user } = useStore();
+  const { user, accessToken } = useStore();
   const [rooms, setRooms] = useState<PublicRoom[]>([]);
   const [movies, setMovies] = useState<Record<string, Movie>>({});
   const [connected, setConnected] = useState(false);
@@ -30,7 +30,8 @@ export default function WatchTogetherRoomsPage() {
   const loadingSlugs = useRef(new Set<string>());
 
   useEffect(() => {
-    const socket = io(SOCKET_URL, { withCredentials: true, reconnection: true });
+    if (!accessToken) return;
+    const socket = io(SOCKET_URL, { auth: { token: accessToken }, withCredentials: true, reconnection: true });
     socket.on('connect', () => {
       setConnected(true);
       socket.emit('rooms:list', (initialRooms: PublicRoom[]) => setRooms(initialRooms || []));
@@ -38,7 +39,7 @@ export default function WatchTogetherRoomsPage() {
     socket.on('disconnect', () => setConnected(false));
     socket.on('rooms:update', (nextRooms: PublicRoom[]) => setRooms(nextRooms || []));
     return () => { socket.disconnect(); };
-  }, []);
+  }, [accessToken]);
 
   useEffect(() => {
     let active = true;
@@ -73,6 +74,8 @@ export default function WatchTogetherRoomsPage() {
       : second.createdAt - first.createdAt);
   }, [mineOnly, rooms, sortMode, user]);
   const totalViewers = rooms.reduce((sum, room) => sum + room.viewerCount, 0);
+
+  if (!user) return <main className="mx-auto flex min-h-[70vh] max-w-lg items-center px-4"><div className="glass-panel w-full rounded-3xl p-8 text-center"><Users className="mx-auto h-12 w-12 text-red-400" /><h1 className="mt-4 text-2xl font-black">Đăng nhập để xem chung</h1><p className="mt-2 text-sm text-slate-400">Danh sách phòng và tính năng xem chung chỉ dành cho thành viên.</p><Link href="/account" className="mt-6 block rounded-xl bg-red-600 py-3 text-sm font-black">Đăng nhập / Đăng ký</Link></div></main>;
 
   return <main className="min-h-screen pb-20 text-white">
     <section className="relative isolate overflow-hidden border-b border-white/5">

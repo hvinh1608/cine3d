@@ -5,7 +5,7 @@ export type VipVideoSource = {
 };
 
 export function sourceRequiresVip(source: VipVideoSource): boolean {
-  return !!source.isPremium || /(?:4k|2160p?)/i.test(source.quality || '');
+  return !!source.isPremium || /(?:2k|4k|1440p?|2160p?)/i.test(source.quality || '');
 }
 
 export function shapeMovieForViewer(movie: any, canAccessVip: boolean, now = new Date()) {
@@ -22,7 +22,7 @@ export function shapeMovieForViewer(movie: any, canAccessVip: boolean, now = new
     episodes: (movie.episodes || []).map((episode: any) => {
       const sources: VipVideoSource[] = (episode.videoSources || []).map((source: VipVideoSource) => ({
         ...source,
-        // 4K is always treated as Premium, even when an older DB row lacks the flag.
+        // 2K/4K are always treated as Premium, even when an older DB row lacks the flag.
         isPremium: sourceRequiresVip(source),
       }));
       const premiumCount = sources.filter(sourceRequiresVip).length;

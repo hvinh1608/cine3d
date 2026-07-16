@@ -10,6 +10,8 @@ import apiRouter from './routes/api';
 import { prisma } from './lib/prisma';
 import { sendPushToUsers } from './services/push.service';
 import { checkDueVideoSources } from './services/source-health.service';
+import { decodeAccessToken } from './middleware/auth';
+import { hasVipAccess } from './lib/vip';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -86,6 +88,19 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
 
 const server = createServer(app);
 const io = new SocketServer(server, { cors: { origin: [...allowedOrigins], credentials: true } });
+io.use(async (socket, next) => {
+  const token = typeof socket.handshake.auth?.token === 'string' ? socket.handshake.auth.token : '';
+  if (!token) return next(new Error('AUTH_REQUIRED'));
+  try {
+    const decoded = decodeAccessToken(token);
+    const user = await prisma.user.findUnique({ where: { id: decoded.id }, select: { id: true, username: true, isVip: true, vipExpiresAt: true, isLocked: true, role: { select: { name: true } } } });
+    if (!user || user.isLocked) return next(new Error('ACCOUNT_UNAVAILABLE'));
+    socket.data.user = { id: user.id, username: user.username, canAccessVip: hasVipAccess(user) };
+    return next();
+  } catch {
+    return next(new Error('INVALID_TOKEN'));
+  }
+});
 const WATCH_ROOM_TTL_MS = Math.max(5 * 60_000, Number(process.env.WATCH_ROOM_TTL_MS) || 30 * 60_000);
 const WATCH_ROOM_MAX_USERS = Math.min(50, Math.max(2, Number(process.env.WATCH_ROOM_MAX_USERS) || 20));
 type WatchRoom = { slug: string; episode: number; hostId: string; state: { playing: boolean; currentTime: number; updatedAt: number }; users: Map<string, string>; isPrivate: boolean; passwordHash: string | null; createdAt: number; expiresAt: number };
@@ -137,6 +152,7 @@ io.on('connection', (socket) => {
   socket.on('room:create', ({ slug, episode, name, privateRoom, password }, callback) => {
     if (typeof slug !== 'string' || !slug.trim()) return callback({ error: 'Thông tin phim không hợp lệ.' });
     const isPrivate = Boolean(privateRoom);
+    if (isPrivate && !socket.data.user?.canAccessVip) return callback({ error: 'Chỉ thành viên VIP mới được tạo phòng riêng tư.' });
     if (isPrivate && (typeof password !== 'string' || password.length < 4 || password.length > 50)) return callback({ error: 'Mật khẩu phòng phải từ 4 đến 50 ký tự.' });
     leaveWatchRoom(socket);
     const roomId = crypto.randomBytes(4).toString('hex');

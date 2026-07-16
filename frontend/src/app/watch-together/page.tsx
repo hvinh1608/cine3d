@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Hls from 'hls.js';
 import { io, Socket } from 'socket.io-client';
-import { ArrowLeft, Copy, ListVideo, LockKeyhole, MessageCircle, Send, UserMinus, Users, XCircle } from 'lucide-react';
+import { ArrowLeft, Copy, Crown, ListVideo, LockKeyhole, MessageCircle, Send, UserMinus, Users, XCircle } from 'lucide-react';
 import axios from '../../lib/api';
 import { useStore } from '../../hooks/useStore';
 import type { Movie } from '../../types/movie';
@@ -24,7 +24,7 @@ export default function WatchTogetherPage() {
   const slug = query.get('slug') || '';
   const episode = Math.max(1, Number(query.get('ep') || 1));
   const [initialRoomId] = useState(requestedRoom);
-  const { user, showToast } = useStore();
+  const { user, accessToken, showToast } = useStore();
 
   const [name, setName] = useState(user?.username || '');
   const [roomId, setRoomId] = useState(initialRoomId);
@@ -152,8 +152,8 @@ export default function WatchTogetherPage() {
   }, [connected, isHost]);
 
   useEffect(() => {
-    if (!started) return;
-    const socket = io(SOCKET_URL, { withCredentials: true, reconnection: true, reconnectionAttempts: 10 });
+    if (!started || !accessToken) return;
+    const socket = io(SOCKET_URL, { auth: { token: accessToken }, withCredentials: true, reconnection: true, reconnectionAttempts: 10 });
     socketRef.current = socket;
 
     const enterRoom = () => {
@@ -222,7 +222,7 @@ export default function WatchTogetherPage() {
       socketRef.current = null;
       setSocketId('');
     };
-  }, [episode, name, password, privateRoom, slug, started]);
+  }, [accessToken, episode, name, password, privateRoom, slug, started]);
 
   useEffect(() => () => {
     const video = videoRef.current;
@@ -273,6 +273,10 @@ export default function WatchTogetherPage() {
     });
   };
 
+  if (!user) {
+    return <main className="mx-auto flex min-h-[70vh] max-w-lg items-center px-4 py-12"><div className="glass-panel w-full rounded-3xl p-8 text-center"><Users className="mx-auto h-12 w-12 text-red-400" /><h1 className="mt-4 text-2xl font-black">Đăng nhập để xem chung</h1><p className="mt-2 text-sm text-slate-400">Phòng xem chung, trò chuyện và đồng bộ video chỉ dành cho thành viên.</p><Link href="/account" className="mt-6 block rounded-xl bg-red-600 py-3 text-sm font-black text-white">Đăng nhập / Đăng ký</Link></div></main>;
+  }
+
   if (!started) {
     return <main className="mx-auto flex min-h-[70vh] max-w-xl items-center px-4 py-12">
       <div className="glass-panel w-full space-y-5 rounded-3xl p-7 text-center">
@@ -283,7 +287,8 @@ export default function WatchTogetherPage() {
         {initialRoomId ? (
           <div className="relative"><LockKeyhole className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" /><input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="Mật khẩu nếu là phòng riêng" maxLength={50} className="w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 pr-4 text-sm text-white" /></div>
         ) : <>
-          <label className="flex items-center justify-between rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-slate-300"><span className="flex items-center gap-2"><LockKeyhole className="h-4 w-4" /> Phòng riêng tư</span><input type="checkbox" checked={privateRoom} onChange={(event) => setPrivateRoom(event.target.checked)} className="h-4 w-4 accent-red-500" /></label>
+          <label className={`flex items-center justify-between rounded-xl border px-4 py-3 text-sm ${user.isVip ? 'border-amber-400/20 bg-amber-400/5 text-amber-200' : 'border-white/10 bg-slate-900 text-slate-500'}`}><span className="flex items-center gap-2"><LockKeyhole className="h-4 w-4" /> Phòng riêng tư <Crown className="h-3.5 w-3.5 text-amber-400" /></span><input type="checkbox" disabled={!user.isVip} checked={privateRoom} onChange={(event) => setPrivateRoom(event.target.checked)} className="h-4 w-4 accent-amber-400 disabled:opacity-40" /></label>
+          {!user.isVip && <Link href="/vip" className="text-xs font-bold text-amber-400 hover:text-amber-300">Nâng cấp VIP để tạo phòng có mật khẩu</Link>}
           {privateRoom && <input value={password} onChange={(event) => setPassword(event.target.value)} type="password" minLength={4} maxLength={50} placeholder="Đặt mật khẩu phòng (ít nhất 4 ký tự)" className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white" />}
         </>}
         {!slug && <p className="text-xs text-amber-300">Hãy mở tính năng này từ trang xem phim.</p>}
