@@ -7,6 +7,7 @@ import Footer from '../components/ui/Footer';
 import CinemaBackground from '../components/canvas/DynamicCinemaBackground';
 import AuthBootstrap from '../components/auth/AuthBootstrap';
 import ToastViewport from '../components/ui/ToastViewport';
+import BackToTop from '../components/ui/BackToTop';
 import PwaBootstrap from '../components/pwa/PwaBootstrap';
 import { getSiteUrl } from '../lib/site';
 
@@ -47,6 +48,7 @@ export default function RootLayout({
         <AuthBootstrap />
         <PwaBootstrap />
         <ToastViewport />
+        <BackToTop />
         <CinemaBackground />
 
         <Suspense fallback={<div className="fixed top-0 left-0 w-full h-16 bg-black/80" />}>
