@@ -74,6 +74,10 @@ export const createComment = async (req: AuthenticatedRequest, res: Response) =>
   if (!req.user) return res.status(401).json({ message: 'Unauthorized.' });
   const { movieId } = req.params;
   const { content, parentId } = req.body;
+  const isSpoiler = Boolean(req.body.isSpoiler);
+  const timestampSeconds = req.body.timestampSeconds === undefined || req.body.timestampSeconds === null
+    ? null
+    : Math.max(0, Math.min(24 * 60 * 60, Math.floor(Number(req.body.timestampSeconds))));
 
   if (typeof content !== 'string' || !content.trim()) {
     return res.status(400).json({ message: 'Comment content is required.' });
@@ -97,6 +101,8 @@ export const createComment = async (req: AuthenticatedRequest, res: Response) =>
         userId: req.user.id,
         content: content.trim(),
         parentId: parentId || null,
+        isSpoiler,
+        timestampSeconds: Number.isFinite(timestampSeconds) ? timestampSeconds : null,
       },
       include: {
         user: {

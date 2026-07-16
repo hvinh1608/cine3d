@@ -18,8 +18,8 @@ type MovieDetailData = Movie & {
   isEarlyAccess?: boolean;
   country?: { name: string };
   movieGenres?: { genre: { name: string; slug: string } }[];
-  movieActors?: { actor: { name: string } }[];
-  movieDirectors?: { director: { name: string } }[];
+  movieActors?: { actor: { name: string; slug?: string } }[];
+  movieDirectors?: { director: { name: string; slug?: string } }[];
 };
 
 type CommentItem = {
@@ -597,15 +597,11 @@ export default function MovieDetail() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-white/5 text-xs md:text-sm">
               <div className="space-y-1">
                 <span className="text-slate-500 block">Đạo diễn:</span>
-                <span className="font-bold text-slate-200">
-                  {movie.movieDirectors?.map((item) => item.director.name).join(', ') || 'Đang cập nhật'}
-                </span>
+                <span className="flex flex-wrap gap-x-2 font-bold text-slate-200">{movie.movieDirectors?.length ? movie.movieDirectors.map((item) => item.director.slug ? <Link key={item.director.slug} href={`/directors/${item.director.slug}`} className="hover:text-red-400">{item.director.name}</Link> : <span key={item.director.name}>{item.director.name}</span>) : 'Đang cập nhật'}</span>
               </div>
               <div className="space-y-1">
                 <span className="text-slate-500 block">Diễn viên:</span>
-                <span className="font-bold text-slate-200 text-glow">
-                  {movie.movieActors?.map((item) => item.actor.name).join(', ') || 'Đang cập nhật'}
-                </span>
+                <span className="flex flex-wrap gap-x-2 font-bold text-slate-200 text-glow">{movie.movieActors?.length ? movie.movieActors.map((item) => item.actor.slug ? <Link key={item.actor.slug} href={`/actors/${item.actor.slug}`} className="hover:text-red-400">{item.actor.name}</Link> : <span key={item.actor.name}>{item.actor.name}</span>) : 'Đang cập nhật'}</span>
               </div>
               <div className="space-y-1">
                 <span className="text-slate-500 block">Thể loại:</span>

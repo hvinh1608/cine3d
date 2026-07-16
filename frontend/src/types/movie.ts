@@ -1,16 +1,16 @@
 export interface VideoSource { id: string; server: string; quality: string; url: string; type: 'hls' | 'mp4'; isPremium?: boolean }
 export interface Subtitle { id: string; language: string; url: string }
-export interface Episode { id: string; title: string; episodeOrder: number; videoSources: VideoSource[]; subtitles?: Subtitle[]; premiumSourcesLocked?: number; introEndSeconds?: number | null; outroStartSeconds?: number | null }
+export interface Episode { id: string; title: string; episodeOrder: number; seasonNumber?: number; airDate?: string | null; videoSources: VideoSource[]; subtitles?: Subtitle[]; premiumSourcesLocked?: number; introEndSeconds?: number | null; outroStartSeconds?: number | null }
 export interface Movie {
   id: string; title: string; englishTitle?: string | null; slug: string;
   description?: string; posterUrl: string; backdropUrl: string; trailerUrl?: string | null;
   releaseYear: number; duration?: number; quality: string; ratingAvg: number; views?: number;
-  isSeries: boolean; episodeCount: number; episodes?: Episode[];
+  isSeries: boolean; isDubbed?: boolean; status?: string; episodeCount: number; episodes?: Episode[];
   isVip?: boolean; requiresVip?: boolean;
   vipEarlyAccessUntil?: string | null; isEarlyAccess?: boolean;
   movieGenres?: { genre: { name: string; slug: string } }[];
-  movieActors?: { actor: { name: string } }[];
-  movieDirectors?: { director: { name: string } }[];
+  movieActors?: { actor: { name: string; slug?: string; avatarUrl?: string | null } }[];
+  movieDirectors?: { director: { name: string; slug?: string; avatarUrl?: string | null } }[];
 }
 export interface Banner { id: string; title: string; description: string; imageUrl: string; movie: Movie }
 export interface MetaItem { name: string; slug: string }

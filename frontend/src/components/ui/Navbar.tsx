@@ -401,6 +401,7 @@ export default function Navbar() {
           <Link href="/watch-together/rooms" className="flex items-center transition-colors hover:text-red-400">
             <Users className="mr-1 h-3.5 w-3.5 text-red-400" /> Xem Chung
           </Link>
+          <Link href="/schedule" className="hover:text-yellow-500 transition-colors">Lịch Chiếu</Link>
           <Link href="/vip" className="flex items-center text-amber-400 transition-colors hover:text-amber-300">
             <Crown className="mr-1 h-3.5 w-3.5" /> VIP
           </Link>
@@ -599,6 +600,7 @@ export default function Navbar() {
             <Link href="/watch-together/rooms" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center border-b border-white/5 py-1 text-red-300 hover:text-red-200">
               <Users className="mr-1 h-4 w-4" /> Xem Chung
             </Link>
+            <Link href="/schedule" onClick={() => setMobileMenuOpen(false)} className="hover:text-yellow-500 py-1 border-b border-white/5">Lịch Chiếu</Link>
             <Link href="/vip" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center border-b border-white/5 py-1 text-amber-400 hover:text-amber-300">
               <Crown className="mr-1 h-4 w-4" /> Nâng cấp VIP
             </Link>

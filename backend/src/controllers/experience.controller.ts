@@ -215,7 +215,7 @@ export const unsubscribePush = async (req: AuthenticatedRequest, res: Response) 
   }
 };
 
-const analyticsNames = new Set(['page_view', 'movie_play', 'movie_complete', 'player_error', 'search', 'watch_room_create', 'watch_room_join']);
+const analyticsNames = new Set(['page_view', 'movie_play', 'movie_complete', 'player_error', 'player_startup', 'player_buffer', 'server_fallback', 'search', 'watch_room_create', 'watch_room_join']);
 export const trackAnalytics = async (req: AuthenticatedRequest, res: Response) => {
   const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
   if (!analyticsNames.has(name)) return res.status(400).json({ message: 'Sự kiện không hợp lệ.' });
@@ -240,9 +240,10 @@ export const trackAnalytics = async (req: AuthenticatedRequest, res: Response) =
 export const getAnalyticsSummary = async (_req: AuthenticatedRequest, res: Response) => {
   try {
     const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-    const [grouped, recentErrors, activeUsers] = await Promise.all([
+    const [grouped, recentErrors, recentQualityEvents, activeUsers] = await Promise.all([
       prisma.analyticsEvent.groupBy({ by: ['name'], where: { createdAt: { gte: since } }, _count: { _all: true } }),
       prisma.analyticsEvent.findMany({ where: { name: 'player_error', createdAt: { gte: since } }, orderBy: { createdAt: 'desc' }, take: 30 }),
+      prisma.analyticsEvent.findMany({ where: { name: { in: ['player_startup', 'player_buffer', 'server_fallback'] }, createdAt: { gte: since } }, orderBy: { createdAt: 'desc' }, take: 50 }),
       prisma.analyticsEvent.findMany({ where: { createdAt: { gte: since }, userId: { not: null } }, distinct: ['userId'], select: { userId: true } }),
     ]);
     return res.json({
@@ -250,6 +251,7 @@ export const getAnalyticsSummary = async (_req: AuthenticatedRequest, res: Respo
       events: Object.fromEntries(grouped.map((entry) => [entry.name, entry._count._all])),
       activeUsers: activeUsers.length,
       recentPlayerErrors: recentErrors,
+      recentQualityEvents,
     });
   } catch (error) {
     return internalError(res, 'Không thể tải thống kê.', error);

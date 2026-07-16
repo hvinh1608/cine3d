@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
-import { Crown, Heart, MessageCircle, Send, Trash2 } from 'lucide-react';
+import { Clock3, Crown, Eye, Heart, MessageCircle, Send, Trash2 } from 'lucide-react';
 import api from '../../lib/api';
 import { useStore } from '../../hooks/useStore';
 
@@ -14,13 +14,15 @@ type CommentItem = {
   createdAt: string;
   likesCount: number;
   isLiked: boolean;
+  isSpoiler?: boolean;
+  timestampSeconds?: number | null;
   user: { username: string; avatar?: string | null; isVip?: boolean };
   replies?: CommentItem[];
 };
 
 const fallbackAvatar = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&q=80';
 
-export default function MovieComments({ movieId }: { movieId: string }) {
+export default function MovieComments({ movieId, currentTime = 0, onSeek }: { movieId: string; currentTime?: number; onSeek?: (seconds: number) => void }) {
   const { user, showToast } = useStore();
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [content, setContent] = useState('');
@@ -28,6 +30,9 @@ export default function MovieComments({ movieId }: { movieId: string }) {
   const [replyContent, setReplyContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [isSpoiler, setIsSpoiler] = useState(false);
+  const [attachTimestamp, setAttachTimestamp] = useState(false);
+  const [revealedSpoilers, setRevealedSpoilers] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     let active = true;
@@ -54,9 +59,11 @@ export default function MovieComments({ movieId }: { movieId: string }) {
     if (!value || submitting) return;
     setSubmitting(true);
     try {
-      const response = await api.post(`/movies/${movieId}/comments`, { content: value });
+      const response = await api.post(`/movies/${movieId}/comments`, { content: value, isSpoiler, timestampSeconds: attachTimestamp ? Math.floor(currentTime) : null });
       setComments((current) => [{ ...response.data, likesCount: 0, isLiked: false, replies: [] }, ...current]);
       setContent('');
+      setIsSpoiler(false);
+      setAttachTimestamp(false);
     } catch {
       showToast('Không thể đăng bình luận. Vui lòng thử lại.', 'error');
     } finally {
@@ -122,6 +129,15 @@ export default function MovieComments({ movieId }: { movieId: string }) {
     </div>
   );
 
+  const formatTimestamp = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+  const commentBody = (comment: CommentItem, textClass: string) => {
+    const hidden = comment.isSpoiler && !revealedSpoilers.has(comment.id);
+    return <>
+      {comment.timestampSeconds !== null && comment.timestampSeconds !== undefined && <button type="button" onClick={() => onSeek?.(comment.timestampSeconds!)} className="mt-1 inline-flex items-center gap-1 rounded bg-cyan-400/10 px-2 py-0.5 text-[10px] font-bold text-cyan-300 hover:bg-cyan-400/20"><Clock3 className="h-3 w-3" /> {formatTimestamp(comment.timestampSeconds)}</button>}
+      {hidden ? <button type="button" onClick={() => setRevealedSpoilers((current) => new Set(current).add(comment.id))} className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-amber-400/15 bg-amber-400/5 p-3 text-xs font-bold text-amber-300"><Eye className="h-4 w-4" /> Nội dung có spoiler · Nhấn để xem</button> : <p className={`mt-1 whitespace-pre-wrap break-words ${textClass}`}>{comment.content}</p>}
+    </>;
+  };
+
   return (
     <section className="mt-8 rounded-2xl border border-white/10 bg-slate-950/60 p-4 text-left shadow-2xl backdrop-blur md:p-6">
       <div className="mb-5 flex items-center justify-between gap-3">
@@ -132,9 +148,9 @@ export default function MovieComments({ movieId }: { movieId: string }) {
       {user ? (
         <form onSubmit={postComment} className="mb-7 flex gap-3">
           <Image src={user.avatar || fallbackAvatar} alt={user.username} width={40} height={40} className="h-10 w-10 shrink-0 rounded-full object-cover" />
-          <div className="flex min-w-0 flex-1 gap-2 rounded-xl border border-white/10 bg-slate-900 p-2 focus-within:border-red-500/50">
-            <textarea value={content} onChange={(event) => setContent(event.target.value)} maxLength={2000} rows={2} placeholder="Chia sẻ cảm nhận về bộ phim..." className="min-h-12 flex-1 resize-none bg-transparent px-2 py-1 text-sm text-white outline-none placeholder:text-slate-600" />
-            <button disabled={!content.trim() || submitting} className="self-end rounded-lg bg-red-600 p-2.5 text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-40" title="Gửi bình luận"><Send className="h-4 w-4" /></button>
+          <div className="min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-900 p-2 focus-within:border-red-500/50">
+            <div className="flex gap-2"><textarea value={content} onChange={(event) => setContent(event.target.value)} maxLength={2000} rows={2} placeholder="Chia sẻ cảm nhận về bộ phim..." className="min-h-12 flex-1 resize-none bg-transparent px-2 py-1 text-sm text-white outline-none placeholder:text-slate-600" /><button disabled={!content.trim() || submitting} className="self-end rounded-lg bg-red-600 p-2.5 text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-40" title="Gửi bình luận"><Send className="h-4 w-4" /></button></div>
+            <div className="flex flex-wrap gap-3 border-t border-white/5 px-2 pt-2 text-[10px] font-bold text-slate-500"><label className="flex cursor-pointer items-center gap-1.5"><input type="checkbox" checked={isSpoiler} onChange={(event) => setIsSpoiler(event.target.checked)} className="accent-amber-400" /> Có spoiler</label><label className="flex cursor-pointer items-center gap-1.5"><input type="checkbox" checked={attachTimestamp} onChange={(event) => setAttachTimestamp(event.target.checked)} className="accent-cyan-400" /> Gắn mốc {formatTimestamp(currentTime)}</label></div>
           </div>
         </form>
       ) : (
@@ -153,7 +169,7 @@ export default function MovieComments({ movieId }: { movieId: string }) {
                 <Image src={comment.user.avatar || fallbackAvatar} alt={comment.user.username} width={40} height={40} className="h-10 w-10 shrink-0 rounded-full object-cover" />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-bold text-slate-200">{comment.user.username}</span>{comment.user.isVip && <span className="flex items-center gap-1 rounded bg-amber-400/10 px-1.5 py-0.5 text-[8px] font-black text-amber-300"><Crown className="h-2.5 w-2.5" /> VIP</span>}<time className="text-[10px] text-slate-600">{new Date(comment.createdAt).toLocaleDateString('vi-VN')}</time></div>
-                  <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-300">{comment.content}</p>
+                  {commentBody(comment, 'text-sm leading-relaxed text-slate-300')}
                   {actions(comment, true)}
                 </div>
               </div>
@@ -167,7 +183,7 @@ export default function MovieComments({ movieId }: { movieId: string }) {
               )}
 
               {!!comment.replies?.length && <div className="ml-8 mt-4 space-y-4 border-l border-white/10 pl-4 md:ml-12">{comment.replies.map((reply) => (
-                <div key={reply.id} className="flex gap-3"><Image src={reply.user.avatar || fallbackAvatar} alt={reply.user.username} width={32} height={32} className="h-8 w-8 shrink-0 rounded-full object-cover" /><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="text-xs font-bold text-slate-300">{reply.user.username}</span><time className="text-[9px] text-slate-600">{new Date(reply.createdAt).toLocaleDateString('vi-VN')}</time></div><p className="mt-1 whitespace-pre-wrap break-words text-xs leading-relaxed text-slate-400">{reply.content}</p>{actions(reply, false)}</div></div>
+                <div key={reply.id} className="flex gap-3"><Image src={reply.user.avatar || fallbackAvatar} alt={reply.user.username} width={32} height={32} className="h-8 w-8 shrink-0 rounded-full object-cover" /><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><span className="text-xs font-bold text-slate-300">{reply.user.username}</span><time className="text-[9px] text-slate-600">{new Date(reply.createdAt).toLocaleDateString('vi-VN')}</time></div>{commentBody(reply, 'text-xs leading-relaxed text-slate-400')}{actions(reply, false)}</div></div>
               ))}</div>}
             </article>
           ))}

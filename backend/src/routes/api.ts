@@ -20,6 +20,8 @@ import {
   getProposed,
   getBanners,
   getHome,
+  getPersonalizedRecommendations,
+  getReleaseSchedule,
 } from '../controllers/movie.controller';
 import {
   updateProfile,
@@ -127,6 +129,8 @@ router.get('/movies/home', getHome);
 router.get('/movies/trending', getTrending);
 router.get('/movies/proposed', getProposed);
 router.get('/movies/banners', getBanners);
+router.get('/movies/recommendations/me', optionalAuthenticate as any, getPersonalizedRecommendations as any);
+router.get('/schedule', getReleaseSchedule as any);
 router.get('/movies/:slug', optionalAuthenticate as any, getMovieBySlug);
 router.post('/movies/:id/view', rateLimit(60 * 1000, 20), incrementViews);
 
@@ -206,6 +210,13 @@ router.get('/actors', async (req: Request, res: Response) => {
     return internalError(res, 'Error retrieving actors.', error);
   }
 });
+router.get('/actors/:slug', async (req: Request, res: Response) => {
+  try {
+    const actor = await prisma.actor.findUnique({ where: { slug: req.params.slug }, include: { movieActors: { include: { movie: true }, orderBy: { createdAt: 'desc' } } } });
+    if (!actor) return res.status(404).json({ message: 'Không tìm thấy diễn viên.' });
+    return res.json({ ...actor, movies: actor.movieActors.map((item) => item.movie) });
+  } catch (error) { return internalError(res, 'Không thể tải diễn viên.', error); }
+});
 
 router.get('/directors', async (req: Request, res: Response) => {
   try {
@@ -214,6 +225,13 @@ router.get('/directors', async (req: Request, res: Response) => {
   } catch (error: any) {
     return internalError(res, 'Error retrieving directors.', error);
   }
+});
+router.get('/directors/:slug', async (req: Request, res: Response) => {
+  try {
+    const director = await prisma.director.findUnique({ where: { slug: req.params.slug }, include: { movieDirectors: { include: { movie: true }, orderBy: { createdAt: 'desc' } } } });
+    if (!director) return res.status(404).json({ message: 'Không tìm thấy đạo diễn.' });
+    return res.json({ ...director, movies: director.movieDirectors.map((item) => item.movie) });
+  } catch (error) { return internalError(res, 'Không thể tải đạo diễn.', error); }
 });
 
 // --- Admin Routes ---

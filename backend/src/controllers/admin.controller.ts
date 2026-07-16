@@ -154,6 +154,7 @@ export const createMovie = async (req: Request, res: Response) => {
     duration,
     quality,
     isSeries,
+    isDubbed,
     status,
     countryId,
     genreIds, // string[]
@@ -201,6 +202,7 @@ export const createMovie = async (req: Request, res: Response) => {
         duration: parseInt(duration, 10) || 120,
         quality: quality || 'HD',
         isSeries: !!isSeries,
+        isDubbed: !!isDubbed,
         status: status || 'Completed',
         isFeatured: isFeatured !== undefined ? !!isFeatured : false,
         isTrending: isTrending !== undefined ? !!isTrending : false,
@@ -240,6 +242,7 @@ export const updateMovie = async (req: Request, res: Response) => {
     duration,
     quality,
     isSeries,
+    isDubbed,
     status,
     countryId,
     genreIds,
@@ -284,6 +287,7 @@ export const updateMovie = async (req: Request, res: Response) => {
         duration: duration !== undefined ? parseInt(duration, 10) : undefined,
         quality,
         isSeries,
+        isDubbed: isDubbed !== undefined ? !!isDubbed : undefined,
         status,
         isFeatured: isFeatured !== undefined ? !!isFeatured : undefined,
         isTrending: isTrending !== undefined ? !!isTrending : undefined,
@@ -336,7 +340,7 @@ export const deleteMovie = async (req: Request, res: Response) => {
 
 // CRUD: Manage Episodes
 export const createEpisode = async (req: Request, res: Response) => {
-  const { movieId, title, episodeOrder, videoSources, subtitles, introEndSeconds, outroStartSeconds } = req.body;
+  const { movieId, title, episodeOrder, seasonNumber, airDate, videoSources, subtitles, introEndSeconds, outroStartSeconds } = req.body;
 
   if (!movieId || !title || episodeOrder === undefined) {
     return res.status(400).json({ message: 'movieId, title, and episodeOrder are required.' });
@@ -348,6 +352,8 @@ export const createEpisode = async (req: Request, res: Response) => {
         movieId,
         title,
         episodeOrder: parseInt(episodeOrder, 10),
+        seasonNumber: Math.max(1, parseInt(seasonNumber, 10) || 1),
+        airDate: airDate ? new Date(airDate) : null,
         introEndSeconds: introEndSeconds === undefined || introEndSeconds === '' ? null : Math.max(0, parseInt(introEndSeconds, 10)),
         outroStartSeconds: outroStartSeconds === undefined || outroStartSeconds === '' ? null : Math.max(0, parseInt(outroStartSeconds, 10)),
         videoSources: {
@@ -398,7 +404,7 @@ export const createEpisode = async (req: Request, res: Response) => {
 
 export const updateEpisode = async (req: Request, res: Response) => {
   const { id } = req.params;
-  const { title, episodeOrder, videoSources, subtitles, introEndSeconds, outroStartSeconds } = req.body;
+  const { title, episodeOrder, seasonNumber, airDate, videoSources, subtitles, introEndSeconds, outroStartSeconds } = req.body;
 
   try {
     const existing = await prisma.episode.findUnique({ where: { id } });
@@ -409,6 +415,8 @@ export const updateEpisode = async (req: Request, res: Response) => {
       data: {
         title,
         episodeOrder: episodeOrder !== undefined ? parseInt(episodeOrder, 10) : undefined,
+        seasonNumber: seasonNumber !== undefined ? Math.max(1, parseInt(seasonNumber, 10) || 1) : undefined,
+        airDate: airDate !== undefined ? (airDate ? new Date(airDate) : null) : undefined,
         introEndSeconds: introEndSeconds === undefined ? undefined : (introEndSeconds === '' || introEndSeconds === null ? null : Math.max(0, parseInt(introEndSeconds, 10))),
         outroStartSeconds: outroStartSeconds === undefined ? undefined : (outroStartSeconds === '' || outroStartSeconds === null ? null : Math.max(0, parseInt(outroStartSeconds, 10))),
         videoSources: videoSources

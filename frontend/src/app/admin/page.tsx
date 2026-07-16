@@ -11,10 +11,10 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const formatVnd = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value);
 type AdminVideoSource = { id?: string; server: string; quality: string; url: string; type: string; isPremium: boolean };
 type AdminSubtitle = { id?: string; language: string; url: string };
-type AdminEpisode = { id: string; title: string; episodeOrder: number; introEndSeconds?: number | null; outroStartSeconds?: number | null; videoSources: AdminVideoSource[]; subtitles: AdminSubtitle[] };
+type AdminEpisode = { id: string; title: string; episodeOrder: number; seasonNumber?: number; airDate?: string | null; introEndSeconds?: number | null; outroStartSeconds?: number | null; videoSources: AdminVideoSource[]; subtitles: AdminSubtitle[] };
 type AdminMovie = {
   id: string; title: string; englishTitle?: string | null; slug: string; description: string; posterUrl: string; backdropUrl: string;
-  trailerUrl?: string | null; releaseYear: number; duration: number; countryId: string; quality: string; isSeries: boolean; status: string;
+  trailerUrl?: string | null; releaseYear: number; duration: number; countryId: string; quality: string; isSeries: boolean; isDubbed?: boolean; status: string;
   isFeatured: boolean; isTrending: boolean; isProposed: boolean; isVip: boolean; vipEarlyAccessUntil?: string | null; episodeCount: number;
   episodes: AdminEpisode[]; movieGenres: { genreId: string }[];
 };
@@ -23,7 +23,8 @@ type AdminReport = { id: string; type: string; content: string; status: string; 
 type AdminVipOrder = { id: string; orderCode: string; status: string; amount: number; durationDays: number; createdAt: string; paidAt?: string | null; user?: { username: string; email: string }; plan?: { name: string } };
 type MetaEntity = { id: string; name: string; slug: string };
 type AdminStats = { totalUsers: number; totalMovies: number; totalEpisodes: number; totalViews: number; pendingReports: number; topMovies: { id: string; title: string; views: number; ratingAvg: number }[]; recentReports: AdminReport[] };
-type AnalyticsSummary = { periodDays: number; activeUsers: number; events: Record<string, number>; recentPlayerErrors: { id: string; path?: string | null; movieId?: string | null; metadata?: unknown; createdAt: string }[] };
+type AnalyticsEventItem = { id: string; name?: string; path?: string | null; movieId?: string | null; metadata?: unknown; createdAt: string };
+type AnalyticsSummary = { periodDays: number; activeUsers: number; events: Record<string, number>; recentPlayerErrors: AnalyticsEventItem[]; recentQualityEvents?: AnalyticsEventItem[] };
 
 const isUserVipActive = (user: AdminUser) => Boolean(user.isVip || (user.vipExpiresAt && new Date(user.vipExpiresAt).getTime() > Date.now()));
 const requestMessage = (error: unknown, fallback: string) => (error as AxiosError<{ message?: string }>).response?.data?.message || fallback;
@@ -80,6 +81,7 @@ export default function AdminPage() {
   const [movieCountry, setMovieCountry] = useState('');
   const [movieQuality, setMovieQuality] = useState('FHD');
   const [movieIsSeries, setMovieIsSeries] = useState(false);
+  const [movieIsDubbed, setMovieIsDubbed] = useState(false);
   const [movieStatus, setMovieStatus] = useState('Completed');
   const [movieIsFeatured, setMovieIsFeatured] = useState(false);
   const [movieIsTrending, setMovieIsTrending] = useState(false);
@@ -92,6 +94,8 @@ export default function AdminPage() {
   const [selectedMovieId, setSelectedMovieId] = useState<string>('');
   const [epTitle, setEpTitle] = useState('');
   const [epOrder, setEpOrder] = useState('1');
+  const [epSeason, setEpSeason] = useState('1');
+  const [epAirDate, setEpAirDate] = useState('');
   const [introEndSeconds, setIntroEndSeconds] = useState('');
   const [outroStartSeconds, setOutroStartSeconds] = useState('');
   const [videoSources, setVideoSources] = useState<AdminVideoSource[]>([{ server: 'Main Server', quality: '1080p', url: '', type: 'hls', isPremium: false }]);
@@ -221,6 +225,7 @@ export default function AdminPage() {
     setMovieCountry(movie.countryId);
     setMovieQuality(movie.quality || 'FHD');
     setMovieIsSeries(movie.isSeries || false);
+    setMovieIsDubbed(Boolean(movie.isDubbed));
     setMovieStatus(movie.status || 'Completed');
     setMovieIsFeatured(movie.isFeatured || false);
     setMovieIsTrending(movie.isTrending || false);
@@ -249,6 +254,7 @@ export default function AdminPage() {
     setMovieCountry(countries[0]?.id || '');
     setMovieQuality('FHD');
     setMovieIsSeries(false);
+    setMovieIsDubbed(false);
     setMovieStatus('Completed');
     setMovieIsFeatured(false);
     setMovieIsTrending(false);
@@ -278,6 +284,7 @@ export default function AdminPage() {
       duration: parseInt(movieDuration, 10),
       quality: movieQuality,
       isSeries: movieIsSeries,
+      isDubbed: movieIsDubbed,
       status: movieStatus,
       countryId: movieCountry,
       isFeatured: movieIsFeatured,
@@ -362,6 +369,8 @@ export default function AdminPage() {
         movieId: selectedMovieId,
         title: epTitle,
         episodeOrder: epOrder,
+        seasonNumber: epSeason,
+        airDate: epAirDate || null,
         introEndSeconds,
         outroStartSeconds,
         videoSources,
@@ -375,6 +384,7 @@ export default function AdminPage() {
       
       // Reset forms
       setEpTitle('');
+      setEpSeason('1'); setEpAirDate('');
       setIntroEndSeconds('');
       setOutroStartSeconds('');
       setVideoSources([{ server: 'Main Server', quality: '1080p', url: '', type: 'hls', isPremium: false }]);
@@ -655,9 +665,10 @@ export default function AdminPage() {
           <div className="space-y-7 animate-fade-in">
             <div><h2 className="flex items-center text-xl font-black uppercase tracking-wide text-purple-400"><BarChart3 className="mr-2 h-5 w-5" /> Analytics 7 ngày</h2><p className="mt-2 text-xs text-slate-500">Số liệu nội bộ, không gửi dữ liệu người dùng sang bên thứ ba.</p></div>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              {[['Người dùng hoạt động', analytics.activeUsers], ['Lượt mở trang', analytics.events.page_view || 0], ['Lượt phát phim', analytics.events.movie_play || 0], ['Lỗi trình phát', analytics.events.player_error || 0]].map(([label, value]) => <div key={String(label)} className="rounded-2xl border border-white/5 bg-slate-900/60 p-5"><p className="text-[10px] font-black uppercase text-slate-500">{label}</p><p className="mt-1 text-2xl font-black">{value}</p></div>)}
+              {[['Người dùng hoạt động', analytics.activeUsers], ['Lượt phát phim', analytics.events.movie_play || 0], ['Lần buffering', analytics.events.player_buffer || 0], ['Lỗi / đổi server', (analytics.events.player_error || 0) + (analytics.events.server_fallback || 0)]].map(([label, value]) => <div key={String(label)} className="rounded-2xl border border-white/5 bg-slate-900/60 p-5"><p className="text-[10px] font-black uppercase text-slate-500">{label}</p><p className="mt-1 text-2xl font-black">{value}</p></div>)}
             </div>
             <div><h3 className="mb-3 text-sm font-black uppercase text-slate-300">Lỗi phát gần đây</h3><div className="space-y-2">{analytics.recentPlayerErrors.map((event) => <div key={event.id} className="rounded-xl border border-red-500/10 bg-red-950/10 p-3"><div className="flex flex-wrap justify-between gap-2 text-xs"><span className="font-bold text-red-300">{event.movieId || event.path || 'Không xác định'}</span><span className="text-slate-600">{new Date(event.createdAt).toLocaleString('vi-VN')}</span></div><pre className="mt-2 overflow-x-auto text-[10px] text-slate-500">{JSON.stringify(event.metadata || {}, null, 2)}</pre></div>)}{!analytics.recentPlayerErrors.length && <p className="py-8 text-center text-xs text-emerald-400">Chưa ghi nhận lỗi phát nào.</p>}</div></div>
+            <div><h3 className="mb-3 text-sm font-black uppercase text-slate-300">Chất lượng phát gần đây</h3><div className="grid gap-2 md:grid-cols-2">{(analytics.recentQualityEvents || []).slice(0, 12).map((event) => <div key={event.id} className="rounded-xl border border-cyan-500/10 bg-cyan-950/10 p-3"><div className="flex justify-between text-[10px]"><span className="font-black uppercase text-cyan-300">{event.name}</span><span className="text-slate-600">{new Date(event.createdAt).toLocaleTimeString('vi-VN')}</span></div><pre className="mt-2 overflow-x-auto text-[9px] text-slate-500">{JSON.stringify(event.metadata || {}, null, 2)}</pre></div>)}</div></div>
           </div>
         )}
 
@@ -846,6 +857,7 @@ export default function AdminPage() {
                   />
                   Đây là phim bộ (Series)
                 </label>
+                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer"><input type="checkbox" checked={movieIsDubbed} onChange={(e) => setMovieIsDubbed(e.target.checked)} className="rounded text-cyan-500 focus:ring-0" /> Có thuyết minh</label>
 
                 <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
                   <input
@@ -1111,6 +1123,7 @@ export default function AdminPage() {
                   <span className="text-[9px] text-slate-500 uppercase font-black tracking-wider">Kết thúc mở đầu (giây, tùy chọn):</span>
                   <input type="number" min="0" value={introEndSeconds} onChange={(event) => setIntroEndSeconds(event.target.value)} placeholder="Ví dụ: 90" className="bg-slate-950 border border-white/10 rounded-xl px-4 py-2.5 text-xs md:text-sm outline-none" />
                 </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><label className="flex flex-col gap-1"><span className="text-[9px] font-black uppercase text-slate-500">Phần / mùa</span><input type="number" min="1" value={epSeason} onChange={(event) => setEpSeason(event.target.value)} className="rounded-xl border border-white/10 bg-slate-950 px-4 py-2.5 text-xs outline-none" /></label><label className="flex flex-col gap-1"><span className="text-[9px] font-black uppercase text-slate-500">Ngày giờ phát dự kiến</span><input type="datetime-local" value={epAirDate} onChange={(event) => setEpAirDate(event.target.value)} className="rounded-xl border border-white/10 bg-slate-950 px-4 py-2.5 text-xs outline-none" /></label></div>
 
                 <div className="flex flex-col space-y-1">
                   <span className="text-[9px] text-slate-500 uppercase font-black tracking-wider">Bắt đầu phần kết (giây, tùy chọn):</span>

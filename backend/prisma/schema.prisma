@@ -154,6 +154,7 @@ model Movie {
   quality             String    @default("HD") // HD, FHD, 2K, 4K
   episodeCount        Int       @default(1)
   isSeries            Boolean   @default(false) // true = series (phim bộ), false = movie (phim lẻ)
+  isDubbed            Boolean   @default(false)
   status              String    @default("Completed") // Ongoing, Completed, Upcoming
   views               Int       @default(0)
   ratingAvg           Float     @default(0.0)
@@ -232,21 +233,25 @@ model MovieDirector {
 }
 
 model Episode {
-  id                String   @id @default(uuid())
+  id                String    @id @default(uuid())
   movieId           String
-  movie             Movie    @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  movie             Movie     @relation(fields: [movieId], references: [id], onDelete: Cascade)
   title             String // e.g. "Tập 1", "Tập 2", "Full"
   episodeOrder      Int // e.g. 1, 2, 3
+  seasonNumber      Int       @default(1)
+  airDate           DateTime?
   introEndSeconds   Int?
   outroStartSeconds Int?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   videoSources        VideoSource[]
   subtitles           Subtitle[]
   profileWatchHistory ProfileWatchHistory[]
 
   @@unique([movieId, episodeOrder])
+  @@index([movieId, seasonNumber, episodeOrder])
+  @@index([airDate])
 }
 
 model VideoSource {
@@ -277,13 +282,15 @@ model Subtitle {
 }
 
 model Comment {
-  id        String   @id @default(uuid())
-  movieId   String
-  userId    String
-  content   String
-  parentId  String? // For threaded replies
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String   @id @default(uuid())
+  movieId          String
+  userId           String
+  content          String
+  isSpoiler        Boolean  @default(false)
+  timestampSeconds Int?
+  parentId         String? // For threaded replies
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   parent       Comment?      @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)

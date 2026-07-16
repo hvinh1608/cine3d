@@ -31,6 +31,7 @@ export type AppMovie = {
   quality: string;
   episodeCount: number;
   isSeries: boolean;
+  isDubbed?: boolean;
   status: string;
   views: number;
   ratingAvg: number;

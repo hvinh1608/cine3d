@@ -44,6 +44,9 @@ export const getMovies = async (req: Request, res: Response) => {
       year,
       type,
       sortBy,
+      status: statusFilter,
+      vip,
+      dubbed,
     } = req.query;
 
     const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
@@ -84,7 +87,21 @@ export const getMovies = async (req: Request, res: Response) => {
     const { items, total, page: currentPage, limit: pageLimit, totalPages, cdn } =
       extractListPagination(raw);
 
-    const movies = items.map((item) => mapListItem(item, cdn));
+    let movies = items.map((item) => mapListItem(item, cdn));
+    try {
+      const localMovies = await prisma.movie.findMany({
+        where: { slug: { in: movies.map((movie) => movie.slug) } },
+        select: { slug: true, status: true, isVip: true, isDubbed: true },
+      });
+      const localBySlug = new Map(localMovies.map((movie) => [movie.slug, movie]));
+      movies = movies.map((movie) => ({ ...movie, ...localBySlug.get(movie.slug) }));
+    } catch {
+      // Upstream catalog remains available when the local enrichment database is cold.
+    }
+    if (statusFilter) movies = movies.filter((movie) => String(movie.status || '').toLowerCase() === String(statusFilter).toLowerCase());
+    if (vip === 'true') movies = movies.filter((movie) => movie.isVip);
+    if (vip === 'false') movies = movies.filter((movie) => !movie.isVip);
+    if (dubbed === 'true') movies = movies.filter((movie) => movie.isDubbed);
 
     return res.json({
       total,
@@ -96,6 +113,43 @@ export const getMovies = async (req: Request, res: Response) => {
   } catch (error: any) {
     const status = error instanceof KkphimError ? error.status : 500;
     return internalError(res, 'Error retrieving movies.', error, status);
+  }
+};
+
+export const getPersonalizedRecommendations = async (req: Request, res: Response) => {
+  const userId = (req as any).user?.id as string | undefined;
+  try {
+    if (!userId) return getProposed(req, res);
+    const history = await prisma.watchHistory.findMany({
+      where: { userId }, orderBy: { updatedAt: 'desc' }, take: 20,
+      include: { movie: { include: { movieGenres: { select: { genreId: true } } } } },
+    });
+    const watchedIds = history.map((item) => item.movieId);
+    const genreScores = new Map<string, number>();
+    history.forEach((item, index) => item.movie.movieGenres.forEach(({ genreId }) => genreScores.set(genreId, (genreScores.get(genreId) || 0) + Math.max(1, 20 - index))));
+    const genreIds = [...genreScores.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id]) => id);
+    const movies = await prisma.movie.findMany({
+      where: { id: { notIn: watchedIds }, ...(genreIds.length ? { movieGenres: { some: { genreId: { in: genreIds } } } } : {}) },
+      orderBy: [{ ratingAvg: 'desc' }, { views: 'desc' }, { updatedAt: 'desc' }], take: 18,
+      include: { movieGenres: { include: { genre: true } }, country: true },
+    });
+    return res.json({ movies, personalized: history.length > 0 });
+  } catch (error) {
+    return internalError(res, 'Không thể tải gợi ý cá nhân hóa.', error);
+  }
+};
+
+export const getReleaseSchedule = async (_req: Request, res: Response) => {
+  try {
+    const now = new Date();
+    const until = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const episodes = await prisma.episode.findMany({
+      where: { airDate: { gte: now, lte: until } }, orderBy: { airDate: 'asc' }, take: 100,
+      include: { movie: { select: { id: true, slug: true, title: true, posterUrl: true, status: true } } },
+    });
+    return res.json(episodes);
+  } catch (error) {
+    return internalError(res, 'Không thể tải lịch phát hành.', error);
   }
 };
 

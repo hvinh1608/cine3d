@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, Suspense, useCallback } from 'react
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, ChevronRight, ChevronLeft, ListVideo, Server, LightbulbOff, ArrowLeft, Subtitles, Gauge, Tv, Settings, Maximize2, Lock, Crown, Download, Users, Share2, Info, Star } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, ChevronRight, ChevronLeft, ListVideo, Server, LightbulbOff, ArrowLeft, Subtitles, Gauge, Tv, Settings, Maximize2, Lock, Crown, Download, Users, Share2, Info, Star, PictureInPicture2, Search, Flag, Wifi } from 'lucide-react';
 import { useStore } from '../../../hooks/useStore';
 import axios from '../../../lib/api';
 import Hls from 'hls.js';
@@ -72,12 +72,17 @@ function WatchPageContent() {
   const [autoNext, setAutoNext] = useState(true);
   const [nextEpisodeCountdown, setNextEpisodeCountdown] = useState<number | null>(null);
   const [subtitleStyle, setSubtitleStyle] = useState({ fontSize: 100, color: '#ffffff', background: 65 });
+  const [dataSaver, setDataSaver] = useState(false);
+  const [episodeQuery, setEpisodeQuery] = useState('');
+  const [selectedSeason, setSelectedSeason] = useState(1);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playTrackedEpisodeRef = useRef<string | null>(null);
+  const loadStartedAtRef = useRef(0);
+  const bufferingStartedAtRef = useRef<number | null>(null);
 
   useEffect(() => {
     try {
@@ -89,6 +94,12 @@ function WatchPageContent() {
         }
       });
     } catch { /* use defaults */ }
+  }, []);
+
+  useEffect(() => {
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
+    const shouldSave = Boolean(connection?.saveData || connection?.effectiveType?.includes('2g'));
+    queueMicrotask(() => setDataSaver(shouldSave));
   }, []);
 
   useEffect(() => {
@@ -162,6 +173,7 @@ function WatchPageContent() {
     queueMicrotask(() => {
       setActiveEpisode(episode);
       setActiveSource(episode?.videoSources?.[0] || null);
+      setSelectedSeason(episode?.seasonNumber || 1);
     });
   }, [movie, activeEpOrder]);
 
@@ -187,7 +199,7 @@ function WatchPageContent() {
     let hls: Hls | null = null;
     if (activeSource.type === 'hls') {
       if (Hls.isSupported()) {
-        const instance = new Hls();
+        const instance = new Hls({ maxBufferLength: dataSaver ? 15 : 30, maxMaxBufferLength: dataSaver ? 30 : 60, capLevelToPlayerSize: true });
         hls = instance;
         instance.loadSource(activeSource.url);
         instance.attachMedia(video);
@@ -200,6 +212,11 @@ function WatchPageContent() {
             name: level.name || (level.height ? `${level.height}p` : `Level ${index + 1}`)
           }));
           setQualities(loadedLevels);
+          if (dataSaver && loadedLevels.length) {
+            const lowest = loadedLevels.reduce((best, level) => level.bitrate < best.bitrate ? level : best, loadedLevels[0]);
+            instance.currentLevel = lowest.index;
+            setCurrentQualityIndex(lowest.index);
+          }
         });
         instance.on(Hls.Events.ERROR, (_event, data) => {
           if (!data.fatal) return;
@@ -207,6 +224,14 @@ function WatchPageContent() {
             name: 'player_error', path: window.location.pathname, movieId: movie?.id,
             metadata: { source: activeSource.server, type: data.type, details: data.details },
           }).catch(() => undefined);
+          const sources = activeEpisode?.videoSources || [];
+          const currentIndex = sources.findIndex((source) => source.id === activeSource.id);
+          const fallback = sources.slice(currentIndex + 1).find((source) => source.url !== activeSource.url);
+          if (fallback) {
+            showToast(`Server ${activeSource.server} lỗi, đang chuyển sang ${fallback.server}.`, 'info');
+            void axios.post('/analytics/events', { name: 'server_fallback', path: window.location.pathname, movieId: movie?.id, metadata: { from: activeSource.server, to: fallback.server, details: data.details } }).catch(() => undefined);
+            setActiveSource(fallback);
+          }
         });
 
         hlsRef.current = instance;
@@ -246,7 +271,7 @@ function WatchPageContent() {
         if (hlsRef.current === hls) hlsRef.current = null;
       }
     };
-  }, [activeSource, movie, activeEpisode, user, accessToken]);
+  }, [activeSource, movie, activeEpisode, user, accessToken, dataSaver, showToast]);
 
   const nextEpisode = movie?.episodes
     ?.filter((episode) => episode.episodeOrder > (activeEpisode?.episodeOrder || 0))
@@ -512,19 +537,34 @@ function WatchPageContent() {
   // Desktop keyboard seeking: left/right arrows move 10 seconds.
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
       const target = event.target as HTMLElement | null;
       if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
       if (!videoRef.current || !activeSource) return;
-
-      event.preventDefault();
+      if (event.key === 'ArrowLeft' || event.key === 'ArrowRight' || event.code === 'Space' || ['f', 'm', 'p'].includes(event.key.toLowerCase())) event.preventDefault();
       if (event.key === 'ArrowLeft') skipBackward();
-      else skipForward();
+      else if (event.key === 'ArrowRight') skipForward();
+      else if (event.code === 'Space') void (videoRef.current.paused ? videoRef.current.play() : videoRef.current.pause());
+      else if (event.key.toLowerCase() === 'f') void handleFullscreen();
+      else if (event.key.toLowerCase() === 'm') setMuted((current) => { videoRef.current!.muted = !current; return !current; });
+      else if (event.key.toLowerCase() === 'p' && document.pictureInPictureEnabled) void (document.pictureInPictureElement ? document.exitPictureInPicture() : videoRef.current.requestPictureInPicture());
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeSource, skipBackward, skipForward]);
+
+  const handlePictureInPicture = async () => {
+    if (!videoRef.current || !document.pictureInPictureEnabled) return showToast('Trình duyệt không hỗ trợ Picture-in-Picture.', 'info');
+    try { if (document.pictureInPictureElement) await document.exitPictureInPicture(); else await videoRef.current.requestPictureInPicture(); } catch { showToast('Không thể bật cửa sổ nổi.', 'error'); }
+  };
+
+  const reportPlayback = async () => {
+    if (!user) return showToast('Vui lòng đăng nhập để báo lỗi nguồn phát.', 'info');
+    try {
+      await axios.post('/reports', { movieId: movie?.id, type: 'stream_error', content: JSON.stringify({ episode: activeEpisode?.episodeOrder, source: activeSource?.server, quality: activeSource?.quality, currentTime: Math.floor(currentTime), url: window.location.href }) });
+      showToast('Đã gửi báo lỗi nguồn phát cho quản trị viên.', 'success');
+    } catch { showToast('Không thể gửi báo lỗi lúc này.', 'error'); }
+  };
 
   // Double tap feedback helper
   const lastClickTimeRef = useRef<number>(0);
@@ -573,6 +613,13 @@ function WatchPageContent() {
     const s = Math.floor(secs % 60);
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
+
+  const seasonNumbers = Array.from(new Set((movie?.episodes || []).map((episode) => episode.seasonNumber || 1))).sort((a, b) => a - b);
+  const visibleEpisodes = (movie?.episodes || []).filter((episode) => {
+    const matchesSeason = (episode.seasonNumber || 1) === selectedSeason;
+    const query = episodeQuery.trim().toLocaleLowerCase('vi');
+    return matchesSeason && (!query || episode.title.toLocaleLowerCase('vi').includes(query) || String(episode.episodeOrder) === query);
+  });
 
   if (!movie || !activeEpisode) {
     return (
@@ -665,6 +712,10 @@ function WatchPageContent() {
                   onTimeUpdate={handleTimeUpdate}
                   onLoadedMetadata={handleLoadedMetadata}
                   onPlay={handleVideoPlay}
+                  onLoadStart={() => { loadStartedAtRef.current = Date.now(); }}
+                  onCanPlay={() => { const startupMs = Date.now() - loadStartedAtRef.current; if (startupMs > 0) void axios.post('/analytics/events', { name: 'player_startup', path: window.location.pathname, movieId: movie.id, metadata: { startupMs, source: activeSource?.server } }).catch(() => undefined); }}
+                  onWaiting={() => { bufferingStartedAtRef.current = Date.now(); }}
+                  onPlaying={() => { if (bufferingStartedAtRef.current) { const bufferingMs = Date.now() - bufferingStartedAtRef.current; bufferingStartedAtRef.current = null; void axios.post('/analytics/events', { name: 'player_buffer', path: window.location.pathname, movieId: movie.id, metadata: { bufferingMs, source: activeSource?.server, quality: activeSource?.quality } }).catch(() => undefined); } }}
                   onPause={() => setPlaying(false)}
                   onEnded={handleEnded}
                   onError={handleVideoError}
@@ -1102,6 +1153,9 @@ function WatchPageContent() {
             <Link href={`/watch-together?slug=${encodeURIComponent(movie.slug)}&ep=${activeEpisode.episodeOrder}`} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-white/5 hover:text-red-300"><Users className="h-3.5 w-3.5" /> Xem chung</Link>
             <button type="button" onClick={() => { void navigator.clipboard.writeText(window.location.href); showToast('Đã sao chép liên kết xem phim.', 'success'); }} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-white/5 hover:text-white"><Share2 className="h-3.5 w-3.5" /> Chia sẻ</button>
             <button type="button" onClick={() => setLightsOff((current) => !current)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-white/5 ${lightsOff ? 'text-red-400' : 'hover:text-white'}`}><LightbulbOff className="h-3.5 w-3.5" /> Tắt đèn</button>
+            <button type="button" onClick={() => void handlePictureInPicture()} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-white/5 hover:text-white"><PictureInPicture2 className="h-3.5 w-3.5" /> Cửa sổ nổi</button>
+            <button type="button" onClick={() => setDataSaver((current) => !current)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-white/5 ${dataSaver ? 'text-emerald-300' : 'hover:text-white'}`}><Wifi className="h-3.5 w-3.5" /> Tiết kiệm data {dataSaver ? 'Bật' : 'Tắt'}</button>
+            <button type="button" onClick={() => void reportPlayback()} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-red-500/10 hover:text-red-300"><Flag className="h-3.5 w-3.5" /> Báo lỗi</button>
             <div className="ml-auto hidden items-center gap-2 px-2 text-slate-600 sm:flex"><span>← → tua 10 giây</span><span>•</span><span>Nhấp đúp để tua</span></div>
           </div>
 
@@ -1123,8 +1177,10 @@ function WatchPageContent() {
           {/* Episode grid on the main reading flow */}
           {movie.episodes.length > 1 && (
             <section className="mt-4 rounded-2xl border border-white/5 bg-slate-950/70 p-4 text-left shadow-xl md:p-5">
-              <div className="mb-4 flex items-center justify-between"><h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-white"><ListVideo className="h-4 w-4 text-amber-400" /> Danh sách tập</h2><span className="text-[10px] font-bold text-slate-600">{movie.episodes.length} tập</span></div>
-              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8 xl:grid-cols-10">{movie.episodes.map((episode) => <Link key={episode.id} href={`/watch/${movie.slug}?ep=${episode.episodeOrder}`} className={`rounded-lg border px-2 py-2.5 text-center text-[11px] font-bold transition ${activeEpOrder === episode.episodeOrder ? 'border-amber-400 bg-amber-400 text-slate-950 shadow-[0_0_18px_rgba(251,191,36,0.15)]' : 'border-white/5 bg-slate-900 text-slate-400 hover:border-white/15 hover:bg-slate-800 hover:text-white'}`}>{episode.title}</Link>)}</div>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-white"><ListVideo className="h-4 w-4 text-amber-400" /> Danh sách tập</h2><label className="flex items-center gap-2 rounded-lg border border-white/5 bg-slate-900 px-3 py-2"><Search className="h-3.5 w-3.5 text-slate-600" /><input value={episodeQuery} onChange={(event) => setEpisodeQuery(event.target.value)} placeholder="Tìm số tập..." className="w-24 bg-transparent text-xs text-white outline-none placeholder:text-slate-600" /></label></div>
+              {seasonNumbers.length > 1 && <div className="mb-3 flex flex-wrap gap-2">{seasonNumbers.map((season) => <button key={season} type="button" onClick={() => setSelectedSeason(season)} className={`rounded-lg px-3 py-1.5 text-[10px] font-black ${selectedSeason === season ? 'bg-purple-500 text-white' : 'bg-white/5 text-slate-500 hover:text-white'}`}>Phần {season}</button>)}</div>}
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8 xl:grid-cols-10">{visibleEpisodes.map((episode) => <Link key={episode.id} href={`/watch/${movie.slug}?ep=${episode.episodeOrder}`} className={`rounded-lg border px-2 py-2.5 text-center text-[11px] font-bold transition ${activeEpOrder === episode.episodeOrder ? 'border-amber-400 bg-amber-400 text-slate-950 shadow-[0_0_18px_rgba(251,191,36,0.15)]' : 'border-white/5 bg-slate-900 text-slate-400 hover:border-white/15 hover:bg-slate-800 hover:text-white'}`}>{episode.title}</Link>)}</div>
+              {!visibleEpisodes.length && <p className="py-6 text-center text-xs text-slate-600">Không tìm thấy tập phù hợp.</p>}
             </section>
           )}
         </div>
@@ -1172,7 +1228,7 @@ function WatchPageContent() {
           </div>
         )}
       </div>
-      <div className="mx-auto max-w-[1500px] px-4 md:px-8"><MovieComments movieId={movie.id} /></div>
+      <div className="mx-auto max-w-[1500px] px-4 md:px-8"><MovieComments movieId={movie.id} currentTime={currentTime} onSeek={(seconds) => { if (videoRef.current) videoRef.current.currentTime = seconds; }} /></div>
     </div>
   );
 }

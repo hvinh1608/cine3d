@@ -21,7 +21,7 @@ import type { MetaItem, Movie } from '../../types/movie';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-type FilterKey = 'genre' | 'country' | 'year' | 'type' | 'sortBy';
+type FilterKey = 'genre' | 'country' | 'year' | 'type' | 'sortBy' | 'status' | 'vip' | 'dubbed';
 type PaginationItem = number | 'ellipsis-left' | 'ellipsis-right';
 
 const sortLabels: Record<string, string> = {
@@ -85,6 +85,9 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
   const [selectedYear, setSelectedYear] = useState(searchParams.get('year') || '');
   const [selectedType, setSelectedType] = useState(searchParams.get('type') || '');
   const [sortBy, setSortBy] = useState(searchParams.get('sortBy') || 'createdAt');
+  const [selectedStatus, setSelectedStatus] = useState(searchParams.get('status') || '');
+  const [selectedVip, setSelectedVip] = useState(searchParams.get('vip') || '');
+  const [selectedDubbed, setSelectedDubbed] = useState(searchParams.get('dubbed') || '');
   const [currentPage, setCurrentPage] = useState(Math.max(1, Number(searchParams.get('page')) || 1));
 
   const [movies, setMovies] = useState<Movie[]>(initialData.movies);
@@ -153,6 +156,9 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
         if (selectedYear) params.year = selectedYear;
         if (selectedType) params.type = selectedType;
         if (sortBy) params.sortBy = sortBy;
+        if (selectedStatus) params.status = selectedStatus;
+        if (selectedVip) params.vip = selectedVip;
+        if (selectedDubbed) params.dubbed = selectedDubbed;
 
         const response = await api.get(`${API_URL}/movies`, { params, signal: controller.signal });
         const nextMovies = Array.isArray(response.data?.movies) ? response.data.movies : [];
@@ -172,7 +178,7 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
     };
     void fetchMovies();
     return () => controller.abort();
-  }, [query, selectedGenre, selectedCountry, selectedYear, selectedType, sortBy, currentPage, reloadKey]);
+  }, [query, selectedGenre, selectedCountry, selectedYear, selectedType, selectedStatus, selectedVip, selectedDubbed, sortBy, currentPage, reloadKey]);
 
   const activeFilters = useMemo(() => {
     const items: { key: FilterKey; label: string }[] = [];
@@ -181,8 +187,11 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
     if (selectedYear) items.push({ key: 'year', label: `Năm ${selectedYear}` });
     if (selectedType) items.push({ key: 'type', label: typeLabels[selectedType] || selectedType });
     if (sortBy !== 'createdAt') items.push({ key: 'sortBy', label: sortLabels[sortBy] || sortBy });
+    if (selectedStatus) items.push({ key: 'status', label: selectedStatus === 'Ongoing' ? 'Đang chiếu' : selectedStatus === 'Completed' ? 'Hoàn thành' : 'Sắp chiếu' });
+    if (selectedVip) items.push({ key: 'vip', label: selectedVip === 'true' ? 'Phim VIP' : 'Phim miễn phí' });
+    if (selectedDubbed) items.push({ key: 'dubbed', label: 'Có thuyết minh' });
     return items;
-  }, [countries, genres, selectedCountry, selectedGenre, selectedType, selectedYear, sortBy]);
+  }, [countries, genres, selectedCountry, selectedDubbed, selectedGenre, selectedStatus, selectedType, selectedVip, selectedYear, sortBy]);
 
   const applySearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -199,6 +208,9 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
     if (key === 'year') setSelectedYear(value);
     if (key === 'type') setSelectedType(value);
     if (key === 'sortBy') setSortBy(value || 'createdAt');
+    if (key === 'status') setSelectedStatus(value);
+    if (key === 'vip') setSelectedVip(value);
+    if (key === 'dubbed') setSelectedDubbed(value);
     setCurrentPage(1);
     updateUrl({ [key]: value, page: '' });
   };
@@ -211,6 +223,7 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
     setSelectedYear('');
     setSelectedType('');
     setSortBy('createdAt');
+    setSelectedStatus(''); setSelectedVip(''); setSelectedDubbed('');
     setCurrentPage(1);
     router.replace('/search', { scroll: false });
   };
@@ -301,12 +314,15 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
           </form>
 
           {showFilters && (
-            <div className="mt-5 grid grid-cols-1 gap-4 border-t border-white/10 pt-5 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="mt-5 grid grid-cols-1 gap-4 border-t border-white/10 pt-5 sm:grid-cols-2 lg:grid-cols-4">
               <FilterSelect label="Thể loại" value={selectedGenre} onChange={(value) => changeFilter('genre', value)} options={genres.map((item) => ({ value: item.slug, label: item.name }))} placeholder="Tất cả thể loại" />
               <FilterSelect label="Quốc gia" value={selectedCountry} onChange={(value) => changeFilter('country', value)} options={countries.map((item) => ({ value: item.slug, label: item.name }))} placeholder="Tất cả quốc gia" />
               <FilterSelect label="Năm phát hành" value={selectedYear} onChange={(value) => changeFilter('year', value)} options={years.map((year) => ({ value: String(year), label: String(year) }))} placeholder="Tất cả các năm" />
               <FilterSelect label="Định dạng" value={selectedType} onChange={(value) => changeFilter('type', value)} options={Object.entries(typeLabels).map(([value, label]) => ({ value, label }))} placeholder="Tất cả định dạng" />
               <FilterSelect label="Sắp xếp" value={sortBy} onChange={(value) => changeFilter('sortBy', value)} options={Object.entries(sortLabels).map(([value, label]) => ({ value, label }))} />
+              <FilterSelect label="Trạng thái" value={selectedStatus} onChange={(value) => changeFilter('status', value)} options={[{ value: 'Ongoing', label: 'Đang chiếu' }, { value: 'Completed', label: 'Hoàn thành' }, { value: 'Upcoming', label: 'Sắp chiếu' }]} placeholder="Mọi trạng thái" />
+              <FilterSelect label="Quyền xem" value={selectedVip} onChange={(value) => changeFilter('vip', value)} options={[{ value: 'true', label: 'VIP' }, { value: 'false', label: 'Miễn phí' }]} placeholder="Tất cả" />
+              <FilterSelect label="Âm thanh" value={selectedDubbed} onChange={(value) => changeFilter('dubbed', value)} options={[{ value: 'true', label: 'Có thuyết minh' }]} placeholder="Tất cả" />
             </div>
           )}
         </div>
