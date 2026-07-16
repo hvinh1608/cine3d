@@ -8,6 +8,7 @@ import { useStore } from '../../../hooks/useStore';
 import axios from '../../../lib/api';
 import Hls from 'hls.js';
 import type { Episode, Movie, VideoSource } from '../../../types/movie';
+import MovieComments from '../../../components/community/MovieComments';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -1158,6 +1159,7 @@ function WatchPageContent() {
           </div>
         )}
       </div>
+      <MovieComments movieId={movie.id} />
     </div>
   );
 }
