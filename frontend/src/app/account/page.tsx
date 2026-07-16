@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { AxiosError } from 'axios';
-import { User, Lock, Mail, Heart, History, Play, Bookmark, Trash2, LogOut, Check, Save, Crown, Upload, SlidersHorizontal } from 'lucide-react';
+import { User, Lock, Mail, Heart, History, Play, Bookmark, Trash2, LogOut, Check, Save, Crown, Upload, SlidersHorizontal, Trophy, Clock3, Flame } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 import GoogleSignInButton from '../../components/auth/GoogleSignInButton';
@@ -28,7 +28,8 @@ export default function AccountPage() {
   const { user, setUser, accessToken, setSession, hasHydrated, authReady, favorites, setFavorites, watchHistory, setWatchHistory, watchlist, setWatchlist, logout, showToast, selectedProfileId, setProfiles } = useStore();
 
   // Tab State
-  const [activeTab, setActiveTab] = useState<'profile' | 'experience' | 'favorites' | 'watchlist' | 'history'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'experience' | 'insights' | 'favorites' | 'watchlist' | 'history'>('profile');
+  const [viewingInsights, setViewingInsights] = useState<{ totalHours: number; moviesStarted: number; completedMovies: number; streakDays: number; favoriteGenres: { name: string; count: number }[]; badges: { id: string; name: string; description: string; unlocked: boolean }[] } | null>(null);
   const [historySearch, setHistorySearch] = useState('');
   const [historyFilter, setHistoryFilter] = useState<'all' | 'watching' | 'completed'>('all');
   const [selectedHistory, setSelectedHistory] = useState<Set<string>>(() => new Set());
@@ -86,11 +87,13 @@ export default function AccountPage() {
       axios.get(`${API_URL}/user/favorites`),
       axios.get(`${API_URL}/user/history`),
       axios.get(`${API_URL}/user/watchlist`),
-    ]).then(([favsRes, historyRes, watchlistRes]) => {
+      axios.get(`${API_URL}/user/viewing-insights`),
+    ]).then(([favsRes, historyRes, watchlistRes, insightsRes]) => {
       if (!active) return;
       setFavorites(favsRes.data);
       setWatchHistory(historyRes.data);
       setWatchlist(watchlistRes.data);
+      setViewingInsights(insightsRes.data);
     }).catch((error) => {
       console.warn('Không tải được favorites/history/watchlist.', error);
     });
@@ -533,6 +536,8 @@ export default function AccountPage() {
             <span>Phim Yêu Thích ({favorites.length})</span>
           </button>
 
+          <button onClick={() => setActiveTab('insights')} className={`flex items-center space-x-1.5 border-b-2 pb-3 transition-colors ${activeTab === 'insights' ? 'border-amber-400 text-white' : 'border-transparent text-slate-400 hover:text-slate-200'}`}><Trophy className="h-4 w-4" /><span>Thành Tích</span></button>
+
           <button
             onClick={() => setActiveTab('watchlist')}
             className={`pb-3 flex items-center space-x-1.5 transition-colors border-b-2 ${
@@ -557,6 +562,13 @@ export default function AccountPage() {
         {/* Tab Content Panels */}
         <div className="flex-grow min-w-0">
           {activeTab === 'experience' && <ExperienceCenter />}
+
+          {activeTab === 'insights' && (
+            <section className="space-y-6">
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">{[[Clock3, 'Giờ đã xem', viewingInsights?.totalHours || 0, 'text-cyan-400'], [Play, 'Phim đã bắt đầu', viewingInsights?.moviesStarted || 0, 'text-purple-400'], [Check, 'Đã hoàn thành', viewingInsights?.completedMovies || 0, 'text-emerald-400'], [Flame, 'Chuỗi ngày', viewingInsights?.streakDays || 0, 'text-orange-400']].map(([Icon, label, value, color]) => { const StatIcon = Icon as typeof Clock3; return <div key={String(label)} className="rounded-2xl border border-white/5 bg-slate-950/60 p-5"><StatIcon className={`h-5 w-5 ${color}`} /><p className="mt-3 text-2xl font-black">{String(value)}</p><p className="mt-1 text-[10px] font-bold uppercase text-slate-500">{String(label)}</p></div>; })}</div>
+              <div className="grid gap-5 lg:grid-cols-[1fr_1.5fr]"><div className="rounded-2xl border border-white/5 bg-slate-950/60 p-5"><h3 className="text-sm font-black">Thể loại yêu thích</h3><div className="mt-4 space-y-3">{(viewingInsights?.favoriteGenres || []).map((genre, index) => <div key={genre.name}><div className="flex justify-between text-xs"><span>{genre.name}</span><span className="text-slate-500">{genre.count} phim</span></div><div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-800"><div className="h-full rounded-full bg-gradient-to-r from-red-500 to-purple-500" style={{ width: `${Math.max(12, 100 - index * 18)}%` }} /></div></div>)}{!viewingInsights?.favoriteGenres.length && <p className="py-8 text-center text-xs text-slate-600">Xem thêm phim để có thống kê thể loại.</p>}</div></div><div className="rounded-2xl border border-white/5 bg-slate-950/60 p-5"><h3 className="flex items-center gap-2 text-sm font-black"><Trophy className="h-4 w-4 text-amber-400" /> Huy hiệu</h3><div className="mt-4 grid gap-3 sm:grid-cols-2">{(viewingInsights?.badges || []).map((badge) => <div key={badge.id} className={`rounded-xl border p-3 ${badge.unlocked ? 'border-amber-400/20 bg-amber-400/5' : 'border-white/5 bg-black/20 opacity-45'}`}><div className="flex items-center gap-2"><span className={`grid h-8 w-8 place-items-center rounded-full ${badge.unlocked ? 'bg-amber-400 text-black' : 'bg-slate-800 text-slate-600'}`}><Trophy className="h-4 w-4" /></span><div><p className="text-xs font-black">{badge.name}</p><p className="mt-0.5 text-[9px] text-slate-500">{badge.description}</p></div></div></div>)}</div></div></div>
+            </section>
+          )}
 
           {activeTab === 'profile' && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

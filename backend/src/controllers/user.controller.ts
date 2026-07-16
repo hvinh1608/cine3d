@@ -317,6 +317,35 @@ export const getWatchHistory = async (req: AuthenticatedRequest, res: Response) 
   }
 };
 
+export const getViewingInsights = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ message: 'Unauthorized.' });
+  try {
+    const profileId = await getOwnedProfileId(req);
+    if (hasRequestedProfile(req) && !profileId) return res.status(403).json({ message: 'Hồ sơ không hợp lệ.' });
+    const include = { movie: { include: { movieGenres: { include: { genre: true } } } } } as const;
+    const history = profileId
+      ? await prisma.profileWatchHistory.findMany({ where: { profileId }, include })
+      : await prisma.watchHistory.findMany({ where: { userId: req.user.id }, include });
+    const totalSeconds = history.reduce((sum, item) => sum + Math.min(item.watchedTime, item.duration || item.watchedTime), 0);
+    const completedMovies = history.filter((item) => item.duration > 0 && item.watchedTime / item.duration >= 0.9).length;
+    const genreCounts = new Map<string, number>();
+    history.forEach((item) => item.movie.movieGenres.forEach(({ genre }) => genreCounts.set(genre.name, (genreCounts.get(genre.name) || 0) + 1)));
+    const favoriteGenres = [...genreCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, count]) => ({ name, count }));
+    const activityDays = new Set(history.map((item) => item.updatedAt.toISOString().slice(0, 10)));
+    let streakDays = 0;
+    const cursor = new Date();
+    while (activityDays.has(cursor.toISOString().slice(0, 10))) { streakDays += 1; cursor.setUTCDate(cursor.getUTCDate() - 1); }
+    const badges = [
+      { id: 'first_movie', name: 'Khởi đầu điện ảnh', description: 'Xem bộ phim đầu tiên', unlocked: history.length >= 1 },
+      { id: 'five_movies', name: 'Mọt phim tập sự', description: 'Xem 5 bộ phim', unlocked: history.length >= 5 },
+      { id: 'ten_hours', name: 'Đêm điện ảnh', description: 'Xem tổng cộng 10 giờ', unlocked: totalSeconds >= 10 * 3600 },
+      { id: 'finisher', name: 'Cày trọn bộ', description: 'Hoàn thành 3 phim', unlocked: completedMovies >= 3 },
+      { id: 'streak_7', name: 'Không thể rời mắt', description: 'Hoạt động 7 ngày liên tiếp', unlocked: streakDays >= 7 },
+    ];
+    return res.json({ totalHours: Number((totalSeconds / 3600).toFixed(1)), moviesStarted: history.length, completedMovies, streakDays, favoriteGenres, badges });
+  } catch (error) { return internalError(res, 'Không thể tải thống kê xem phim.', error); }
+};
+
 export const saveWatchProgress = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ message: 'Unauthorized.' });
   const { movieId: movieRef, episodeId, watchedTime, duration } = req.body;

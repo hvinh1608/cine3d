@@ -30,6 +30,7 @@ import {
   getWatchlist,
   toggleWatchlist,
   getWatchHistory,
+  getViewingInsights,
   saveWatchProgress,
   getNotifications,
   markNotificationRead,
@@ -152,6 +153,7 @@ router.post('/user/favorites/:movieId', authenticateToken as any, toggleFavorite
 router.get('/user/watchlist', authenticateToken as any, getWatchlist as any);
 router.post('/user/watchlist/:movieId', authenticateToken as any, toggleWatchlist as any);
 router.get('/user/history', authenticateToken as any, getWatchHistory as any);
+router.get('/user/viewing-insights', authenticateToken as any, getViewingInsights as any);
 router.post('/user/history', authenticateToken as any, saveWatchProgress as any);
 router.delete('/user/history/:id', authenticateToken as any, deleteWatchHistory as any);
 router.post('/user/history/bulk-delete', authenticateToken as any, deleteWatchHistoryBulk as any);
