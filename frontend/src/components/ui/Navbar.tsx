@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { ArrowRight, Search, SearchX, LogOut, ShieldAlert, Sparkles, Menu, X, Bell, Crown, History, Trash2, Home, User, Users, ChevronDown, CalendarDays, Clapperboard } from 'lucide-react';
+import { ArrowRight, Search, SearchX, LogOut, ShieldAlert, Sparkles, Menu, X, Bell, Crown, History, Trash2, Home, User, Users, ChevronDown, CalendarDays, Clapperboard, MessageCircleQuestion } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 import type { Movie } from '../../types/movie';
@@ -528,6 +528,8 @@ export default function Navbar() {
                   <div className="absolute right-0 top-full mt-3 w-52 rounded-2xl border border-white/10 bg-[#0b0c12]/95 p-2 text-xs font-semibold text-slate-300 shadow-2xl backdrop-blur-xl">
                     <Link href="/account" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-white/5 hover:text-white"><User className="h-4 w-4" /> Tài khoản</Link>
                     {user.role === 'ADMIN' && <Link href="/admin" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-purple-300 transition hover:bg-purple-500/10"><ShieldAlert className="h-4 w-4" /> Quản trị</Link>}
+                    <Link href="/feedback" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-amber-300 transition hover:bg-amber-500/10"><MessageCircleQuestion className="h-4 w-4" /> Góp ý & hỗ trợ</Link>
+                    <div className="my-1 h-px bg-white/5" />
                     <button type="button" onClick={() => { logout(); setProfileOpen(false); router.push('/account'); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-red-400 transition hover:bg-red-500/10"><LogOut className="h-4 w-4" /> Đăng xuất</button>
                   </div>
                 )}
@@ -608,6 +610,7 @@ export default function Navbar() {
             ) : user ? (
               <>
                 <Link href="/account" onClick={() => setMobileMenuOpen(false)} className="hover:text-yellow-500 py-1 border-b border-white/5">Tài Khoản</Link>
+                <Link href="/feedback" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center gap-1.5 border-b border-white/5 py-1 text-amber-300 hover:text-amber-200"><MessageCircleQuestion className="h-4 w-4" /> Góp ý & hỗ trợ</Link>
                 {user.role === 'ADMIN' && (
                   <Link href="/admin" onClick={() => setMobileMenuOpen(false)} className="text-purple-400 hover:text-purple-300 py-1 border-b border-white/5">Admin Dashboard</Link>
                 )}
