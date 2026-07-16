@@ -58,6 +58,8 @@ import {
   createEpisodesBulk,
   updateEpisode,
   deleteEpisode,
+  getVideoSourceHealth,
+  checkVideoSources,
   getUsers,
   toggleUserLock,
   toggleUserVip,
@@ -250,6 +252,9 @@ router.post('/admin/episodes', authenticateToken as any, requireAdmin as any, cr
 router.post('/admin/episodes/bulk', authenticateToken as any, requireAdmin as any, createEpisodesBulk as any);
 router.put('/admin/episodes/:id', authenticateToken as any, requireAdmin as any, updateEpisode);
 router.delete('/admin/episodes/:id', authenticateToken as any, requireAdmin as any, deleteEpisode);
+router.get('/admin/source-health', authenticateToken as any, requireAdmin as any, getVideoSourceHealth as any);
+router.post('/admin/source-health/check', authenticateToken as any, requireAdmin as any, checkVideoSources as any);
+router.post('/admin/source-health/:id/check', authenticateToken as any, requireAdmin as any, checkVideoSources as any);
 router.get('/admin/users', authenticateToken as any, requireAdmin as any, getUsers);
 router.put('/admin/users/:id/lock', authenticateToken as any, requireAdmin as any, toggleUserLock);
 router.put('/admin/users/:id/vip', authenticateToken as any, requireAdmin as any, toggleUserVip);

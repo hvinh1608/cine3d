@@ -9,6 +9,7 @@ import path from 'path';
 import apiRouter from './routes/api';
 import { prisma } from './lib/prisma';
 import { sendPushToUsers } from './services/push.service';
+import { checkDueVideoSources } from './services/source-health.service';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -255,6 +256,11 @@ const releaseNotificationTimer = setInterval(() => {
 }, 60_000);
 releaseNotificationTimer.unref();
 
+const sourceHealthTimer = setInterval(() => {
+  void checkDueVideoSources(20).catch((error) => console.warn('Video source health check failed.', error));
+}, 30 * 60_000);
+sourceHealthTimer.unref();
+
 server.listen(PORT, () => {
   console.log(`===============================================`);
   console.log(`  3D Movie Streaming Backend is running!     `);
@@ -268,6 +274,7 @@ async function shutdown(signal: string) {
   clearInterval(watchRoomCleanup);
   clearInterval(analyticsCleanup);
   clearInterval(releaseNotificationTimer);
+  clearInterval(sourceHealthTimer);
   server.close(async () => {
     io.close();
     await prisma.$disconnect();

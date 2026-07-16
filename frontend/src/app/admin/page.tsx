@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shield, Film, ListVideo, AlertTriangle, Users, BarChart3, Plus, Trash2, Edit, X, Lock, Unlock, RefreshCw, Tv, Subtitles, Star, ReceiptText, CheckCircle2 } from 'lucide-react';
+import { Shield, Film, ListVideo, AlertTriangle, Users, BarChart3, Plus, Trash2, Edit, X, Lock, Unlock, RefreshCw, Tv, Subtitles, Star, ReceiptText, CheckCircle2, ServerCrash } from 'lucide-react';
 import type { AxiosError } from 'axios';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
@@ -25,6 +25,7 @@ type MetaEntity = { id: string; name: string; slug: string };
 type AdminStats = { totalUsers: number; totalMovies: number; totalEpisodes: number; totalViews: number; pendingReports: number; topMovies: { id: string; title: string; views: number; ratingAvg: number }[]; recentReports: AdminReport[] };
 type AnalyticsEventItem = { id: string; name?: string; path?: string | null; movieId?: string | null; metadata?: unknown; createdAt: string };
 type AnalyticsSummary = { periodDays: number; activeUsers: number; events: Record<string, number>; recentPlayerErrors: AnalyticsEventItem[]; recentQualityEvents?: AnalyticsEventItem[] };
+type SourceHealth = { id: string; server: string; quality: string; url: string; healthStatus: string; lastCheckedAt?: string | null; lastStatusCode?: number | null; lastResponseTimeMs?: number | null; lastError?: string | null; consecutiveFailures: number; episode: { title: string; episodeOrder: number; movie: { title: string; slug: string } } };
 
 const isUserVipActive = (user: AdminUser) => Boolean(user.isVip || (user.vipExpiresAt && new Date(user.vipExpiresAt).getTime() > Date.now()));
 const requestMessage = (error: unknown, fallback: string) => (error as AxiosError<{ message?: string }>).response?.data?.message || fallback;
@@ -41,7 +42,7 @@ export default function AdminPage() {
   }, [user, router]);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'stats' | 'analytics' | 'movies' | 'episodes' | 'users' | 'vip' | 'reports'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'analytics' | 'sources' | 'movies' | 'episodes' | 'users' | 'vip' | 'reports'>('stats');
 
   // Stats States
   const [stats, setStats] = useState<AdminStats>({
@@ -54,6 +55,8 @@ export default function AdminPage() {
     recentReports: [],
   });
   const [analytics, setAnalytics] = useState<AnalyticsSummary>({ periodDays: 7, activeUsers: 0, events: {}, recentPlayerErrors: [] });
+  const [sourceHealth, setSourceHealth] = useState<{ sources: SourceHealth[]; totals: Record<string, number> }>({ sources: [], totals: {} });
+  const [checkingSources, setCheckingSources] = useState(false);
 
   // Entities List States
   const [movies, setMovies] = useState<AdminMovie[]>([]);
@@ -209,6 +212,29 @@ export default function AdminPage() {
       });
     }
   }, [selectedMovieId, movies]);
+
+  const loadSourceHealth = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      const response = await axios.get(`${API_URL}/admin/source-health`, { headers: { Authorization: `Bearer ${accessToken}` } });
+      setSourceHealth({ sources: response.data?.sources || [], totals: response.data?.totals || {} });
+    } catch {
+      showToast('Không tải được trạng thái nguồn phát.', 'error');
+    }
+  }, [accessToken, showToast]);
+
+  const runSourceChecks = async (sourceId?: string) => {
+    setCheckingSources(true);
+    try {
+      await axios.post(`${API_URL}/admin/source-health/${sourceId ? `${sourceId}/check` : 'check'}`, {}, { headers: { Authorization: `Bearer ${accessToken}` } });
+      await loadSourceHealth();
+      showToast(sourceId ? 'Đã kiểm tra nguồn phát.' : 'Đã hoàn tất đợt kiểm tra nguồn.', 'success');
+    } catch (error) {
+      showToast(requestMessage(error, 'Không thể kiểm tra nguồn phát.'), 'error');
+    } finally {
+      setCheckingSources(false);
+    }
+  };
 
   // Auth Guard check
   if (!user || user.role !== 'ADMIN') {
@@ -585,6 +611,10 @@ export default function AdminPage() {
           <span>Quản Lý Tập Phim</span>
         </button>
 
+        <button onClick={() => { setActiveTab('sources'); void loadSourceHealth(); }} className={`flex items-center space-x-2.5 rounded-xl px-4 py-3 text-xs font-bold transition-all md:text-sm ${activeTab === 'sources' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
+          <ServerCrash className="h-4 w-4" /><span>Kiểm Tra Nguồn Phát</span>
+        </button>
+
         <button
           onClick={() => setActiveTab('users')}
           className={`flex items-center space-x-2.5 px-4 py-3 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
@@ -713,6 +743,14 @@ export default function AdminPage() {
             </div>
             <div><h3 className="mb-3 text-sm font-black uppercase text-slate-300">Lỗi phát gần đây</h3><div className="space-y-2">{analytics.recentPlayerErrors.map((event) => <div key={event.id} className="rounded-xl border border-red-500/10 bg-red-950/10 p-3"><div className="flex flex-wrap justify-between gap-2 text-xs"><span className="font-bold text-red-300">{event.movieId || event.path || 'Không xác định'}</span><span className="text-slate-600">{new Date(event.createdAt).toLocaleString('vi-VN')}</span></div><pre className="mt-2 overflow-x-auto text-[10px] text-slate-500">{JSON.stringify(event.metadata || {}, null, 2)}</pre></div>)}{!analytics.recentPlayerErrors.length && <p className="py-8 text-center text-xs text-emerald-400">Chưa ghi nhận lỗi phát nào.</p>}</div></div>
             <div><h3 className="mb-3 text-sm font-black uppercase text-slate-300">Chất lượng phát gần đây</h3><div className="grid gap-2 md:grid-cols-2">{(analytics.recentQualityEvents || []).slice(0, 12).map((event) => <div key={event.id} className="rounded-xl border border-cyan-500/10 bg-cyan-950/10 p-3"><div className="flex justify-between text-[10px]"><span className="font-black uppercase text-cyan-300">{event.name}</span><span className="text-slate-600">{new Date(event.createdAt).toLocaleTimeString('vi-VN')}</span></div><pre className="mt-2 overflow-x-auto text-[9px] text-slate-500">{JSON.stringify(event.metadata || {}, null, 2)}</pre></div>)}</div></div>
+          </div>
+        )}
+
+        {activeTab === 'sources' && (
+          <div className="space-y-6 animate-fade-in">
+            <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="flex items-center text-xl font-black uppercase tracking-wide text-purple-400"><ServerCrash className="mr-2 h-5 w-5" /> Trung tâm nguồn phát</h2><p className="mt-2 text-xs text-slate-500">Nguồn được kiểm tra nền mỗi 6 giờ; tác vụ nền xử lý tối đa 20 nguồn mỗi lượt.</p></div><button type="button" disabled={checkingSources} onClick={() => void runSourceChecks()} className="flex items-center gap-2 rounded-xl bg-purple-600 px-4 py-2.5 text-xs font-black disabled:opacity-50"><RefreshCw className={`h-4 w-4 ${checkingSources ? 'animate-spin' : ''}`} /> Kiểm tra 50 nguồn</button></div>
+            <div className="grid grid-cols-3 gap-3">{[['Tốt', sourceHealth.totals.healthy || 0, 'text-emerald-400'], ['Lỗi', sourceHealth.totals.failed || 0, 'text-red-400'], ['Chưa kiểm tra', sourceHealth.totals.unknown || 0, 'text-slate-400']].map(([label, value, color]) => <div key={String(label)} className="rounded-2xl border border-white/5 bg-slate-900/60 p-4"><p className="text-[9px] font-black uppercase text-slate-500">{label}</p><p className={`mt-1 text-2xl font-black ${color}`}>{value}</p></div>)}</div>
+            <div className="overflow-x-auto rounded-2xl border border-white/5 bg-slate-900/40"><table className="w-full min-w-[850px] text-left text-xs"><thead><tr className="border-b border-white/10 text-[9px] uppercase text-slate-500"><th className="p-3">Phim / tập</th><th className="p-3">Server</th><th className="p-3">Trạng thái</th><th className="p-3">Phản hồi</th><th className="p-3">Kiểm tra gần nhất</th><th className="p-3 text-right">Thao tác</th></tr></thead><tbody>{sourceHealth.sources.map((source) => <tr key={source.id} className="border-b border-white/5"><td className="p-3"><div className="max-w-[230px] truncate font-bold text-white">{source.episode.movie.title}</div><div className="mt-1 text-[10px] text-slate-500">Tập {source.episode.episodeOrder} · {source.episode.title}</div></td><td className="p-3"><div>{source.server} · {source.quality}</div><div className="mt-1 max-w-[220px] truncate text-[9px] text-slate-600" title={source.url}>{source.url}</div></td><td className="p-3"><span className={`rounded-full px-2 py-1 text-[9px] font-black uppercase ${source.healthStatus === 'healthy' ? 'bg-emerald-400/10 text-emerald-400' : source.healthStatus === 'failed' ? 'bg-red-400/10 text-red-400' : 'bg-white/5 text-slate-500'}`}>{source.healthStatus === 'healthy' ? 'Tốt' : source.healthStatus === 'failed' ? `Lỗi ×${source.consecutiveFailures}` : 'Chưa rõ'}</span>{source.lastError && <div className="mt-2 max-w-[180px] truncate text-[9px] text-red-300" title={source.lastError}>{source.lastError}</div>}</td><td className="p-3 text-slate-400">{source.lastStatusCode || '—'} · {source.lastResponseTimeMs !== null && source.lastResponseTimeMs !== undefined ? `${source.lastResponseTimeMs} ms` : '—'}</td><td className="p-3 text-[10px] text-slate-500">{source.lastCheckedAt ? new Date(source.lastCheckedAt).toLocaleString('vi-VN') : 'Chưa kiểm tra'}</td><td className="p-3 text-right"><button type="button" disabled={checkingSources} onClick={() => void runSourceChecks(source.id)} className="rounded-lg border border-white/10 px-2.5 py-1.5 text-[10px] font-bold text-cyan-300 hover:bg-white/5 disabled:opacity-40">Kiểm tra</button></td></tr>)}{!sourceHealth.sources.length && <tr><td colSpan={6} className="py-12 text-center text-slate-600">Chưa có nguồn phát trong cơ sở dữ liệu.</td></tr>}</tbody></table></div>
           </div>
         )}
 

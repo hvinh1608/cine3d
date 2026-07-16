@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma';
 import { internalError } from '../lib/http-error';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { sendPushToUsers } from '../services/push.service';
+import { checkDueVideoSources, checkVideoSource } from '../services/source-health.service';
 
 async function resolveCountryId(value: unknown): Promise<string | null> {
   if (typeof value !== 'string' || !value.trim()) return null;
@@ -526,6 +527,36 @@ export const deleteEpisode = async (req: Request, res: Response) => {
     return res.json({ message: 'Episode deleted successfully.' });
   } catch (error: any) {
     return internalError(res, 'Error deleting episode.', error);
+  }
+};
+
+export const getVideoSourceHealth = async (_req: Request, res: Response) => {
+  try {
+    const [sources, totals] = await Promise.all([
+      prisma.videoSource.findMany({
+        orderBy: [{ healthStatus: 'asc' }, { consecutiveFailures: 'desc' }, { lastCheckedAt: 'asc' }],
+        take: 200,
+        include: { episode: { select: { title: true, episodeOrder: true, movie: { select: { title: true, slug: true } } } } },
+      }),
+      prisma.videoSource.groupBy({ by: ['healthStatus'], _count: { _all: true } }),
+    ]);
+    return res.json({ sources, totals: Object.fromEntries(totals.map((item) => [item.healthStatus, item._count._all])) });
+  } catch (error) {
+    return internalError(res, 'Không thể tải trạng thái nguồn phát.', error);
+  }
+};
+
+export const checkVideoSources = async (req: Request, res: Response) => {
+  try {
+    if (req.params.id) {
+      const source = await prisma.videoSource.findUnique({ where: { id: req.params.id }, select: { id: true, url: true, consecutiveFailures: true } });
+      if (!source) return res.status(404).json({ message: 'Không tìm thấy nguồn phát.' });
+      return res.json(await checkVideoSource(source));
+    }
+    const results = await checkDueVideoSources(50);
+    return res.json({ checked: results.length, failed: results.filter((result) => result.status === 'rejected').length });
+  } catch (error) {
+    return internalError(res, 'Không thể kiểm tra nguồn phát.', error);
   }
 };
 

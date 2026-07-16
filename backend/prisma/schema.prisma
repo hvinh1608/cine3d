@@ -265,10 +265,17 @@ model VideoSource {
   url       String // HLS link (.m3u8) or MP4 link
   type      String   @default("hls") // hls, mp4
   isPremium Boolean  @default(false)
+  healthStatus       String    @default("unknown")
+  lastCheckedAt      DateTime?
+  lastStatusCode     Int?
+  lastResponseTimeMs Int?
+  lastError          String?
+  consecutiveFailures Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([episodeId])
+  @@index([healthStatus, lastCheckedAt])
 }
 
 model Subtitle {
