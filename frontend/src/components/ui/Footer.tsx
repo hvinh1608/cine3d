@@ -61,8 +61,8 @@ export default function Footer() {
               <Link href="#" className="hover:text-white transition-colors">Khiếu nại bản quyền</Link>
             </li>
             <li>
-              <Link href="#" className="hover:text-white transition-colors flex items-center">
-                <HelpCircle className="w-3.5 h-3.5 mr-1" /> Trung tâm hỗ trợ
+              <Link href="/feedback" className="hover:text-white transition-colors flex items-center">
+                <HelpCircle className="w-3.5 h-3.5 mr-1" /> Góp ý & hỗ trợ
               </Link>
             </li>
           </ul>

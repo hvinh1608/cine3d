@@ -113,6 +113,7 @@ import {
   revokeSession,
   revokeOtherSessions,
 } from '../controllers/experience.controller';
+import { createFeedback, getMyFeedback, getAdminFeedback, updateFeedback } from '../controllers/feedback.controller';
 
 const router = Router();
 
@@ -180,6 +181,8 @@ router.get('/push/public-key', getPushKey as any);
 router.post('/push/subscribe', authenticateToken as any, subscribePush as any);
 router.delete('/push/subscribe', authenticateToken as any, unsubscribePush as any);
 router.post('/analytics/events', rateLimit(60 * 1000, 120), optionalAuthenticate as any, trackAnalytics as any);
+router.post('/feedback', rateLimit(60 * 60 * 1000, 5), authenticateToken as any, createFeedback as any);
+router.get('/feedback/me', authenticateToken as any, getMyFeedback as any);
 
 // --- VIP Checkout Routes ---
 router.get('/vip/plans', getVipPlans as any);
@@ -277,5 +280,7 @@ router.put('/admin/reports/:id/resolve', authenticateToken as any, requireAdmin 
 router.get('/admin/vip-orders', authenticateToken as any, requireAdmin as any, getAdminVipOrders as any);
 router.post('/admin/vip-orders/:id/confirm', authenticateToken as any, requireAdmin as any, confirmVipOrder as any);
 router.post('/admin/vip-orders/:id/cancel', authenticateToken as any, requireAdmin as any, cancelAdminVipOrder as any);
+router.get('/admin/feedback', authenticateToken as any, requireAdmin as any, getAdminFeedback as any);
+router.put('/admin/feedback/:id', authenticateToken as any, requireAdmin as any, updateFeedback as any);
 
 export default router;

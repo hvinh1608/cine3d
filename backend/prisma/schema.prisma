@@ -55,6 +55,7 @@ model User {
   avatarBlob         UserAvatar?
   actorFollows       ActorFollow[]
   directorFollows    DirectorFollow[]
+  feedbacks          Feedback[]
 
   @@index([email])
   @@index([username])
@@ -63,6 +64,24 @@ model User {
   @@index([roleId])
   @@index([isVip])
   @@index([vipExpiresAt])
+}
+
+model Feedback {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category   String
+  subject    String
+  content    String
+  status     String   @default("PENDING")
+  adminReply String?
+  repliedAt  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@index([category])
 }
 
 model UserAvatar {

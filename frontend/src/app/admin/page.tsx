@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shield, Film, ListVideo, AlertTriangle, Users, BarChart3, Plus, Trash2, Edit, X, Lock, Unlock, RefreshCw, Tv, Subtitles, Star, ReceiptText, CheckCircle2, ServerCrash } from 'lucide-react';
+import { Shield, Film, ListVideo, AlertTriangle, Users, BarChart3, Plus, Trash2, Edit, X, Lock, Unlock, RefreshCw, Tv, Subtitles, Star, ReceiptText, CheckCircle2, ServerCrash, MessageSquareText } from 'lucide-react';
 import type { AxiosError } from 'axios';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
@@ -21,6 +21,7 @@ type AdminMovie = {
 type AdminUser = { id: string; email: string; username: string; isLocked: boolean; isVip: boolean; vipExpiresAt?: string | null; role?: { name: string } };
 type AdminReport = { id: string; type: string; content: string; status: string; createdAt: string; user?: { username: string }; movie?: { title: string } | null };
 type AdminVipOrder = { id: string; orderCode: string; status: string; amount: number; durationDays: number; createdAt: string; paidAt?: string | null; user?: { username: string; email: string }; plan?: { name: string } };
+type AdminFeedback = { id: string; category: string; subject: string; content: string; status: string; adminReply?: string | null; createdAt: string; user?: { username: string; email: string } };
 type MetaEntity = { id: string; name: string; slug: string };
 type AdminStats = { totalUsers: number; totalMovies: number; totalEpisodes: number; totalViews: number; pendingReports: number; topMovies: { id: string; title: string; views: number; ratingAvg: number }[]; recentReports: AdminReport[] };
 type AnalyticsEventItem = { id: string; name?: string; path?: string | null; movieId?: string | null; metadata?: unknown; createdAt: string };
@@ -42,7 +43,7 @@ export default function AdminPage() {
   }, [user, router]);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'stats' | 'analytics' | 'sources' | 'movies' | 'episodes' | 'users' | 'vip' | 'reports'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'analytics' | 'sources' | 'movies' | 'episodes' | 'users' | 'vip' | 'reports' | 'feedback'>('stats');
 
   // Stats States
   const [stats, setStats] = useState<AdminStats>({
@@ -67,6 +68,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [reports, setReports] = useState<AdminReport[]>([]);
   const [vipOrders, setVipOrders] = useState<AdminVipOrder[]>([]);
+  const [feedback, setFeedback] = useState<AdminFeedback[]>([]);
   const [countries, setCountries] = useState<MetaEntity[]>([]);
   const [genres, setGenres] = useState<MetaEntity[]>([]);
   
@@ -118,7 +120,7 @@ export default function AdminPage() {
     if (!accessToken) return;
     setLoading(true);
     try {
-      const [statsRes, moviesRes, usersRes, reportsRes, countriesRes, genresRes, vipOrdersRes, analyticsRes] = await Promise.all([
+      const [statsRes, moviesRes, usersRes, reportsRes, countriesRes, genresRes, vipOrdersRes, analyticsRes, feedbackRes] = await Promise.all([
         axios.get(`${API_URL}/admin/stats`, { headers: { Authorization: `Bearer ${accessToken}` } }),
         axios.get(`${API_URL}/admin/movies`, { params: { page: 1, limit: 20 }, headers: { Authorization: `Bearer ${accessToken}` } }),
         axios.get(`${API_URL}/admin/users`, { headers: { Authorization: `Bearer ${accessToken}` } }),
@@ -127,6 +129,7 @@ export default function AdminPage() {
         axios.get(`${API_URL}/admin/genres`, { headers: { Authorization: `Bearer ${accessToken}` } }),
         axios.get(`${API_URL}/admin/vip-orders`, { headers: { Authorization: `Bearer ${accessToken}` } }),
         axios.get(`${API_URL}/admin/analytics`, { headers: { Authorization: `Bearer ${accessToken}` } }),
+        axios.get(`${API_URL}/admin/feedback`, { headers: { Authorization: `Bearer ${accessToken}` } }),
       ]);
 
       setStats(statsRes.data);
@@ -140,6 +143,7 @@ export default function AdminPage() {
       setGenres(genresRes.data || []);
       setVipOrders(vipOrdersRes.data || []);
       setAnalytics(analyticsRes.data);
+      setFeedback(Array.isArray(feedbackRes.data) ? feedbackRes.data : []);
 
       if (!movieCountry && countriesRes.data?.[0]?.id) {
         setMovieCountry(countriesRes.data[0].id);
@@ -159,6 +163,7 @@ export default function AdminPage() {
       setUsers([]);
       setReports([]);
       setVipOrders([]);
+      setFeedback([]);
       showToast('Không tải được dữ liệu quản trị.', 'error');
     } finally {
       setLoading(false);
@@ -553,6 +558,16 @@ export default function AdminPage() {
     }
   };
 
+  const handleFeedback = async (item: AdminFeedback, status: 'REVIEWING' | 'RESOLVED' | 'REJECTED') => {
+    const adminReply = status === 'REVIEWING' ? (item.adminReply || '') : window.prompt('Phản hồi gửi tới thành viên:', item.adminReply || '') ?? undefined;
+    if (adminReply === undefined) return;
+    try {
+      const { data } = await axios.put(`${API_URL}/admin/feedback/${item.id}`, { status, adminReply }, { headers: { Authorization: `Bearer ${accessToken}` } });
+      setFeedback((current) => current.map((entry) => entry.id === item.id ? { ...entry, ...data.feedback } : entry));
+      showToast(data.message, 'success');
+    } catch (error) { showToast(requestMessage(error, 'Không thể cập nhật góp ý.'), 'error'); }
+  };
+
   if (loading) {
     return (
       <div className="flex-grow flex items-center justify-center h-[70vh]">
@@ -638,6 +653,11 @@ export default function AdminPage() {
               {stats.pendingReports}
             </span>
           )}
+        </button>
+
+        <button onClick={() => setActiveTab('feedback')} className={`relative flex items-center space-x-2.5 rounded-xl px-4 py-3 text-xs font-bold transition-all md:text-sm ${activeTab === 'feedback' ? 'bg-amber-500 text-black' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
+          <MessageSquareText className="h-4 w-4" /><span>Góp Ý & Hỗ Trợ</span>
+          {feedback.filter((item) => item.status === 'PENDING').length > 0 && <span className="absolute right-4 top-1/2 flex h-4.5 w-4.5 -translate-y-1/2 items-center justify-center rounded-full bg-red-600 text-[9px] font-black text-white">{feedback.filter((item) => item.status === 'PENDING').length}</span>}
         </button>
 
         <button
@@ -1506,6 +1526,16 @@ export default function AdminPage() {
               ))}
               {vipOrders.length === 0 && <p className="py-10 text-center text-xs text-slate-500">Chưa có đơn VIP nào.</p>}
             </div>
+          </div>
+        )}
+
+        {activeTab === 'feedback' && (
+          <div className="space-y-6 animate-fade-in">
+            <h2 className="flex items-center text-xl font-black uppercase tracking-wide text-amber-400"><MessageSquareText className="mr-2 h-5 w-5" /> Góp ý & hỗ trợ thành viên</h2>
+            <div className="space-y-4">{feedback.map((item) => <article key={item.id} className="rounded-2xl border border-white/5 bg-slate-900/60 p-5 shadow">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="rounded bg-purple-600/20 px-2 py-1 text-[9px] font-black uppercase text-purple-300">{item.category}</span><span className="text-xs font-bold text-slate-500">{item.user?.username} · {item.user?.email}</span><span className={`text-[10px] font-black ${item.status === 'RESOLVED' ? 'text-emerald-400' : item.status === 'PENDING' ? 'text-amber-400' : 'text-cyan-400'}`}>{item.status}</span></div><h3 className="mt-3 font-black text-white">{item.subject}</h3><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-300">{item.content}</p>{item.adminReply && <div className="mt-3 rounded-xl border border-emerald-400/10 bg-emerald-400/5 p-3 text-xs text-emerald-200"><strong>Phản hồi:</strong> {item.adminReply}</div>}<p className="mt-3 text-[10px] text-slate-600">{new Date(item.createdAt).toLocaleString('vi-VN')}</p></div>
+                <div className="flex shrink-0 flex-wrap gap-2"><button onClick={() => void handleFeedback(item, 'REVIEWING')} className="rounded-xl border border-cyan-400/20 px-3 py-2 text-xs font-bold text-cyan-300 hover:bg-cyan-400/10">Đang xem</button><button onClick={() => void handleFeedback(item, 'REJECTED')} className="rounded-xl border border-red-400/20 px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-400/10">Đóng</button><button onClick={() => void handleFeedback(item, 'RESOLVED')} className="rounded-xl bg-emerald-500 px-4 py-2 text-xs font-black text-black hover:bg-emerald-400">Phản hồi & xử lý</button></div>
+              </div></article>)}{!feedback.length && <p className="py-10 text-center text-xs text-slate-500">Chưa có góp ý nào.</p>}</div>
           </div>
         )}
 
