@@ -83,6 +83,34 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
   }
 };
 
+export const getPlayerPreferences = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ message: 'Unauthorized.' });
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.user.id }, select: { playerPreferences: true } });
+    return res.json(user?.playerPreferences || {});
+  } catch (error) { return internalError(res, 'Không thể tải thiết lập trình phát.', error); }
+};
+
+export const updatePlayerPreferences = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ message: 'Unauthorized.' });
+  const autoNext = typeof req.body.autoNext === 'boolean' ? req.body.autoNext : true;
+  const style = req.body.subtitleStyle || {};
+  const preferences = {
+    autoNext,
+    subtitleStyle: {
+      fontSize: Math.min(160, Math.max(75, Number(style.fontSize) || 100)),
+      color: /^#[0-9a-f]{6}$/i.test(style.color) ? style.color : '#ffffff',
+      background: Math.min(100, Math.max(0, Number(style.background) || 0)),
+      offset: Math.min(10, Math.max(-10, Number(style.offset) || 0)),
+      position: Math.min(95, Math.max(50, Number(style.position) || 85)),
+    },
+  };
+  try {
+    await prisma.user.update({ where: { id: req.user.id }, data: { playerPreferences: preferences } });
+    return res.json(preferences);
+  } catch (error) { return internalError(res, 'Không thể lưu thiết lập trình phát.', error); }
+};
+
 // Favorites
 export const getFavorites = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ message: 'Unauthorized.' });

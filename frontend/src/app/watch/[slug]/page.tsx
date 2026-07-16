@@ -71,7 +71,8 @@ function WatchPageContent() {
   const [doubleTapFeedback, setDoubleTapFeedback] = useState<'forward' | 'backward' | null>(null);
   const [autoNext, setAutoNext] = useState(true);
   const [nextEpisodeCountdown, setNextEpisodeCountdown] = useState<number | null>(null);
-  const [subtitleStyle, setSubtitleStyle] = useState({ fontSize: 100, color: '#ffffff', background: 65 });
+  const [subtitleStyle, setSubtitleStyle] = useState({ fontSize: 100, color: '#ffffff', background: 65, offset: 0, position: 85 });
+  const [preferencesReady, setPreferencesReady] = useState(false);
   const [dataSaver, setDataSaver] = useState(false);
   const [episodeQuery, setEpisodeQuery] = useState('');
   const [selectedSeason, setSelectedSeason] = useState(1);
@@ -83,6 +84,7 @@ function WatchPageContent() {
   const playTrackedEpisodeRef = useRef<string | null>(null);
   const loadStartedAtRef = useRef(0);
   const bufferingStartedAtRef = useRef<number | null>(null);
+  const originalCueTimesRef = useRef(new WeakMap<TextTrackCue, { start: number; end: number }>());
 
   useEffect(() => {
     try {
@@ -94,7 +96,19 @@ function WatchPageContent() {
         }
       });
     } catch { /* use defaults */ }
-  }, []);
+    if (!user) queueMicrotask(() => setPreferencesReady(true));
+  }, [user]);
+
+  useEffect(() => {
+    if (!user || !accessToken) return;
+    let active = true;
+    axios.get(`${API_URL}/user/player-preferences`, { headers: { Authorization: `Bearer ${accessToken}` } }).then((response) => {
+      if (!active) return;
+      if (typeof response.data?.autoNext === 'boolean') setAutoNext(response.data.autoNext);
+      if (response.data?.subtitleStyle) setSubtitleStyle((current) => ({ ...current, ...response.data.subtitleStyle }));
+    }).catch(() => {}).finally(() => { if (active) setPreferencesReady(true); });
+    return () => { active = false; };
+  }, [accessToken, user]);
 
   useEffect(() => {
     const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection;
@@ -103,8 +117,35 @@ function WatchPageContent() {
   }, []);
 
   useEffect(() => {
+    if (!preferencesReady) return;
     localStorage.setItem('cine3d-player-preferences', JSON.stringify({ autoNext, subtitleStyle }));
-  }, [autoNext, subtitleStyle]);
+    if (!user || !accessToken) return;
+    const timer = window.setTimeout(() => {
+      void axios.put(`${API_URL}/user/player-preferences`, { autoNext, subtitleStyle }, { headers: { Authorization: `Bearer ${accessToken}` } });
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [accessToken, autoNext, preferencesReady, subtitleStyle, user]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const applyCuePreferences = () => {
+      for (let trackIndex = 0; trackIndex < video.textTracks.length; trackIndex++) {
+        const cues = video.textTracks[trackIndex].cues;
+        if (!cues) continue;
+        for (const cue of Array.from(cues)) {
+          const original = originalCueTimesRef.current.get(cue) || { start: cue.startTime, end: cue.endTime };
+          originalCueTimesRef.current.set(cue, original);
+          cue.startTime = Math.max(0, original.start + subtitleStyle.offset);
+          cue.endTime = Math.max(cue.startTime + 0.1, original.end + subtitleStyle.offset);
+          if ('line' in cue) (cue as VTTCue).line = subtitleStyle.position;
+        }
+      }
+    };
+    applyCuePreferences();
+    const timer = window.setTimeout(applyCuePreferences, 300);
+    return () => window.clearTimeout(timer);
+  }, [activeEpisode, activeSubTrack, subtitleStyle.offset, subtitleStyle.position]);
 
   // Helper to trigger controls visibility and reset auto-hide timer
   const triggerControls = useCallback(() => {
@@ -997,6 +1038,8 @@ function WatchPageContent() {
                           <label className="block text-[10px] font-bold uppercase text-slate-500">Cỡ chữ: {subtitleStyle.fontSize}%<input type="range" min="75" max="160" step="5" value={subtitleStyle.fontSize} onChange={(event) => setSubtitleStyle((current) => ({ ...current, fontSize: Number(event.target.value) }))} className="mt-2 w-full accent-red-500" /></label>
                           <label className="flex items-center justify-between text-xs text-slate-300">Màu chữ<input type="color" value={subtitleStyle.color} onChange={(event) => setSubtitleStyle((current) => ({ ...current, color: event.target.value }))} className="h-7 w-12 rounded border-0 bg-transparent" /></label>
                           <label className="block text-[10px] font-bold uppercase text-slate-500">Nền phụ đề: {subtitleStyle.background}%<input type="range" min="0" max="100" step="5" value={subtitleStyle.background} onChange={(event) => setSubtitleStyle((current) => ({ ...current, background: Number(event.target.value) }))} className="mt-2 w-full accent-red-500" /></label>
+                          <label className="block text-[10px] font-bold uppercase text-slate-500">Độ trễ: {subtitleStyle.offset > 0 ? '+' : ''}{subtitleStyle.offset.toFixed(1)} giây<input type="range" min="-10" max="10" step="0.5" value={subtitleStyle.offset} onChange={(event) => setSubtitleStyle((current) => ({ ...current, offset: Number(event.target.value) }))} className="mt-2 w-full accent-cyan-500" /></label>
+                          <label className="block text-[10px] font-bold uppercase text-slate-500">Vị trí: {subtitleStyle.position}%<input type="range" min="50" max="95" step="5" value={subtitleStyle.position} onChange={(event) => setSubtitleStyle((current) => ({ ...current, position: Number(event.target.value) }))} className="mt-2 w-full accent-purple-500" /></label>
                         </div>
                       </div>
                     )}

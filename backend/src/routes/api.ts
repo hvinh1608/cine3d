@@ -35,6 +35,8 @@ import {
   markNotificationRead,
   deleteWatchHistory,
   uploadAvatar,
+  getPlayerPreferences,
+  updatePlayerPreferences,
 } from '../controllers/user.controller';
 import {
   getComments,
@@ -141,6 +143,8 @@ router.post('/movies/:id/view', rateLimit(60 * 1000, 20), incrementViews);
 
 // --- User Routes ---
 router.put('/user/profile', authenticateToken as any, updateProfile as any);
+router.get('/user/player-preferences', authenticateToken as any, getPlayerPreferences as any);
+router.put('/user/player-preferences', authenticateToken as any, updatePlayerPreferences as any);
 router.post('/user/profile/avatar-upload', authenticateToken as any, uploadAvatar as any);
 router.get('/user/favorites', authenticateToken as any, getFavorites as any);
 router.post('/user/favorites/:movieId', authenticateToken as any, toggleFavorite as any);

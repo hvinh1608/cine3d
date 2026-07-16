@@ -26,6 +26,7 @@ model User {
   isLocked                 Boolean   @default(false)
   isVip                    Boolean   @default(false)
   vipExpiresAt             DateTime?
+  playerPreferences        Json?
   passwordResetToken       String?
   passwordResetExpires     DateTime?
   emailVerificationToken   String?
