@@ -57,6 +57,8 @@ export type SearchInitialData = {
   totalPages: number;
   totalResults: number;
   loadError?: string;
+  initialFilters?: { genre?: string; country?: string; year?: string; page?: number };
+  seoBasePath?: string;
 };
 
 export default function SearchClient({ initialData }: { initialData: SearchInitialData }) {
@@ -80,15 +82,15 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
   const initialQuery = searchParams.get('q') || '';
   const [draftQuery, setDraftQuery] = useState(initialQuery);
   const [query, setQuery] = useState(initialQuery);
-  const [selectedGenre, setSelectedGenre] = useState(searchParams.get('genre') || '');
-  const [selectedCountry, setSelectedCountry] = useState(searchParams.get('country') || '');
-  const [selectedYear, setSelectedYear] = useState(searchParams.get('year') || '');
+  const [selectedGenre, setSelectedGenre] = useState(searchParams.get('genre') || initialData.initialFilters?.genre || '');
+  const [selectedCountry, setSelectedCountry] = useState(searchParams.get('country') || initialData.initialFilters?.country || '');
+  const [selectedYear, setSelectedYear] = useState(searchParams.get('year') || initialData.initialFilters?.year || '');
   const [selectedType, setSelectedType] = useState(searchParams.get('type') || '');
   const [sortBy, setSortBy] = useState(searchParams.get('sortBy') || 'createdAt');
   const [selectedStatus, setSelectedStatus] = useState(searchParams.get('status') || '');
   const [selectedVip, setSelectedVip] = useState(searchParams.get('vip') || '');
   const [selectedDubbed, setSelectedDubbed] = useState(searchParams.get('dubbed') || '');
-  const [currentPage, setCurrentPage] = useState(Math.max(1, Number(searchParams.get('page')) || 1));
+  const [currentPage, setCurrentPage] = useState(Math.max(1, Number(searchParams.get('page')) || initialData.initialFilters?.page || 1));
 
   const [movies, setMovies] = useState<Movie[]>(initialData.movies);
   const [genres, setGenres] = useState<MetaItem[]>(initialData.genres);
@@ -109,13 +111,18 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
 
   const updateUrl = useCallback((updates: Partial<Record<'q' | FilterKey | 'page', string>>) => {
     const params = new URLSearchParams(searchParams.toString());
+    if (initialData.seoBasePath && params.size === 0) {
+      if (initialData.initialFilters?.genre) params.set('genre', initialData.initialFilters.genre);
+      if (initialData.initialFilters?.country) params.set('country', initialData.initialFilters.country);
+      if (initialData.initialFilters?.year) params.set('year', initialData.initialFilters.year);
+    }
     Object.entries(updates).forEach(([key, value]) => {
       if (!value || (key === 'sortBy' && value === 'createdAt')) params.delete(key);
       else params.set(key, value);
     });
     const nextUrl = `/search${params.size ? `?${params.toString()}` : ''}`;
     router.replace(nextUrl, { scroll: false });
-  }, [router, searchParams]);
+  }, [initialData.initialFilters, initialData.seoBasePath, router, searchParams]);
 
   useEffect(() => {
     if (initialData.genres.length > 0 && initialData.countries.length > 0) return;
@@ -241,7 +248,8 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
   const goToPage = (page: number) => {
     if (page < 1 || page > totalPages || page === currentPage) return;
     setCurrentPage(page);
-    updateUrl({ page: page === 1 ? '' : String(page) });
+    if (initialData.seoBasePath) router.replace(`${initialData.seoBasePath}${page === 1 ? '' : `?page=${page}`}`, { scroll: false });
+    else updateUrl({ page: page === 1 ? '' : String(page) });
     window.scrollTo({ top: 100, behavior: 'smooth' });
   };
 

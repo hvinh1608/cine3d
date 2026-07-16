@@ -355,7 +355,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
           {categories.map((cat, i) => (
             <Link
               key={i}
-              href={`/search?genre=${encodeURIComponent(cat.query)}`}
+              href={`/the-loai/${encodeURIComponent(cat.query)}`}
               className={`relative rounded-2xl overflow-hidden py-5 md:py-6 flex flex-col items-center justify-center bg-gradient-to-tr ${cat.gradient} shadow-lg hover:shadow-glow transition-all duration-300 transform hover:-translate-y-1 hover:scale-103 group border border-white/5`}
             >
               <span className="text-white text-base md:text-lg font-black tracking-wide drop-shadow-md">
