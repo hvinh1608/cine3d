@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Image from 'next/image';
-import { BellRing, Check, Copy, ListPlus, LockKeyhole, MonitorSmartphone, Plus, Trash2, UserRound, UsersRound } from 'lucide-react';
+import { BellRing, Check, Copy, ListPlus, LockKeyhole, MonitorSmartphone, Pencil, Plus, Trash2, UserRound, UsersRound, X } from 'lucide-react';
 import api from '../../lib/api';
 import { useStore, type ViewerProfile } from '../../hooks/useStore';
 import type { AxiosError } from 'axios';
@@ -13,7 +13,7 @@ type Playlist = {
   description?: string | null;
   isPublic: boolean;
   _count: { items: number };
-  items: { id: string; movie: { title: string; posterUrl: string } }[];
+  items: { id: string; movie: { id: string; title: string; slug: string; posterUrl: string } }[];
 };
 
 type DeviceSession = {
@@ -144,6 +144,25 @@ export default function ExperienceCenter() {
     setPlaylists((current) => current.filter((item) => item.id !== playlist.id));
   };
 
+  const editPlaylist = async (playlist: Playlist) => {
+    const name = window.prompt('Tên playlist:', playlist.name)?.trim();
+    if (!name) return;
+    const description = window.prompt('Mô tả playlist:', playlist.description || '')?.trim() || '';
+    try {
+      const response = await api.put(`/user/playlists/${playlist.id}`, { name, description });
+      setPlaylists((current) => current.map((item) => item.id === playlist.id ? { ...item, ...response.data } : item));
+      showToast('Đã cập nhật playlist.', 'success');
+    } catch (error) { showToast(errorMessage(error, 'Không thể cập nhật playlist.'), 'error'); }
+  };
+
+  const removePlaylistMovie = async (playlistId: string, movieId: string) => {
+    try {
+      await api.delete(`/user/playlists/${playlistId}/movies/${movieId}`);
+      setPlaylists((current) => current.map((playlist) => playlist.id === playlistId ? { ...playlist, items: playlist.items.filter((item) => item.movie.id !== movieId), _count: { items: Math.max(0, playlist._count.items - 1) } } : playlist));
+      showToast('Đã xóa phim khỏi playlist.', 'success');
+    } catch (error) { showToast(errorMessage(error, 'Không thể xóa phim khỏi playlist.'), 'error'); }
+  };
+
   const enablePush = async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       showToast('Trình duyệt này không hỗ trợ thông báo đẩy.', 'error'); return;
@@ -221,13 +240,7 @@ export default function ExperienceCenter() {
       <p className="mt-1 text-xs text-slate-500">Tạo bộ sưu tập rồi thêm phim ngay tại trang chi tiết.</p>
       <div className="mt-4 flex gap-2"><input value={playlistName} onChange={(event) => setPlaylistName(event.target.value)} maxLength={60} placeholder="Ví dụ: Phim cuối tuần" className="min-w-0 flex-1 rounded-xl border border-white/10 bg-slate-950 px-3 py-2.5 text-xs outline-none focus:border-red-400" /><button onClick={() => void createPlaylist()} className="rounded-xl bg-red-600 px-4 text-xs font-black">Tạo mới</button></div>
       <div className="mt-4 max-h-72 space-y-2 overflow-y-auto pr-1">
-        {playlists.map((playlist) => <div key={playlist.id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-slate-950/50 p-3">
-          <div className="grid h-12 w-12 shrink-0 grid-cols-2 overflow-hidden rounded-lg bg-slate-900">{playlist.items.slice(0, 4).map((item) => <div key={item.id} className="relative"><Image src={item.movie.posterUrl} alt="" fill sizes="24px" className="object-cover" /></div>)}</div>
-          <div className="min-w-0 flex-1"><div className="truncate text-sm font-bold">{playlist.name}</div><div className="text-[10px] text-slate-500">{playlist._count.items} phim · {playlist.isPublic ? 'Công khai' : 'Riêng tư'}</div></div>
-          {playlist.isPublic && <button onClick={() => { void navigator.clipboard.writeText(`${location.origin}/playlists/${playlist.id}`); showToast('Đã sao chép liên kết playlist.', 'success'); }} title="Sao chép liên kết"><Copy className="h-4 w-4 text-slate-400" /></button>}
-          <button onClick={() => void togglePlaylistVisibility(playlist)} className="rounded-lg border border-white/10 px-2 py-1 text-[10px]">{playlist.isPublic ? 'Ẩn' : 'Chia sẻ'}</button>
-          <button onClick={() => void removePlaylist(playlist)}><Trash2 className="h-4 w-4 text-slate-500 hover:text-red-400" /></button>
-        </div>)}
+        {playlists.map((playlist) => <div key={playlist.id} className="rounded-xl border border-white/10 bg-slate-950/50 p-3"><div className="flex items-center gap-3"><div className="grid h-12 w-12 shrink-0 grid-cols-2 overflow-hidden rounded-lg bg-slate-900">{playlist.items.slice(0, 4).map((item) => <div key={item.id} className="relative"><Image src={item.movie.posterUrl} alt="" fill sizes="24px" className="object-cover" /></div>)}</div><div className="min-w-0 flex-1"><div className="truncate text-sm font-bold">{playlist.name}</div><div className="text-[10px] text-slate-500">{playlist._count.items} phim · {playlist.isPublic ? 'Công khai' : 'Riêng tư'}</div>{playlist.description && <div className="mt-1 truncate text-[9px] text-slate-600">{playlist.description}</div>}</div><button onClick={() => void editPlaylist(playlist)} title="Sửa playlist"><Pencil className="h-4 w-4 text-slate-500 hover:text-white" /></button>{playlist.isPublic && <button onClick={() => { void navigator.clipboard.writeText(`${location.origin}/playlists/${playlist.id}`); showToast('Đã sao chép liên kết playlist.', 'success'); }} title="Sao chép liên kết"><Copy className="h-4 w-4 text-slate-400" /></button>}<button onClick={() => void togglePlaylistVisibility(playlist)} className="rounded-lg border border-white/10 px-2 py-1 text-[10px]">{playlist.isPublic ? 'Ẩn' : 'Chia sẻ'}</button><button onClick={() => void removePlaylist(playlist)}><Trash2 className="h-4 w-4 text-slate-500 hover:text-red-400" /></button></div>{playlist.items.length > 0 && <div className="mt-3 flex gap-2 overflow-x-auto border-t border-white/5 pt-3">{playlist.items.map((item) => <div key={item.id} className="flex shrink-0 items-center gap-2 rounded-lg bg-white/5 py-1 pl-1 pr-2"><Image src={item.movie.posterUrl} alt="" width={24} height={34} className="h-8 w-6 rounded object-cover" /><span className="max-w-28 truncate text-[10px]">{item.movie.title}</span><button type="button" onClick={() => void removePlaylistMovie(playlist.id, item.movie.id)} title="Xóa khỏi playlist"><X className="h-3 w-3 text-slate-600 hover:text-red-400" /></button></div>)}</div>}</div>)}
         {!playlists.length && <p className="py-8 text-center text-xs text-slate-600">Chưa có playlist.</p>}
       </div>
     </section>
