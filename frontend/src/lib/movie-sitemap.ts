@@ -3,7 +3,8 @@ import { getSiteUrl } from './site';
 const PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'production' ? 'https://api.cine3d.id.vn/api' : 'http://localhost:5000/api');
 const API_URL = process.env.INTERNAL_API_URL || PUBLIC_API_URL;
 
-export const MOVIE_PAGES_PER_SITEMAP = 40;
+// Keep cold sitemap generation within one small upstream batch so crawlers do not time out.
+export const MOVIE_PAGES_PER_SITEMAP = 8;
 
 type MovieListResponse = {
   total?: number;

@@ -12,7 +12,7 @@ export async function GET(_request: Request, context: { params: Promise<{ segmen
   const pageNumbers = Array.from({ length: MOVIE_PAGES_PER_SITEMAP }, (_, index) => firstPage + index);
   const pages = [];
 
-  // Small batches keep the upstream movie API responsive while building each sitemap.
+  // One small batch keeps cold sitemap responses fast enough for search crawlers.
   for (let index = 0; index < pageNumbers.length; index += 8) {
     const batch = await Promise.all(pageNumbers.slice(index, index + 8).map((page) => fetchMoviePage(page).catch(() => null)));
     pages.push(...batch);
