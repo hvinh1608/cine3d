@@ -12,8 +12,10 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: '#020205',
     theme_color: '#dc2626',
     icons: [
-      { src: '/cine3d-favicon.png', sizes: '512x512', type: 'image/png' },
-      { src: '/favicon.ico', sizes: 'any', type: 'image/x-icon' },
+      { src: '/favicon.ico', sizes: '48x48', type: 'image/x-icon' },
+      { src: '/icon.png', sizes: '96x96', type: 'image/png' },
+      { src: '/cine3d-favicon.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/cine3d-favicon.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
   };
 }
