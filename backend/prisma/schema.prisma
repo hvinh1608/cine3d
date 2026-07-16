@@ -240,6 +240,7 @@ model Episode {
   episodeOrder      Int // e.g. 1, 2, 3
   seasonNumber      Int       @default(1)
   airDate           DateTime?
+  releaseNotifiedAt DateTime?
   introEndSeconds   Int?
   outroStartSeconds Int?
   createdAt         DateTime  @default(now())
@@ -252,6 +253,7 @@ model Episode {
   @@unique([movieId, episodeOrder])
   @@index([movieId, seasonNumber, episodeOrder])
   @@index([airDate])
+  @@index([airDate, releaseNotifiedAt])
 }
 
 model VideoSource {

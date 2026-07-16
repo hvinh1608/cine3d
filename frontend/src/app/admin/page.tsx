@@ -96,6 +96,8 @@ export default function AdminPage() {
   const [epOrder, setEpOrder] = useState('1');
   const [epSeason, setEpSeason] = useState('1');
   const [epAirDate, setEpAirDate] = useState('');
+  const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+  const [editingScheduleDate, setEditingScheduleDate] = useState('');
   const [introEndSeconds, setIntroEndSeconds] = useState('');
   const [outroStartSeconds, setOutroStartSeconds] = useState('');
   const [videoSources, setVideoSources] = useState<AdminVideoSource[]>([{ server: 'Main Server', quality: '1080p', url: '', type: 'hls', isPremium: false }]);
@@ -406,6 +408,26 @@ export default function AdminPage() {
       loadAdminData();
     } catch (error) {
       showToast(requestMessage(error, 'Lỗi xóa tập.'), 'error');
+    }
+  };
+
+  const handleEditSchedule = (episode: AdminEpisode) => {
+    setEditingScheduleId(episode.id);
+    setEditingScheduleDate(episode.airDate ? new Date(episode.airDate).toISOString().slice(0, 16) : '');
+  };
+
+  const handleSaveSchedule = async (episodeId: string, cancelSchedule = false) => {
+    setActionLoading(true);
+    try {
+      await axios.put(`${API_URL}/admin/episodes/${episodeId}`, { airDate: cancelSchedule ? null : editingScheduleDate || null }, { headers: { Authorization: `Bearer ${accessToken}` } });
+      showToast(cancelSchedule ? 'Đã hủy lịch phát.' : 'Đã cập nhật lịch phát.', 'success');
+      setEditingScheduleId(null);
+      setEditingScheduleDate('');
+      await loadAdminData();
+    } catch (error) {
+      showToast(requestMessage(error, 'Không thể cập nhật lịch phát.'), 'error');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -1050,6 +1072,7 @@ export default function AdminPage() {
                           <tr className="border-b border-white/10 text-slate-500">
                             <th className="py-2">Thứ tự</th>
                             <th className="py-2">Tên tập</th>
+                            <th className="py-2">Lịch phát</th>
                             <th className="py-2">Nguồn phát</th>
                             <th className="py-2 text-right">Hành động</th>
                           </tr>
@@ -1059,6 +1082,21 @@ export default function AdminPage() {
                             <tr key={ep.id} className="border-b border-white/5 text-slate-300">
                               <td className="py-2.5 font-bold">#{ep.episodeOrder}</td>
                               <td className="py-2.5">{ep.title}</td>
+                              <td className="min-w-[210px] py-2.5">
+                                {editingScheduleId === ep.id ? (
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <input type="datetime-local" value={editingScheduleDate} onChange={(event) => setEditingScheduleDate(event.target.value)} className="rounded-lg border border-purple-500/40 bg-slate-950 px-2 py-1.5 text-[10px] outline-none" />
+                                    <button type="button" disabled={actionLoading} onClick={() => void handleSaveSchedule(ep.id)} className="rounded-lg bg-emerald-500/15 px-2 py-1.5 text-[10px] font-bold text-emerald-400 disabled:opacity-50">Lưu</button>
+                                    <button type="button" onClick={() => setEditingScheduleId(null)} className="rounded-lg bg-white/5 px-2 py-1.5 text-[10px] text-slate-400">Đóng</button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    <span className={ep.airDate ? 'text-amber-300' : 'text-slate-600'}>{ep.airDate ? new Date(ep.airDate).toLocaleString('vi-VN') : 'Chưa đặt lịch'}</span>
+                                    <button type="button" onClick={() => handleEditSchedule(ep)} className="rounded-md bg-purple-500/10 p-1 text-purple-400" title="Sửa lịch"><Edit className="h-3.5 w-3.5" /></button>
+                                    {ep.airDate && <button type="button" disabled={actionLoading} onClick={() => void handleSaveSchedule(ep.id, true)} className="rounded-md bg-red-500/10 px-1.5 py-1 text-[9px] font-bold text-red-400" title="Hủy lịch">Hủy</button>}
+                                  </div>
+                                )}
+                              </td>
                               <td className="py-2.5 text-[10px] text-slate-400 truncate max-w-[250px]">
                                 {ep.videoSources?.map((source) => `${source.server} (${source.quality}${source.isPremium ? ' · Premium' : ''})`).join(', ') || 'HLS URL'}
                               </td>
@@ -1075,7 +1113,7 @@ export default function AdminPage() {
                           ))}
                           {episodes.length === 0 && (
                             <tr>
-                              <td colSpan={4} className="py-4 text-center text-slate-500 text-xs">
+                              <td colSpan={5} className="py-4 text-center text-slate-500 text-xs">
                                 Phim này chưa có tập nào trong cơ sở dữ liệu.
                               </td>
                             </tr>

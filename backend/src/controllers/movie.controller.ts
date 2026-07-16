@@ -142,12 +142,13 @@ export const getPersonalizedRecommendations = async (req: Request, res: Response
 export const getReleaseSchedule = async (_req: Request, res: Response) => {
   try {
     const now = new Date();
+    const since = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const until = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
     const episodes = await prisma.episode.findMany({
-      where: { airDate: { gte: now, lte: until } }, orderBy: { airDate: 'asc' }, take: 100,
+      where: { airDate: { gte: since, lte: until } }, orderBy: { airDate: 'asc' }, take: 150,
       include: { movie: { select: { id: true, slug: true, title: true, posterUrl: true, status: true } } },
     });
-    return res.json(episodes);
+    return res.json(episodes.map((episode) => ({ ...episode, isReleased: Boolean(episode.airDate && episode.airDate <= now) })));
   } catch (error) {
     return internalError(res, 'Không thể tải lịch phát hành.', error);
   }

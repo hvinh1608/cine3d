@@ -8,6 +8,7 @@ import crypto from 'crypto';
 import path from 'path';
 import apiRouter from './routes/api';
 import { prisma } from './lib/prisma';
+import { sendPushToUsers } from './services/push.service';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -229,6 +230,31 @@ const analyticsCleanup = setInterval(() => {
 }, 6 * 60 * 60 * 1000);
 analyticsCleanup.unref();
 
+const notifyReleasedEpisodes = async () => {
+  const now = new Date();
+  const recentCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  const dueEpisodes = await prisma.episode.findMany({
+    where: { airDate: { gte: recentCutoff, lte: now }, releaseNotifiedAt: null },
+    take: 20,
+    orderBy: { airDate: 'asc' },
+    include: { movie: { select: { id: true, title: true, slug: true, followers: { select: { userId: true } } } } },
+  });
+  for (const episode of dueEpisodes) {
+    const claimed = await prisma.episode.updateMany({ where: { id: episode.id, releaseNotifiedAt: null }, data: { releaseNotifiedAt: now } });
+    if (!claimed.count || !episode.movie.followers.length) continue;
+    const userIds = episode.movie.followers.map((follow) => follow.userId);
+    const notification = { title: `${episode.movie.title} có tập mới`, message: `${episode.title} đã đến giờ phát hành. Xem ngay trên CINE3D.`, url: `/watch/${episode.movie.slug}?ep=${episode.episodeOrder}` };
+    await prisma.notification.createMany({ data: userIds.map((userId) => ({ userId, ...notification })) });
+    void sendPushToUsers(userIds, { title: notification.title, body: notification.message, url: notification.url });
+  }
+};
+
+void notifyReleasedEpisodes().catch((error) => console.warn('Release notification check failed.', error));
+const releaseNotificationTimer = setInterval(() => {
+  void notifyReleasedEpisodes().catch((error) => console.warn('Release notification check failed.', error));
+}, 60_000);
+releaseNotificationTimer.unref();
+
 server.listen(PORT, () => {
   console.log(`===============================================`);
   console.log(`  3D Movie Streaming Backend is running!     `);
@@ -241,6 +267,7 @@ async function shutdown(signal: string) {
   console.log(`${signal} received; shutting down.`);
   clearInterval(watchRoomCleanup);
   clearInterval(analyticsCleanup);
+  clearInterval(releaseNotificationTimer);
   server.close(async () => {
     io.close();
     await prisma.$disconnect();

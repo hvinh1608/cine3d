@@ -385,7 +385,8 @@ export const createEpisode = async (req: Request, res: Response) => {
       prisma.movie.findUnique({ where: { id: movieId }, select: { title: true, slug: true } }),
       prisma.movieFollow.findMany({ where: { movieId }, select: { userId: true } }),
     ]);
-    if (movie && followers.length > 0) {
+    const releaseTime = airDate ? new Date(airDate).getTime() : null;
+    if (movie && followers.length > 0 && (!releaseTime || releaseTime <= Date.now())) {
       const userIds = followers.map((entry) => entry.userId);
       const notification = {
         title: `${movie.title} có tập mới`,
@@ -394,6 +395,7 @@ export const createEpisode = async (req: Request, res: Response) => {
       };
       await prisma.notification.createMany({ data: userIds.map((userId) => ({ userId, ...notification })) });
       void sendPushToUsers(userIds, { title: notification.title, body: notification.message, url: notification.url });
+      await prisma.episode.update({ where: { id: episode.id }, data: { releaseNotifiedAt: new Date() } });
     }
 
     return res.status(201).json({ message: 'Episode created successfully.', episode });
@@ -417,6 +419,7 @@ export const updateEpisode = async (req: Request, res: Response) => {
         episodeOrder: episodeOrder !== undefined ? parseInt(episodeOrder, 10) : undefined,
         seasonNumber: seasonNumber !== undefined ? Math.max(1, parseInt(seasonNumber, 10) || 1) : undefined,
         airDate: airDate !== undefined ? (airDate ? new Date(airDate) : null) : undefined,
+        releaseNotifiedAt: airDate !== undefined ? null : undefined,
         introEndSeconds: introEndSeconds === undefined ? undefined : (introEndSeconds === '' || introEndSeconds === null ? null : Math.max(0, parseInt(introEndSeconds, 10))),
         outroStartSeconds: outroStartSeconds === undefined ? undefined : (outroStartSeconds === '' || outroStartSeconds === null ? null : Math.max(0, parseInt(outroStartSeconds, 10))),
         videoSources: videoSources
