@@ -162,6 +162,16 @@ export const getMovieBySlug = async (req: Request, res: Response) => {
 
     return res.json(shapeMovieForViewer(movie, await viewerCanAccessVip(req)));
   } catch (error: any) {
+    // Older bookmarks used `...-1`; KKPhim now exposes seasons as `...-phan-1`.
+    const legacySeasonAlias = slug.match(/-phan-\d+$/) ? slug : slug.replace(/-(\d+)$/, '-phan-$1');
+    if (legacySeasonAlias !== slug) {
+      try {
+        const aliasedMovie = await ensureMovieInDb(legacySeasonAlias);
+        return res.json(shapeMovieForViewer(aliasedMovie, await viewerCanAccessVip(req)));
+      } catch {
+        // Continue to the normal upstream fallback and preserve the original 404.
+      }
+    }
     // Fallback: return KKPhim detail without DB if upsert fails
     try {
       const raw = await fetchMovieDetail(slug);
