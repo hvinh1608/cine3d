@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cine3d-shell-v1';
+const CACHE_NAME = 'cine3d-shell-v2';
 const APP_SHELL = ['/', '/manifest.webmanifest', '/cine3d-favicon.png'];
 
 self.addEventListener('install', (event) => {
@@ -23,7 +23,12 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin || !/\.(js|css|woff2?|png|jpg|jpeg|webp|svg|ico)(\?|$)/i.test(url.pathname)) return;
   event.respondWith(caches.match(request).then((cached) => cached || fetch(request).then((response) => {
-    if (response.ok) caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
+    if (response.ok) {
+      const responseToCache = response.clone();
+      void caches.open(CACHE_NAME)
+        .then((cache) => cache.put(request, responseToCache))
+        .catch(() => undefined);
+    }
     return response;
   })));
 });
