@@ -37,6 +37,7 @@ import {
   deleteWatchHistory,
   deleteWatchHistoryBulk,
   uploadAvatar,
+  getAvatarImage,
   getPlayerPreferences,
   updatePlayerPreferences,
 } from '../controllers/user.controller';
@@ -144,6 +145,7 @@ router.get('/movies/:slug', optionalAuthenticate as any, getMovieBySlug);
 router.post('/movies/:id/view', rateLimit(60 * 1000, 20), incrementViews);
 
 // --- User Routes ---
+router.get('/avatars/:userId', getAvatarImage as any);
 router.put('/user/profile', authenticateToken as any, updateProfile as any);
 router.get('/user/player-preferences', authenticateToken as any, getPlayerPreferences as any);
 router.put('/user/player-preferences', authenticateToken as any, updatePlayerPreferences as any);

@@ -35,6 +35,8 @@ const nextConfig: NextConfig = {
       { protocol: 'http', hostname: 'localhost', port: '5000' },
       { protocol: 'https', hostname: '**.onrender.com' },
       { protocol: 'https', hostname: 'api.cine3d.id.vn' },
+      // User-provided avatars are loaded directly in the browser because image optimization is disabled.
+      { protocol: 'https', hostname: '**' },
     ],
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [360, 640, 750, 828, 1080, 1200, 1440, 1920],

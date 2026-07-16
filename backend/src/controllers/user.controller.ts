@@ -32,9 +32,9 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
   if (avatar) {
     try {
       const parsed = new URL(avatar);
-      if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Invalid protocol');
+      if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(parsed.hostname))) throw new Error('Invalid protocol');
     } catch {
-      return res.status(400).json({ message: 'Avatar must be a valid HTTP(S) URL.' });
+      return res.status(400).json({ message: 'Avatar phải là URL HTTPS hợp lệ.' });
     }
 
     try {
@@ -503,25 +503,9 @@ export const PRESET_AVATARS = [
   'https://images.unsplash.com/photo-1527980965255-d3b416303d12?auto=format&fit=crop&w=150&q=80',
 ];
 
-// --- Multer Storage configuration ---
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../../uploads/avatars');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const userId = (req as any).user?.id || 'guest';
-    cb(null, `avatar-${userId}-${uniqueSuffix}${ext}`);
-  },
-});
-
 const upload = multer({
-  storage,
+  // Render's filesystem is ephemeral. Store the small avatar payload in PostgreSQL instead.
+  storage: multer.memoryStorage(),
   limits: { fileSize: 2 * 1024 * 1024 }, // 2MB max
   fileFilter: (req, file, cb) => {
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
@@ -560,9 +544,14 @@ export const uploadAvatar = async (req: AuthenticatedRequest, res: Response) => 
         return res.status(400).json({ message: 'Vui lòng chọn một file ảnh để tải lên.' });
       }
 
-      const publicUrl = `${req.protocol}://${req.get('host')}/uploads/avatars/${req.file.filename}`;
+      await prisma.userAvatar.upsert({
+        where: { userId },
+        update: { mimeType: req.file.mimetype, data: req.file.buffer },
+        create: { userId, mimeType: req.file.mimetype, data: req.file.buffer },
+      });
+      const publicUrl = `${req.protocol}://${req.get('host')}/api/avatars/${userId}?v=${Date.now()}`;
 
-      // Xóa file avatar cũ nếu đó là file tải lên cục bộ để tránh rác máy chủ
+      // Dọn file avatar cũ thuộc cơ chế lưu filesystem trước đây.
       if (dbUser.avatar && dbUser.avatar.includes('/uploads/avatars/')) {
         const oldFilename = dbUser.avatar.split('/uploads/avatars/')[1];
         if (oldFilename) {
@@ -600,4 +589,16 @@ export const uploadAvatar = async (req: AuthenticatedRequest, res: Response) => 
   } catch (error: any) {
     return internalError(res, 'Error processing avatar upload.', error);
   }
+};
+
+export const getAvatarImage = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const avatar = await prisma.userAvatar.findUnique({ where: { userId: req.params.userId } });
+    if (!avatar) return res.status(404).end();
+    res.setHeader('Content-Type', avatar.mimeType);
+    res.setHeader('Content-Length', avatar.data.length);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    return res.send(Buffer.from(avatar.data));
+  } catch (error) { return internalError(res, 'Không thể tải ảnh đại diện.', error); }
 };

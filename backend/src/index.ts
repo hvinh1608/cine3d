@@ -55,7 +55,13 @@ app.use('/api', (req, res, next) => {
 });
 
 // Static Files Uploads
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
+  maxAge: '7d',
+  setHeaders(res) {
+    // The frontend and API use different subdomains, so legacy uploaded avatars must be embeddable cross-origin.
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  },
+}));
 
 // API Routes
 app.use('/api', apiRouter);
