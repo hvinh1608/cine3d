@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { AxiosError } from 'axios';
 import Link from 'next/link';
-import { BadgeCheck, Check, Clock3, Crown, Download, MonitorPlay, ReceiptText, ShieldCheck, Sparkles, X, Zap } from 'lucide-react';
+import Image from 'next/image';
+import { BadgeCheck, Check, Clock3, Copy, Crown, Download, MonitorPlay, ReceiptText, ShieldCheck, Sparkles, X, Zap } from 'lucide-react';
 import api from '../../lib/api';
 import { useStore } from '../../hooks/useStore';
 
@@ -41,6 +42,13 @@ const formatMoney = (value: number) => new Intl.NumberFormat('vi-VN', {
   maximumFractionDigits: 0,
 }).format(value);
 
+const VIP_BANK = {
+  id: 'MBBank',
+  name: 'MB Bank',
+  accountNumber: '56700112233',
+  accountName: 'TRAN NGO HONG VINH',
+};
+
 export default function VipPage() {
   const { user, hasHydrated, authReady, setUser, showToast } = useStore();
   const [plans, setPlans] = useState<VipPlan[]>([]);
@@ -53,6 +61,19 @@ export default function VipPage() {
   const userVipExpiresAt = user?.vipExpiresAt;
 
   const pendingOrder = useMemo(() => orders.find((order) => order.status === 'PENDING'), [orders]);
+  const transferContent = pendingOrder?.orderCode || '';
+  const paymentQrUrl = pendingOrder
+    ? `https://img.vietqr.io/image/${VIP_BANK.id}-${VIP_BANK.accountNumber}-compact2.png?amount=${pendingOrder.amount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(VIP_BANK.accountName)}`
+    : '';
+
+  const copyPaymentValue = async (value: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      showToast(`Đã sao chép ${label}.`, 'success');
+    } catch {
+      showToast(`Không thể sao chép ${label}.`, 'error');
+    }
+  };
 
   const loadOrders = useCallback(async () => {
     if (!userId) {
@@ -165,17 +186,31 @@ export default function VipPage() {
       {pendingOrder && (
         <section className="mt-8 overflow-hidden rounded-3xl border border-amber-300/25 bg-gradient-to-r from-amber-400/10 via-slate-950/80 to-slate-950/80 shadow-xl">
           <div className="border-b border-white/5 px-6 py-4"><div className="flex items-center gap-2 text-sm font-black text-amber-300"><Clock3 className="h-4 w-4 animate-pulse" /> Đang xác nhận giao dịch</div></div>
-          <div className="grid gap-6 p-6 lg:grid-cols-[1fr_auto] lg:items-center">
-            <div>
+          <div className="grid gap-7 p-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+            <div className="min-w-0">
               <p className="text-xl font-black text-white">{pendingOrder.plan.name} <span className="text-amber-300">· {formatMoney(pendingOrder.amount)}</span></p>
               <p className="mt-2 text-xs leading-5 text-slate-400">Mã giao dịch <span className="rounded bg-white/5 px-2 py-1 font-mono font-bold text-white">{pendingOrder.orderCode}</span> · hiệu lực đến {new Date(pendingOrder.expiresAt).toLocaleString('vi-VN')}</p>
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <PaymentDetail label="Ngân hàng" value={VIP_BANK.name} />
+                <PaymentDetail label="Chủ tài khoản" value={VIP_BANK.accountName} />
+                <PaymentDetail label="Số tài khoản" value={VIP_BANK.accountNumber} onCopy={() => copyPaymentValue(VIP_BANK.accountNumber, 'số tài khoản')} />
+                <PaymentDetail label="Nội dung chuyển khoản" value={transferContent} emphasize onCopy={() => copyPaymentValue(transferContent, 'nội dung chuyển khoản')} />
+              </div>
+              <div className="mt-4 rounded-2xl border border-amber-300/15 bg-amber-300/[0.06] p-4 text-xs leading-5 text-amber-100/75">
+                Chuyển đúng <strong className="text-amber-300">{formatMoney(pendingOrder.amount)}</strong> và giữ nguyên nội dung <strong className="font-mono text-white">{transferContent}</strong> để admin xác nhận chính xác đơn của bạn.
+              </div>
               <div className="mt-5 flex max-w-xl items-center text-[10px] font-bold text-slate-500">
                 <span className="flex items-center gap-1 text-emerald-400"><BadgeCheck className="h-4 w-4" /> Tạo đơn</span><span className="mx-3 h-px flex-1 bg-emerald-400/30" /><span className="flex items-center gap-1 text-amber-300"><Clock3 className="h-4 w-4" /> Xác nhận</span><span className="mx-3 h-px flex-1 bg-white/10" /><span>Kích hoạt VIP</span>
               </div>
+              <button onClick={() => cancelOrder(pendingOrder.id)} className="mt-6 inline-flex items-center justify-center gap-2 rounded-full border border-red-400/20 px-4 py-2 text-xs font-bold text-red-300 hover:bg-red-400/10">
+                <X className="h-4 w-4" /> Hủy giao dịch
+              </button>
             </div>
-            <button onClick={() => cancelOrder(pendingOrder.id)} className="inline-flex items-center justify-center gap-2 rounded-full border border-red-400/20 px-4 py-2 text-xs font-bold text-red-300 hover:bg-red-400/10">
-              <X className="h-4 w-4" /> Hủy giao dịch
-            </button>
+            <div className="mx-auto w-full max-w-[320px] rounded-3xl border border-white/10 bg-white p-3 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+              <Image src={paymentQrUrl} alt={`Mã QR thanh toán đơn ${pendingOrder.orderCode}`} width={600} height={760} className="h-auto w-full rounded-2xl" priority />
+              <p className="px-2 pb-1 pt-3 text-center text-xs font-black text-slate-900">Quét bằng ứng dụng ngân hàng</p>
+              <p className="px-2 pb-2 text-center text-[10px] text-slate-500">QR đã gồm số tiền và mã đơn</p>
+            </div>
           </div>
         </section>
       )}
@@ -223,4 +258,14 @@ export default function VipPage() {
       )}
     </div>
   );
+}
+
+function PaymentDetail({ label, value, emphasize = false, onCopy }: { label: string; value: string; emphasize?: boolean; onCopy?: () => void }) {
+  return <div className="rounded-2xl border border-white/8 bg-black/20 p-4">
+    <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">{label}</p>
+    <div className="mt-1.5 flex items-center justify-between gap-3">
+      <p className={`truncate text-sm font-black ${emphasize ? 'font-mono text-amber-300' : 'text-white'}`}>{value}</p>
+      {onCopy && <button type="button" onClick={onCopy} title={`Sao chép ${label}`} className="shrink-0 rounded-lg border border-white/10 p-2 text-slate-400 transition hover:border-amber-300/30 hover:text-amber-300"><Copy className="h-3.5 w-3.5" /></button>}
+    </div>
+  </div>;
 }
