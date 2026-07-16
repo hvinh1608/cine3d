@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useRef, useMemo, useSyncExternalStore } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { useStore } from '../../hooks/useStore';
 
 function Particles() {
   const pointsRef = useRef<THREE.Points>(null);
@@ -114,24 +113,6 @@ function NeonGlowLights() {
 }
 
 export default function CinemaBackground() {
-  const { reduceMotion } = useStore();
-  const isDesktop = useSyncExternalStore(
-    (onChange) => {
-      const media = window.matchMedia('(min-width: 1024px)');
-      media.addEventListener('change', onChange);
-      return () => media.removeEventListener('change', onChange);
-    },
-    () => window.matchMedia('(min-width: 1024px)').matches,
-    () => false
-  );
-
-  // If user disables motions, render static elegant backdrop
-  if (reduceMotion || !isDesktop) {
-    return (
-      <div className="fixed inset-0 -z-10 bg-gradient-to-tr from-black via-slate-950 to-neutral-900" />
-    );
-  }
-
   return (
     <div className="fixed inset-0 -z-10 hidden h-screen w-screen overflow-hidden bg-black pointer-events-none lg:block">
       {/* Background radial gradient layers */}

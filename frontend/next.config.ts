@@ -6,6 +6,16 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: '/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), browsing-topics=()' },
+          { key: 'X-DNS-Prefetch-Control', value: 'on' },
+        ],
+      },
+      {
         source: '/sw.js',
         headers: [
           { key: 'Cache-Control', value: 'no-cache, no-store, must-revalidate' },
@@ -27,6 +37,8 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'api.cine3d.id.vn' },
     ],
     formats: ['image/avif', 'image/webp'],
+    deviceSizes: [360, 640, 750, 828, 1080, 1200, 1440, 1920],
+    imageSizes: [32, 48, 64, 80, 96, 128, 256, 384],
   },
 };
 

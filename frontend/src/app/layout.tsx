@@ -8,18 +8,27 @@ import CinemaBackground from '../components/canvas/DynamicCinemaBackground';
 import AuthBootstrap from '../components/auth/AuthBootstrap';
 import ToastViewport from '../components/ui/ToastViewport';
 import PwaBootstrap from '../components/pwa/PwaBootstrap';
+import { getSiteUrl } from '../lib/site';
+
+const siteUrl = getSiteUrl();
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
+  metadataBase: new URL(siteUrl),
   title: 'CINE3D - Trải Nghiệm Rạp Phim 3D Điện Ảnh Tại Nhà',
   description:
     'Website xem phim cao cấp với giao diện 3D có chiều sâu, hỗ trợ phim HLS/MP4, tốc độ tải tối ưu và trải nghiệm điện ảnh sống động.',
   keywords: 'cine3d, xem phim, xem phim online, phim full hd, phim thuyết minh, three.js cinema',
+  alternates: { canonical: '/' },
   openGraph: {
     title: 'CINE3D - Rạp Phim Điện Ảnh 3D',
     description: 'Trải nghiệm giao diện điện ảnh 3D có chiều sâu, độc đáo và cao cấp.',
     type: 'website',
+    url: siteUrl,
+    siteName: 'CINE3D',
+    locale: 'vi_VN',
   },
+  twitter: { card: 'summary_large_image', title: 'CINE3D', description: 'Khám phá và xem phim trực tuyến chất lượng cao.' },
+  robots: { index: true, follow: true },
   manifest: '/manifest.webmanifest',
 };
 
@@ -30,6 +39,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" className="h-full antialiased">
+      <head>
+        <link rel="preconnect" href="https://api.cine3d.id.vn" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://phimimg.com" />
+      </head>
       <body className="min-h-full flex flex-col bg-[#020205] text-slate-100 relative">
         <AuthBootstrap />
         <PwaBootstrap />
