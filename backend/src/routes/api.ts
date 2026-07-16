@@ -71,6 +71,7 @@ import { fetchGenres, fetchCountries, KkphimError } from '../services/kkphim.cli
 import { extractMetaItems } from '../services/kkphim.mapper';
 import { rateLimit } from '../middleware/rate-limit';
 import { internalError } from '../lib/http-error';
+import { getPeopleFollowStatus, togglePeopleFollow } from '../controllers/people-follow.controller';
 import {
   getVipPlans,
   createVipOrder,
@@ -238,6 +239,8 @@ router.get('/directors/:slug', async (req: Request, res: Response) => {
     return res.json({ ...director, movies: director.movieDirectors.map((item) => item.movie) });
   } catch (error) { return internalError(res, 'Không thể tải đạo diễn.', error); }
 });
+router.get('/people/:kind/:id/follow', authenticateToken as any, getPeopleFollowStatus as any);
+router.post('/people/:kind/:id/follow', authenticateToken as any, togglePeopleFollow as any);
 
 // --- Admin Routes ---
 router.get('/admin/stats', authenticateToken as any, requireAdmin as any, getStats);

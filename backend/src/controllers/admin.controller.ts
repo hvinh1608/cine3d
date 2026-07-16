@@ -223,6 +223,17 @@ export const createMovie = async (req: Request, res: Response) => {
       },
     });
 
+    const [actorFollowers, directorFollowers] = await Promise.all([
+      Array.isArray(actorIds) && actorIds.length ? prisma.actorFollow.findMany({ where: { actorId: { in: actorIds } }, select: { userId: true } }) : [],
+      Array.isArray(directorIds) && directorIds.length ? prisma.directorFollow.findMany({ where: { directorId: { in: directorIds } }, select: { userId: true } }) : [],
+    ]);
+    const followerIds = [...new Set([...actorFollowers, ...directorFollowers].map((item) => item.userId))];
+    if (followerIds.length) {
+      const notification = { title: 'Nghệ sĩ bạn theo dõi có phim mới', message: `${title} vừa được thêm vào CINE3D.`, url: `/movies/${slug}` };
+      await prisma.notification.createMany({ data: followerIds.map((userId) => ({ userId, ...notification })) });
+      void sendPushToUsers(followerIds, { title: notification.title, body: notification.message, url: notification.url });
+    }
+
     return res.status(201).json({ message: 'Movie created successfully.', movie });
   } catch (error: any) {
     return movieWriteError(res, error, 'Error creating movie.');

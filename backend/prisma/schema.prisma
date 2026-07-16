@@ -51,6 +51,8 @@ model User {
   profiles           UserProfile[]
   pushSubscriptions  PushSubscription[]
   analyticsEvents    AnalyticsEvent[]
+  actorFollows       ActorFollow[]
+  directorFollows    DirectorFollow[]
 
   @@index([email])
   @@index([username])
@@ -128,6 +130,7 @@ model Actor {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   movieActors MovieActor[]
+  followers   ActorFollow[]
 }
 
 model Director {
@@ -138,6 +141,31 @@ model Director {
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   movieDirectors MovieDirector[]
+  followers      DirectorFollow[]
+}
+
+model ActorFollow {
+  id        String   @id @default(uuid())
+  userId    String
+  actorId   String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actor     Actor    @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, actorId])
+  @@index([actorId])
+}
+
+model DirectorFollow {
+  id         String   @id @default(uuid())
+  userId     String
+  directorId String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  director   Director @relation(fields: [directorId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, directorId])
+  @@index([directorId])
 }
 
 model Movie {
