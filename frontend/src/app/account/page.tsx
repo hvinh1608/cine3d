@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import type { AxiosError } from 'axios';
 import { User, Lock, Mail, Heart, History, Play, Bookmark, Trash2, LogOut, Check, Save, Crown, Upload, SlidersHorizontal, Trophy, Clock3, Flame } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
@@ -25,6 +26,7 @@ const PRESET_AVATARS = [
 ];
 
 export default function AccountPage() {
+  const router = useRouter();
   const { user, setUser, accessToken, setSession, hasHydrated, authReady, favorites, setFavorites, watchHistory, setWatchHistory, watchlist, setWatchlist, logout, showToast, selectedProfileId, setProfiles } = useStore();
 
   // Tab State
@@ -46,6 +48,7 @@ export default function AccountPage() {
   const [authNotice, setAuthNotice] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileKey, setTurnstileKey] = useState(0);
   const submittingRef = useRef(false);
 
   useEffect(() => {
@@ -110,8 +113,8 @@ export default function AccountPage() {
     setErrorMsg('');
     setAuthNotice('');
 
-    if (isLogin && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !turnstileToken) {
-      setErrorMsg('Vui lòng hoàn tất xác minh Cloudflare trước khi đăng nhập.');
+    if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !turnstileToken) {
+      setErrorMsg('Vui lòng hoàn tất xác minh Cloudflare trước khi tiếp tục.');
       submittingRef.current = false;
       setIsSubmitting(false);
       return;
@@ -121,7 +124,7 @@ export default function AccountPage() {
       const endpoint = isLogin ? '/auth/login' : '/auth/register';
       const payload = isLogin
         ? { email: email.trim(), password, turnstileToken }
-        : { email: email.trim(), username: username.trim(), password };
+        : { email: email.trim(), username: username.trim(), password, turnstileToken };
       const res = await axios.post(endpoint, payload);
       if (res.data.requiresVerification) {
         setIsLogin(true);
@@ -133,6 +136,7 @@ export default function AccountPage() {
       const profilesResponse = await axios.get('/user/profiles').catch(() => null);
       if (profilesResponse) setProfiles(profilesResponse.data);
       showToast(isLogin ? 'Đăng nhập thành công!' : 'Đăng ký tài khoản thành công!', 'success');
+      router.replace('/');
     } catch (error) {
       if (!isLogin && requestCode(error) === 'ACCOUNT_EXISTS') {
         setIsLogin(true);
@@ -142,6 +146,8 @@ export default function AccountPage() {
       }
       setErrorMsg(requestMessage(error, 'Có lỗi xảy ra, vui lòng thử lại.'));
     } finally {
+      setTurnstileToken('');
+      setTurnstileKey((value) => value + 1);
       submittingRef.current = false;
       setIsSubmitting(false);
     }
@@ -164,9 +170,12 @@ export default function AccountPage() {
       const profilesResponse = await axios.get('/user/profiles').catch(() => null);
       if (profilesResponse) setProfiles(profilesResponse.data);
       showToast('Đăng nhập Google thành công!', 'success');
+      router.replace('/');
     } catch (error) {
       setErrorMsg(requestMessage(error, 'Không thể đăng nhập bằng Google. Vui lòng thử lại.'));
     } finally {
+      setTurnstileToken('');
+      setTurnstileKey((value) => value + 1);
       submittingRef.current = false;
       setIsSubmitting(false);
     }
@@ -180,6 +189,13 @@ export default function AccountPage() {
     setErrorMsg('');
     setAuthNotice('');
 
+    if (recoveryMode === 'forgot' && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !turnstileToken) {
+      setErrorMsg('Vui lòng hoàn tất xác minh Cloudflare trước khi gửi yêu cầu.');
+      submittingRef.current = false;
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       if (recoveryMode === 'reset') {
         await axios.post('/auth/reset-password', { token: resetToken, newPassword });
@@ -189,12 +205,16 @@ export default function AccountPage() {
         window.history.replaceState({}, '', '/account');
         setAuthNotice('Đổi mật khẩu thành công. Hãy đăng nhập bằng mật khẩu mới.');
       } else {
-        const response = await axios.post('/auth/forgot-password', { email: email.trim() });
+        const response = await axios.post('/auth/forgot-password', { email: email.trim(), turnstileToken });
         setAuthNotice(response.data.message || 'Nếu email tồn tại, hướng dẫn khôi phục đã được gửi.');
       }
     } catch (error) {
       setErrorMsg(requestMessage(error, 'Không thể xử lý yêu cầu. Vui lòng thử lại.'));
     } finally {
+      if (recoveryMode === 'forgot') {
+        setTurnstileToken('');
+        setTurnstileKey((value) => value + 1);
+      }
       submittingRef.current = false;
       setIsSubmitting(false);
     }
@@ -375,10 +395,11 @@ export default function AccountPage() {
                   <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
                 </div>
               )}
+              {recoveryMode === 'forgot' && <TurnstileWidget key={turnstileKey} onToken={setTurnstileToken} />}
               <button type="submit" disabled={isSubmitting} className="w-full rounded-xl bg-gradient-to-r from-red-600 to-purple-600 py-3.5 text-sm font-black text-white disabled:opacity-60">
                 {isSubmitting ? 'Đang xử lý...' : recoveryMode === 'forgot' ? 'Gửi email khôi phục' : 'Lưu mật khẩu mới'}
               </button>
-              <button type="button" onClick={() => { setRecoveryMode('none'); setErrorMsg(''); setAuthNotice(''); }} className="w-full text-xs text-slate-400 transition hover:text-white">
+              <button type="button" onClick={() => { setRecoveryMode('none'); setErrorMsg(''); setAuthNotice(''); setTurnstileToken(''); setTurnstileKey((value) => value + 1); }} className="w-full text-xs text-slate-400 transition hover:text-white">
                 Quay lại đăng nhập
               </button>
             </form>
@@ -423,7 +444,7 @@ export default function AccountPage() {
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
             </div>
 
-            {isLogin && <TurnstileWidget onToken={setTurnstileToken} />}
+            <TurnstileWidget key={turnstileKey} onToken={setTurnstileToken} />
 
             <button
               type="submit"
@@ -437,7 +458,7 @@ export default function AccountPage() {
 
           {recoveryMode === 'none' && <div className="space-y-3 text-center pt-2">
             {isLogin && (
-              <button type="button" onClick={() => { setRecoveryMode('forgot'); setErrorMsg(''); setAuthNotice(''); }} className="block w-full text-xs text-slate-500 transition hover:text-yellow-400">
+              <button type="button" onClick={() => { setRecoveryMode('forgot'); setErrorMsg(''); setAuthNotice(''); setTurnstileToken(''); setTurnstileKey((value) => value + 1); }} className="block w-full text-xs text-slate-500 transition hover:text-yellow-400">
                 Quên mật khẩu?
               </button>
             )}
@@ -445,6 +466,8 @@ export default function AccountPage() {
               onClick={() => {
                 setIsLogin(!isLogin);
                 setErrorMsg('');
+                setTurnstileToken('');
+                setTurnstileKey((value) => value + 1);
               }}
               className="text-xs text-slate-400 hover:text-red-500 transition-colors"
             >

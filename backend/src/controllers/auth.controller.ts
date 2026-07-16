@@ -203,6 +203,9 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
   if (typeof password !== 'string' || password.length < 8) {
     return res.status(400).json({ message: 'Password must be at least 8 characters.' });
   }
+  if (!(await verifyTurnstileToken(req.body.turnstileToken, req))) {
+    return res.status(400).json({ message: 'Vui lòng hoàn tất xác minh Cloudflare rồi thử lại.' });
+  }
   if (requireEmailVerification && !emailDeliveryConfigured) {
     return res.status(503).json({ message: 'Gửi email xác nhận chưa được cấu hình.' });
   }
@@ -583,6 +586,9 @@ export const getProfile = async (req: AuthenticatedRequest, res: Response) => {
 export const forgotPassword = async (req: AuthenticatedRequest, res: Response) => {
   const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
   if (!email) return res.status(400).json({ message: 'Email is required.' });
+  if (!(await verifyTurnstileToken(req.body.turnstileToken, req))) {
+    return res.status(400).json({ message: 'Vui lòng hoàn tất xác minh Cloudflare rồi thử lại.' });
+  }
 
   const genericMessage = 'If an account with that email exists, password reset instructions have been sent.';
 
