@@ -1,4 +1,5 @@
 import HomeClient, { type HomeInitialData } from '../components/home/HomeClient';
+import { getSiteUrl } from '../lib/site';
 
 const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -33,5 +34,32 @@ async function loadHomeData(): Promise<HomeInitialData> {
 }
 
 export default async function HomePage() {
-  return <HomeClient initialData={await loadHomeData()} />;
+  const siteUrl = getSiteUrl();
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'WebSite',
+        '@id': `${siteUrl}/#website`,
+        name: 'CINE3D',
+        alternateName: ['Cine 3D', 'CINE3D Việt Nam'],
+        url: `${siteUrl}/`,
+        publisher: { '@id': `${siteUrl}/#organization` },
+      },
+      {
+        '@type': 'Organization',
+        '@id': `${siteUrl}/#organization`,
+        name: 'CINE3D',
+        url: `${siteUrl}/`,
+        logo: {
+          '@type': 'ImageObject',
+          url: `${siteUrl}/icon.png`,
+        },
+      },
+    ],
+  };
+  return <>
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
+    <HomeClient initialData={await loadHomeData()} />
+  </>;
 }

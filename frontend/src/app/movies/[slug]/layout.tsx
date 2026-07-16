@@ -54,19 +54,35 @@ export default async function MovieLayout({ children, params }: { children: Reac
   const { slug } = await params;
   const movie = await getMovie(slug);
   if (!movie) return children;
-  const jsonLd = {
-    '@context': 'https://schema.org',
+  const movieUrl = `${siteUrl}/movies/${slug}`;
+  const movieSchema = {
+    '@id': `${movieUrl}#movie`,
     '@type': movie.isSeries ? 'TVSeries' : 'Movie',
     name: movie.title,
     alternateName: movie.englishTitle || undefined,
     description: movie.description || undefined,
     image: [movie.backdropUrl, movie.posterUrl].filter(Boolean),
-    url: `${siteUrl}/movies/${slug}`,
-    datePublished: movie.releaseYear ? String(movie.releaseYear) : undefined,
+    url: movieUrl,
+    dateCreated: movie.releaseYear ? String(movie.releaseYear) : undefined,
     duration: movie.duration ? `PT${movie.duration}M` : undefined,
     genre: movie.movieGenres?.map((item) => item.genre.name),
     actor: movie.movieActors?.slice(0, 20).map((item) => ({ '@type': 'Person', name: item.actor.name })),
     director: movie.movieDirectors?.map((item) => ({ '@type': 'Person', name: item.director.name })),
+  };
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      movieSchema,
+      {
+        '@type': 'BreadcrumbList',
+        '@id': `${movieUrl}#breadcrumb`,
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Trang chủ', item: `${siteUrl}/` },
+          { '@type': 'ListItem', position: 2, name: 'Phim', item: `${siteUrl}/search` },
+          { '@type': 'ListItem', position: 3, name: movie.title, item: movieUrl },
+        ],
+      },
+    ],
   };
   return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />{children}</>;
 }
