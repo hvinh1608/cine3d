@@ -34,6 +34,7 @@ import {
   getNotifications,
   markNotificationRead,
   deleteWatchHistory,
+  deleteWatchHistoryBulk,
   uploadAvatar,
   getPlayerPreferences,
   updatePlayerPreferences,
@@ -153,6 +154,7 @@ router.post('/user/watchlist/:movieId', authenticateToken as any, toggleWatchlis
 router.get('/user/history', authenticateToken as any, getWatchHistory as any);
 router.post('/user/history', authenticateToken as any, saveWatchProgress as any);
 router.delete('/user/history/:id', authenticateToken as any, deleteWatchHistory as any);
+router.post('/user/history/bulk-delete', authenticateToken as any, deleteWatchHistoryBulk as any);
 router.get('/user/notifications', authenticateToken as any, getNotifications as any);
 router.put('/user/notifications/:id/read', authenticateToken as any, markNotificationRead as any);
 router.get('/user/profiles', authenticateToken as any, getProfiles as any);

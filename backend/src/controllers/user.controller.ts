@@ -449,6 +449,21 @@ export const deleteWatchHistory = async (req: AuthenticatedRequest, res: Respons
   }
 };
 
+export const deleteWatchHistoryBulk = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ message: 'Unauthorized.' });
+  const ids: string[] = Array.isArray(req.body.ids) ? [...new Set<string>(req.body.ids.filter((id: unknown): id is string => typeof id === 'string'))].slice(0, 100) : [];
+  const clearAll = req.body.all === true;
+  if (!clearAll && !ids.length) return res.status(400).json({ message: 'Chọn ít nhất một mục lịch sử.' });
+  try {
+    const profileId = await getOwnedProfileId(req);
+    if (hasRequestedProfile(req) && !profileId) return res.status(403).json({ message: 'Hồ sơ không hợp lệ.' });
+    const result = profileId
+      ? await prisma.profileWatchHistory.deleteMany({ where: { profileId, ...(clearAll ? {} : { id: { in: ids } }) } })
+      : await prisma.watchHistory.deleteMany({ where: { userId: req.user.id, ...(clearAll ? {} : { id: { in: ids } }) } });
+    return res.json({ deleted: result.count });
+  } catch (error) { return internalError(res, 'Không thể xóa lịch sử xem.', error); }
+};
+
 // --- Preset Avatars for Verification ---
 export const PRESET_AVATARS = [
   'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',

@@ -29,6 +29,9 @@ export default function AccountPage() {
 
   // Tab State
   const [activeTab, setActiveTab] = useState<'profile' | 'experience' | 'favorites' | 'watchlist' | 'history'>('profile');
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'watching' | 'completed'>('all');
+  const [selectedHistory, setSelectedHistory] = useState<Set<string>>(() => new Set());
 
   // Form States
   const [isLogin, setIsLogin] = useState(true);
@@ -280,6 +283,23 @@ export default function AccountPage() {
       setWatchHistory(watchHistory.filter((h) => h.id !== historyId));
     }
   };
+
+  const handleBulkHistoryDelete = async (clearAll = false) => {
+    if (!clearAll && !selectedHistory.size) return;
+    if (!window.confirm(clearAll ? 'Xóa toàn bộ lịch sử xem?' : `Xóa ${selectedHistory.size} mục đã chọn?`)) return;
+    try {
+      await axios.post(`${API_URL}/user/history/bulk-delete`, { all: clearAll, ids: [...selectedHistory] }, { headers: { Authorization: `Bearer ${accessToken}` } });
+      setWatchHistory(clearAll ? [] : watchHistory.filter((item) => !selectedHistory.has(item.id)));
+      setSelectedHistory(new Set());
+      showToast('Đã cập nhật lịch sử xem.', 'success');
+    } catch (error) { showToast(requestMessage(error, 'Không thể xóa lịch sử xem.'), 'error'); }
+  };
+
+  const filteredHistory = watchHistory.filter((item) => {
+    const percent = Math.min(100, Math.floor((item.watchedTime / (item.duration || 1)) * 100));
+    const matchesSearch = item.movie.title.toLocaleLowerCase('vi').includes(historySearch.trim().toLocaleLowerCase('vi'));
+    return matchesSearch && (historyFilter === 'all' || (historyFilter === 'completed' ? percent >= 90 : percent < 90));
+  });
 
   if (!hasHydrated || !authReady) {
     return (
@@ -706,14 +726,17 @@ export default function AccountPage() {
           )}
 
           {activeTab === 'history' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {watchHistory.map((item) => {
+            <div>
+              <div className="mb-5 flex flex-wrap items-center gap-2"><input value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder="Tìm trong lịch sử..." className="min-w-[200px] flex-1 rounded-xl border border-white/10 bg-slate-950 px-3 py-2.5 text-xs outline-none focus:border-purple-400" /><select value={historyFilter} onChange={(event) => setHistoryFilter(event.target.value as typeof historyFilter)} className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2.5 text-xs outline-none"><option value="all">Tất cả</option><option value="watching">Đang xem</option><option value="completed">Đã hoàn thành</option></select>{selectedHistory.size > 0 && <button type="button" onClick={() => void handleBulkHistoryDelete()} className="rounded-xl bg-red-500/15 px-3 py-2.5 text-xs font-bold text-red-400">Xóa {selectedHistory.size} mục</button>}{watchHistory.length > 0 && <button type="button" onClick={() => void handleBulkHistoryDelete(true)} className="rounded-xl border border-white/10 px-3 py-2.5 text-xs text-slate-400 hover:text-red-400">Xóa tất cả</button>}</div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {filteredHistory.map((item) => {
                 const percent = Math.min(100, Math.floor((item.watchedTime / (item.duration || 1)) * 100));
                 return (
                   <div
                     key={item.id}
-                    className="glass-panel p-4 rounded-2xl flex items-center gap-4 hover:border-purple-500/20 transition-all shadow-md group relative text-left"
+                    className={`glass-panel group relative flex items-center gap-4 rounded-2xl p-4 text-left shadow-md transition-all hover:border-purple-500/20 ${selectedHistory.has(item.id) ? 'border-purple-400/40 bg-purple-400/5' : ''}`}
                   >
+                    <input type="checkbox" checked={selectedHistory.has(item.id)} onChange={(event) => setSelectedHistory((current) => { const next = new Set(current); if (event.target.checked) next.add(item.id); else next.delete(item.id); return next; })} aria-label={`Chọn ${item.movie.title}`} className="absolute bottom-3 left-3 z-20 accent-purple-500" />
                     {/* Hover remove history button */}
                     <button
                       onClick={() => handleRemoveHistory(item.id)}
@@ -758,11 +781,12 @@ export default function AccountPage() {
                   </div>
                 );
               })}
-              {watchHistory.length === 0 && (
+              {filteredHistory.length === 0 && (
                 <div className="col-span-full py-16 text-center text-slate-500 text-xs font-semibold">
-                  Chưa có lịch sử phát phim.
+                  {watchHistory.length ? 'Không tìm thấy mục lịch sử phù hợp.' : 'Chưa có lịch sử phát phim.'}
                 </div>
               )}
+              </div>
             </div>
           )}
         </div>
