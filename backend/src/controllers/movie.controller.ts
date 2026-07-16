@@ -12,6 +12,7 @@ import { ensureMovieInDb } from '../services/movie.upsert';
 import { internalError } from '../lib/http-error';
 import { hasVipAccess } from '../lib/vip';
 import { shapeMovieForViewer } from '../lib/vip-content';
+import { smartSearchScore } from '../lib/smart-search';
 
 
 function resolveTypeList(type?: string): string {
@@ -53,19 +54,42 @@ export const getMovies = async (req: Request, res: Response) => {
     const limitNum = Math.min(64, Math.max(1, parseInt(limit as string, 10) || 24));
 
     let raw: any;
+    let localSmartMatches: any[] = [];
 
     if (search) {
-      raw = await searchMovies(String(search), pageNum, limitNum, {
-        category: genre as string | undefined,
-        country: country as string | undefined,
-        year: year as string | undefined,
-        sort_field: sortBy === 'views'
-          ? 'view'
-          : sortBy === 'ratingAvg'
-            ? 'tmdb.vote_average'
-            : 'modified.time',
-        sort_type: 'desc',
+      const query = String(search).trim();
+      const localCandidates = await prisma.movie.findMany({
+        take: 300,
+        orderBy: { updatedAt: 'desc' },
+        include: { country: true, movieGenres: { include: { genre: true } }, movieActors: { include: { actor: true } }, movieDirectors: { include: { director: true } } },
       });
+      localSmartMatches = localCandidates.filter((movie) => {
+        if (genre && !movie.movieGenres.some((item) => item.genre.slug === genre)) return false;
+        if (country && movie.country.slug !== country) return false;
+        if (year && String(movie.releaseYear) !== String(year)) return false;
+        if (type === 'series' && !movie.isSeries) return false;
+        if (type === 'movie' && movie.isSeries) return false;
+        if ((type === 'hoathinh' || type === 'anime') && !movie.movieGenres.some((item) => item.genre.slug === 'hoat-hinh')) return false;
+        if (statusFilter && movie.status.toLowerCase() !== String(statusFilter).toLowerCase()) return false;
+        if (vip === 'true' && !movie.isVip) return false;
+        if (vip === 'false' && movie.isVip) return false;
+        if (dubbed === 'true' && !movie.isDubbed) return false;
+        return true;
+      }).map((movie) => ({
+        movie,
+        score: smartSearchScore(query, [movie.title, movie.englishTitle, movie.slug, ...movie.movieActors.map((item) => item.actor.name), ...movie.movieDirectors.map((item) => item.director.name)]),
+      })).filter((item) => item.score > 0).sort((first, second) => second.score - first.score).slice(0, limitNum).map((item) => item.movie);
+      try {
+        raw = await searchMovies(query, pageNum, limitNum, {
+          category: genre as string | undefined,
+          country: country as string | undefined,
+          year: year as string | undefined,
+          sort_field: sortBy === 'views' ? 'view' : sortBy === 'ratingAvg' ? 'tmdb.vote_average' : 'modified.time',
+          sort_type: 'desc',
+        });
+      } catch {
+        raw = null;
+      }
     } else if (genre || country || year || type) {
       raw = await fetchMovieList(resolveTypeList(type as string | undefined), {
         page: pageNum,
@@ -84,10 +108,14 @@ export const getMovies = async (req: Request, res: Response) => {
       raw = await fetchNewMovies(pageNum);
     }
 
-    const { items, total, page: currentPage, limit: pageLimit, totalPages, cdn } =
-      extractListPagination(raw);
+    const extracted = raw ? extractListPagination(raw) : { items: [], total: 0, page: pageNum, limit: limitNum, totalPages: 1, cdn: '' };
+    const { items, total, page: currentPage, limit: pageLimit, totalPages, cdn } = extracted;
 
     let movies = items.map((item) => mapListItem(item, cdn));
+    if (localSmartMatches.length) {
+      const upstreamSlugs = new Set(movies.map((movie) => movie.slug));
+      movies = [...localSmartMatches.filter((movie) => !upstreamSlugs.has(movie.slug)), ...movies].slice(0, limitNum);
+    }
     try {
       const localMovies = await prisma.movie.findMany({
         where: { slug: { in: movies.map((movie) => movie.slug) } },
@@ -104,7 +132,7 @@ export const getMovies = async (req: Request, res: Response) => {
     if (dubbed === 'true') movies = movies.filter((movie) => movie.isDubbed);
 
     return res.json({
-      total,
+      total: Math.max(total, movies.length),
       page: currentPage,
       limit: pageLimit || limitNum,
       totalPages,
