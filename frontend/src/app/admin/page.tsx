@@ -102,6 +102,9 @@ export default function AdminPage() {
   const [outroStartSeconds, setOutroStartSeconds] = useState('');
   const [videoSources, setVideoSources] = useState<AdminVideoSource[]>([{ server: 'Main Server', quality: '1080p', url: '', type: 'hls', isPremium: false }]);
   const [subtitles, setSubtitles] = useState<AdminSubtitle[]>([{ language: 'Vietnamese', url: '' }]);
+  const [bulkEpisodes, setBulkEpisodes] = useState('');
+  const [bulkServer, setBulkServer] = useState('Main Server');
+  const [bulkQuality, setBulkQuality] = useState('1080p');
 
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -408,6 +411,25 @@ export default function AdminPage() {
       loadAdminData();
     } catch (error) {
       showToast(requestMessage(error, 'Lỗi xóa tập.'), 'error');
+    }
+  };
+
+  const handleBulkEpisodeImport = async () => {
+    if (!selectedMovieId || !bulkEpisodes.trim()) return;
+    const episodes = bulkEpisodes.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).map((line) => {
+      const [seasonNumber, episodeOrder, title, url, airDate = ''] = line.split('|').map((value) => value.trim());
+      return { seasonNumber, episodeOrder, title, url, airDate: airDate || null, server: bulkServer, quality: bulkQuality, type: url?.toLowerCase().includes('.mp4') ? 'mp4' : 'hls' };
+    });
+    setActionLoading(true);
+    try {
+      const response = await axios.post(`${API_URL}/admin/episodes/bulk`, { movieId: selectedMovieId, episodes }, { headers: { Authorization: `Bearer ${accessToken}` } });
+      showToast(response.data?.message || `Đã nhập ${episodes.length} tập.`, 'success');
+      setBulkEpisodes('');
+      await loadAdminData();
+    } catch (error) {
+      showToast(requestMessage(error, 'Không thể nhập tập hàng loạt.'), 'error');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -1125,6 +1147,14 @@ export default function AdminPage() {
                 );
               })()}
             </div>
+
+            {selectedMovieId && (
+              <section className="rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.03] p-5">
+                <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-xs font-black uppercase tracking-widest text-cyan-400">Nhập tập hàng loạt</h3><p className="mt-1 text-[10px] text-slate-500">Mỗi dòng: Phần | Số tập | Tên tập | URL video | Ngày phát (tùy chọn)</p></div><span className="rounded-full bg-cyan-400/10 px-2.5 py-1 text-[9px] font-bold text-cyan-300">Tối đa 100 tập/lần</span></div>
+                <textarea value={bulkEpisodes} onChange={(event) => setBulkEpisodes(event.target.value)} rows={6} placeholder={'1 | 1 | Tập 1 | https://cdn.example.com/ep1.m3u8 | 2026-07-20T20:00\n1 | 2 | Tập 2 | https://cdn.example.com/ep2.m3u8 |'} className="mt-4 w-full rounded-xl border border-white/10 bg-slate-950 p-3 font-mono text-[11px] leading-6 text-white outline-none focus:border-cyan-400/50" />
+                <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto]"><input value={bulkServer} onChange={(event) => setBulkServer(event.target.value)} placeholder="Tên server" className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2.5 text-xs outline-none" /><input value={bulkQuality} onChange={(event) => setBulkQuality(event.target.value)} placeholder="Chất lượng" className="rounded-xl border border-white/10 bg-slate-950 px-3 py-2.5 text-xs outline-none" /><button type="button" disabled={actionLoading || !bulkEpisodes.trim()} onClick={() => void handleBulkEpisodeImport()} className="rounded-xl bg-cyan-500 px-5 py-2.5 text-xs font-black text-slate-950 transition hover:bg-cyan-300 disabled:opacity-40">{actionLoading ? 'Đang nhập...' : 'Nhập tất cả'}</button></div>
+              </section>
+            )}
 
             {/* Create Episode Form (Only visible when a movie is selected) */}
             {selectedMovieId && (

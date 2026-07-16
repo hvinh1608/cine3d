@@ -55,6 +55,7 @@ import {
   updateMovie,
   deleteMovie,
   createEpisode,
+  createEpisodesBulk,
   updateEpisode,
   deleteEpisode,
   getUsers,
@@ -246,6 +247,7 @@ router.post('/admin/movies', authenticateToken as any, requireAdmin as any, crea
 router.put('/admin/movies/:id', authenticateToken as any, requireAdmin as any, updateMovie);
 router.delete('/admin/movies/:id', authenticateToken as any, requireAdmin as any, deleteMovie);
 router.post('/admin/episodes', authenticateToken as any, requireAdmin as any, createEpisode);
+router.post('/admin/episodes/bulk', authenticateToken as any, requireAdmin as any, createEpisodesBulk as any);
 router.put('/admin/episodes/:id', authenticateToken as any, requireAdmin as any, updateEpisode);
 router.delete('/admin/episodes/:id', authenticateToken as any, requireAdmin as any, deleteEpisode);
 router.get('/admin/users', authenticateToken as any, requireAdmin as any, getUsers);

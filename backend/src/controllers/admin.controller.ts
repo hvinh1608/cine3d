@@ -404,6 +404,60 @@ export const createEpisode = async (req: Request, res: Response) => {
   }
 };
 
+export const createEpisodesBulk = async (req: Request, res: Response) => {
+  const movieId = typeof req.body.movieId === 'string' ? req.body.movieId : '';
+  const rows = Array.isArray(req.body.episodes) ? req.body.episodes : [];
+  if (!movieId || rows.length < 1 || rows.length > 100) {
+    return res.status(400).json({ message: 'Chọn phim và nhập từ 1 đến 100 tập.' });
+  }
+
+  const normalized: Array<{ row: number; title: string; episodeOrder: number; seasonNumber: number; airDate: Date | null; server: string; quality: string; url: string; type: 'hls' | 'mp4'; isPremium: boolean }> = rows.map((row: any, index: number) => ({
+    row: index + 1,
+    title: typeof row.title === 'string' ? row.title.trim() : '',
+    episodeOrder: Number(row.episodeOrder),
+    seasonNumber: Math.max(1, Number(row.seasonNumber) || 1),
+    airDate: row.airDate ? new Date(row.airDate) : null,
+    server: typeof row.server === 'string' && row.server.trim() ? row.server.trim() : 'Main Server',
+    quality: typeof row.quality === 'string' && row.quality.trim() ? row.quality.trim() : '1080p',
+    url: typeof row.url === 'string' ? row.url.trim() : '',
+    type: row.type === 'mp4' ? 'mp4' : 'hls',
+    isPremium: Boolean(row.isPremium),
+  }));
+  const invalid = normalized.find((row) => !row.title || !Number.isInteger(row.episodeOrder) || row.episodeOrder < 1 || !row.url || (row.airDate && Number.isNaN(row.airDate.getTime())));
+  if (invalid) return res.status(400).json({ message: `Dòng ${invalid.row} không hợp lệ. Kiểm tra số tập, tên, URL và ngày phát.` });
+  const orders = normalized.map((row) => row.episodeOrder);
+  if (new Set(orders).size !== orders.length) return res.status(400).json({ message: 'Danh sách có số tập bị trùng.' });
+
+  try {
+    const movie = await prisma.movie.findUnique({ where: { id: movieId }, select: { id: true } });
+    if (!movie) return res.status(404).json({ message: 'Không tìm thấy phim.' });
+    const existing = await prisma.episode.findMany({ where: { movieId, episodeOrder: { in: orders } }, select: { episodeOrder: true } });
+    if (existing.length) return res.status(409).json({ message: `Các tập đã tồn tại: ${existing.map((item) => item.episodeOrder).join(', ')}.` });
+
+    const created = await prisma.$transaction(async (tx) => {
+      const episodes = [];
+      for (const row of normalized) {
+        episodes.push(await tx.episode.create({
+          data: {
+            movieId,
+            title: row.title,
+            episodeOrder: row.episodeOrder,
+            seasonNumber: row.seasonNumber,
+            airDate: row.airDate,
+            videoSources: { create: [{ server: row.server, quality: row.quality, url: row.url, type: row.type, isPremium: row.isPremium }] },
+          },
+        }));
+      }
+      const episodeCount = await tx.episode.count({ where: { movieId } });
+      await tx.movie.update({ where: { id: movieId }, data: { episodeCount } });
+      return episodes;
+    });
+    return res.status(201).json({ message: `Đã nhập ${created.length} tập.`, count: created.length });
+  } catch (error) {
+    return internalError(res, 'Không thể nhập tập hàng loạt.', error);
+  }
+};
+
 export const updateEpisode = async (req: Request, res: Response) => {
   const { id } = req.params;
   const { title, episodeOrder, seasonNumber, airDate, videoSources, subtitles, introEndSeconds, outroStartSeconds } = req.body;
