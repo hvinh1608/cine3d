@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, ChevronRight, ChevronLeft, ListVideo, Server, LightbulbOff, ArrowLeft, Subtitles, Gauge, Tv, Settings, Maximize2, Lock, Crown, Download, Users } from 'lucide-react';
+import Image from 'next/image';
+import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, ChevronRight, ChevronLeft, ListVideo, Server, LightbulbOff, ArrowLeft, Subtitles, Gauge, Tv, Settings, Maximize2, Lock, Crown, Download, Users, Share2, Info, Star } from 'lucide-react';
 import { useStore } from '../../../hooks/useStore';
 import axios from '../../../lib/api';
 import Hls from 'hls.js';
@@ -600,7 +601,7 @@ function WatchPageContent() {
         </Link>
       </div>
 
-      <div className={`max-w-7xl mx-auto px-4 md:px-8 mt-6 grid grid-cols-1 ${theaterMode ? 'lg:grid-cols-1' : 'lg:grid-cols-4'} gap-6`}>
+      <div className={`max-w-[1500px] mx-auto px-4 md:px-8 mt-6 grid grid-cols-1 ${theaterMode ? 'lg:grid-cols-1' : 'lg:grid-cols-4'} gap-6`}>
         
         {/* PLAYER AREA */}
         <div className={theaterMode ? 'lg:col-span-1' : 'lg:col-span-3'}>
@@ -1094,6 +1095,38 @@ function WatchPageContent() {
               </>
             )}
           </div>
+
+          {/* Quick actions under the player */}
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-white/5 bg-slate-950/70 p-2.5 text-[11px] font-bold text-slate-400 shadow-lg backdrop-blur">
+            <Link href={`/movies/${movie.slug}`} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-white/5 hover:text-white"><Info className="h-3.5 w-3.5" /> Thông tin phim</Link>
+            <Link href={`/watch-together?slug=${encodeURIComponent(movie.slug)}&ep=${activeEpisode.episodeOrder}`} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-white/5 hover:text-red-300"><Users className="h-3.5 w-3.5" /> Xem chung</Link>
+            <button type="button" onClick={() => { void navigator.clipboard.writeText(window.location.href); showToast('Đã sao chép liên kết xem phim.', 'success'); }} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-white/5 hover:text-white"><Share2 className="h-3.5 w-3.5" /> Chia sẻ</button>
+            <button type="button" onClick={() => setLightsOff((current) => !current)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-white/5 ${lightsOff ? 'text-red-400' : 'hover:text-white'}`}><LightbulbOff className="h-3.5 w-3.5" /> Tắt đèn</button>
+            <div className="ml-auto hidden items-center gap-2 px-2 text-slate-600 sm:flex"><span>← → tua 10 giây</span><span>•</span><span>Nhấp đúp để tua</span></div>
+          </div>
+
+          {/* Movie summary inspired by a cinema detail panel */}
+          <section className="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-br from-slate-900/95 to-slate-950/95 p-4 shadow-xl md:p-5">
+            <div className="flex gap-4 md:gap-5">
+              <Image src={movie.posterUrl} alt={movie.title} width={112} height={160} className="h-32 w-[88px] shrink-0 rounded-xl object-cover shadow-2xl md:h-40 md:w-28" />
+              <div className="min-w-0 flex-1 text-left">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-400">Bạn đang xem</p><h1 className="mt-1 text-xl font-black text-white md:text-2xl">{movie.title}</h1>{movie.englishTitle && <p className="mt-0.5 text-xs text-slate-500">{movie.englishTitle}</p>}</div>
+                  <div className="flex items-center gap-1 rounded-lg border border-amber-400/20 bg-amber-400/10 px-2.5 py-1.5 text-xs font-black text-amber-300"><Star className="h-3.5 w-3.5 fill-current" /> {Number(movie.ratingAvg || 0).toFixed(1)}</div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1.5 text-[10px] font-bold"><span className="rounded-md bg-red-600 px-2 py-1 text-white">{movie.quality || 'HD'}</span><span className="rounded-md bg-white/5 px-2 py-1 text-slate-300">{movie.releaseYear}</span><span className="rounded-md bg-white/5 px-2 py-1 text-slate-300">{movie.isSeries ? `${movie.episodeCount} tập` : `${movie.duration || 0} phút`}</span>{movie.movieGenres?.slice(0, 3).map((item) => <span key={item.genre.slug} className="rounded-md bg-white/5 px-2 py-1 text-slate-400">{item.genre.name}</span>)}</div>
+                <p className="mt-3 line-clamp-3 text-xs leading-5 text-slate-400 md:text-sm md:leading-6">{movie.description || 'Thông tin nội dung đang được cập nhật.'}</p>
+              </div>
+            </div>
+          </section>
+
+          {/* Episode grid on the main reading flow */}
+          {movie.episodes.length > 1 && (
+            <section className="mt-4 rounded-2xl border border-white/5 bg-slate-950/70 p-4 text-left shadow-xl md:p-5">
+              <div className="mb-4 flex items-center justify-between"><h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-white"><ListVideo className="h-4 w-4 text-amber-400" /> Danh sách tập</h2><span className="text-[10px] font-bold text-slate-600">{movie.episodes.length} tập</span></div>
+              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8 xl:grid-cols-10">{movie.episodes.map((episode) => <Link key={episode.id} href={`/watch/${movie.slug}?ep=${episode.episodeOrder}`} className={`rounded-lg border px-2 py-2.5 text-center text-[11px] font-bold transition ${activeEpOrder === episode.episodeOrder ? 'border-amber-400 bg-amber-400 text-slate-950 shadow-[0_0_18px_rgba(251,191,36,0.15)]' : 'border-white/5 bg-slate-900 text-slate-400 hover:border-white/15 hover:bg-slate-800 hover:text-white'}`}>{episode.title}</Link>)}</div>
+            </section>
+          )}
         </div>
 
         {/* SIDE BAR: EPISODES & SERVER SELECT */}
@@ -1134,32 +1167,12 @@ function WatchPageContent() {
               </div>
             </div>
 
-            {/* Episodes List */}
-            <div className="glass-panel p-4 md:p-5 rounded-2xl space-y-3 flex-1">
-              <h4 className="text-sm font-black uppercase tracking-wider text-slate-300 flex items-center">
-                <ListVideo className="w-4.5 h-4.5 text-purple-400 mr-2" /> Danh Sách Tập
-              </h4>
-              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-3 gap-2 overflow-y-auto max-h-[300px] pr-1">
-                {movie.episodes?.map((episode) => (
-                  <Link
-                    key={episode.id}
-                    href={`/watch/${movie.slug}?ep=${episode.episodeOrder}`}
-                    className={`py-2 px-1 text-center text-xs font-bold rounded-lg border transition-all ${
-                      activeEpOrder === episode.episodeOrder
-                        ? 'bg-red-600 border-transparent text-white'
-                        : 'bg-slate-900 border-white/5 text-slate-400 hover:bg-white/5'
-                    }`}
-                  >
-                    {episode.title}
-                  </Link>
-                ))}
-              </div>
-            </div>
+            {!!movie.movieActors?.length && <div className="glass-panel rounded-2xl p-4 md:p-5"><h4 className="mb-4 text-sm font-black uppercase tracking-wider text-slate-300">Diễn viên</h4><div className="grid grid-cols-3 gap-4">{movie.movieActors.slice(0, 9).map(({ actor }) => <div key={actor.name} className="min-w-0 text-center"><div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-gradient-to-br from-slate-700 to-slate-900 text-sm font-black text-slate-300">{actor.name.slice(0, 1).toUpperCase()}</div><p className="mt-1.5 truncate text-[9px] font-semibold text-slate-500">{actor.name}</p></div>)}</div></div>}
 
           </div>
         )}
       </div>
-      <MovieComments movieId={movie.id} />
+      <div className="mx-auto max-w-[1500px] px-4 md:px-8"><MovieComments movieId={movie.id} /></div>
     </div>
   );
 }
