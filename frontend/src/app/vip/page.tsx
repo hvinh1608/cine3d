@@ -194,17 +194,25 @@ export default function VipPage() {
 
   useEffect(() => {
     if (!payosModalOpen || !pendingOrder) return;
-    setPaymentClock(Date.now());
-    const timer = window.setInterval(() => setPaymentClock(Date.now()), 1000);
-    return () => window.clearInterval(timer);
-  }, [payosModalOpen, pendingOrder]);
-
-  useEffect(() => {
-    if (!payosModalOpen || !pendingOrder || paymentSecondsRemaining > 0) return;
-    setPayosModalOpen(false);
-    showToast('Mã QR thanh toán đã hết hạn.', 'error');
-    void loadOrders().catch(() => undefined);
-  }, [loadOrders, paymentSecondsRemaining, payosModalOpen, pendingOrder, showToast]);
+    const expiresAt = new Date(pendingOrder.expiresAt).getTime();
+    let expired = false;
+    const updateClock = () => {
+      const now = Date.now();
+      setPaymentClock(now);
+      if (!expired && now >= expiresAt) {
+        expired = true;
+        setPayosModalOpen(false);
+        showToast('Mã QR thanh toán đã hết hạn.', 'error');
+        void loadOrders().catch(() => undefined);
+      }
+    };
+    const initialTick = window.setTimeout(updateClock, 0);
+    const timer = window.setInterval(updateClock, 1000);
+    return () => {
+      window.clearTimeout(initialTick);
+      window.clearInterval(timer);
+    };
+  }, [loadOrders, payosModalOpen, pendingOrder, showToast]);
 
   const createOrder = async (planId: string) => {
     if (!user) return;

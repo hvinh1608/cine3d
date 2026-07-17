@@ -41,7 +41,6 @@ interface WatchHistoryItem {
 interface AppState {
   user: User | null;
   accessToken: string | null;
-  refreshToken: string | null;
   hasHydrated: boolean;
   authReady: boolean;
   favorites: Movie[];
@@ -54,7 +53,7 @@ interface AppState {
   
   setUser: (user: User | null) => void;
   setAccessToken: (token: string | null) => void;
-  setSession: (user: User, accessToken: string, refreshToken?: string) => void;
+  setSession: (user: User, accessToken: string) => void;
   setHasHydrated: (hydrated: boolean) => void;
   setAuthReady: (ready: boolean) => void;
   setFavorites: (favorites: Movie[]) => void;
@@ -72,7 +71,6 @@ interface AppState {
 export const useStore = create<AppState>()(persist((set, get) => ({
   user: null,
   accessToken: null,
-  refreshToken: null,
   hasHydrated: false,
   authReady: false,
   favorites: [],
@@ -85,10 +83,9 @@ export const useStore = create<AppState>()(persist((set, get) => ({
 
   setUser: (user) => set({ user }),
   setAccessToken: (accessToken) => set({ accessToken }),
-  setSession: (user, accessToken, refreshToken) => set({
+  setSession: (user, accessToken) => set({
     user,
     accessToken,
-    refreshToken: refreshToken || null,
     authReady: true,
   }),
   setHasHydrated: (hasHydrated) => set({ hasHydrated }),
@@ -108,12 +105,10 @@ export const useStore = create<AppState>()(persist((set, get) => ({
   clearToast: () => set({ toast: null }),
 
   logout: () => {
-    const refreshToken = get().refreshToken;
     const accessToken = get().accessToken;
     set({
       user: null,
       accessToken: null,
-      refreshToken: null,
       authReady: true,
       favorites: [],
       watchlist: [],
@@ -141,7 +136,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(refreshToken ? { refreshToken } : {}),
+      body: '{}',
     }).catch(() => undefined);
   },
 }), {

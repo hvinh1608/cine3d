@@ -119,6 +119,13 @@ import { createFeedback, getMyFeedback, getAdminFeedback, updateFeedback } from 
 const router = Router();
 
 // --- Auth Routes ---
+router.use('/auth', (_req, res, next) => {
+  // Authentication responses can contain an access token or rotate the
+  // refresh cookie and must never be reused by a browser or intermediary.
+  res.setHeader('Cache-Control', 'no-store');
+  res.setHeader('Pragma', 'no-cache');
+  next();
+});
 const authLimiter = rateLimit(15 * 60 * 1000, 20);
 const resetLimiter = rateLimit(60 * 60 * 1000, 5);
 const interactionLimiter = rateLimit(60 * 1000, 60);

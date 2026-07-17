@@ -8,14 +8,15 @@ import { AuthenticatedRequest } from '../middleware/auth';
 import { internalError } from '../lib/http-error';
 import { hasVipAccess } from '../lib/vip';
 import { emailDeliveryConfigured, sendActionEmail } from '../services/email.service';
+import {
+  getRefreshCookieClearOptions,
+  getRefreshCookieOptions,
+  REFRESH_COOKIE_NAME,
+} from '../lib/auth-cookie';
 
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
-const REFRESH_COOKIE = 'cine3d_refresh';
-// Production frontend and API usually live on different domains
-// (for example cine3d.id.vn and *.onrender.com), so the refresh cookie
-// must be Secure + SameSite=None or it will disappear on page reload.
-const secureCookies = process.env.COOKIE_SECURE === 'true' || process.env.NODE_ENV === 'production';
+const REFRESH_COOKIE = REFRESH_COOKIE_NAME;
 const requireEmailVerification = process.env.REQUIRE_EMAIL_VERIFICATION === 'true';
 const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim();
 const googleClient = googleClientId ? new OAuth2Client(googleClientId) : null;
@@ -24,13 +25,8 @@ const clientUrl = (process.env.CLIENT_URLS || process.env.CLIENT_URL || 'http://
   .split(',')[0]
   .trim()
   .replace(/\/$/, '');
-const cookieOptions = {
-  httpOnly: true,
-  secure: secureCookies,
-  sameSite: (secureCookies ? 'none' : 'lax') as 'none' | 'lax',
-  maxAge: 7 * 24 * 60 * 60 * 1000,
-  path: '/api/auth',
-};
+const cookieOptions = getRefreshCookieOptions();
+const cookieClearOptions = getRefreshCookieClearOptions();
 
 async function verifyTurnstileToken(token: unknown, req: AuthenticatedRequest) {
   if (!turnstileSecretKey) return true;
@@ -535,7 +531,7 @@ export const logout = async (req: AuthenticatedRequest, res: Response) => {
       await prisma.refreshToken.deleteMany({ where: { token: hashToken(refreshToken) } });
     }
 
-    res.clearCookie(REFRESH_COOKIE, { ...cookieOptions, maxAge: undefined });
+    res.clearCookie(REFRESH_COOKIE, cookieClearOptions);
     return res.json({ message: 'Logged out successfully.' });
   } catch (error: any) {
     return internalError(res, 'Internal server error.', error);
