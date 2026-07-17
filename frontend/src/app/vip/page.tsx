@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { AxiosError } from 'axios';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -80,7 +80,7 @@ export default function VipPage() {
   const [loading, setLoading] = useState(true);
   const [submittingPlanId, setSubmittingPlanId] = useState<string | null>(null);
   const [payosReady, setPayosReady] = useState(false);
-  const payosCheckoutRef = useRef<PayOSCheckoutInstance | null>(null);
+  const [payosModalOpen, setPayosModalOpen] = useState(false);
   const userId = user?.id;
   const userIsVip = user?.isVip;
   const userVipExpiresAt = user?.vipExpiresAt;
@@ -150,30 +150,30 @@ export default function VipPage() {
   }, [loadOrders, pendingOrder]);
 
   useEffect(() => {
-    if (!payosReady || pendingOrder?.provider !== 'PAYOS' || !pendingOrder.checkoutUrl || !window.PayOSCheckout) return;
+    if (!payosReady || !payosModalOpen || pendingOrder?.provider !== 'PAYOS' || !pendingOrder.checkoutUrl || !window.PayOSCheckout) return;
     const checkout = window.PayOSCheckout.usePayOS({
       RETURN_URL: `${window.location.origin}/vip?payment=success`,
       ELEMENT_ID: 'payos-embedded-checkout',
       CHECKOUT_URL: pendingOrder.checkoutUrl,
-      embedded: false,
+      embedded: true,
       onSuccess: () => {
         showToast('Thanh toán thành công. Đang kích hoạt VIP...', 'success');
+        setPayosModalOpen(false);
         window.setTimeout(() => void loadOrders().catch(() => undefined), 1200);
       },
       onCancel: () => {
+        setPayosModalOpen(false);
         showToast('Bạn đã hủy thanh toán PayOS.', 'error');
         void api.post(`/vip/orders/${pendingOrder.id}/cancel`)
           .catch(() => undefined)
           .finally(() => void loadOrders().catch(() => undefined));
       },
     });
-    payosCheckoutRef.current = checkout;
     checkout.open();
     return () => {
-      payosCheckoutRef.current = null;
       checkout.exit();
     };
-  }, [loadOrders, payosReady, pendingOrder?.checkoutUrl, pendingOrder?.id, pendingOrder?.provider, showToast]);
+  }, [loadOrders, payosModalOpen, payosReady, pendingOrder?.checkoutUrl, pendingOrder?.id, pendingOrder?.provider, showToast]);
 
   const createOrder = async (planId: string) => {
     if (!user) return;
@@ -211,6 +211,16 @@ export default function VipPage() {
         onReady={() => setPayosReady(true)}
         onError={() => showToast('Không tải được giao diện PayOS. Bạn vẫn có thể mở trang thanh toán dự phòng.', 'error')}
       />
+      {payosModalOpen && pendingOrder?.provider === 'PAYOS' && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Thanh toán PayOS">
+          <div className="relative h-[min(760px,94vh)] w-full max-w-[520px] overflow-hidden rounded-3xl border border-white/15 bg-white shadow-[0_30px_120px_rgba(0,0,0,0.75)]">
+            <button type="button" onClick={() => setPayosModalOpen(false)} aria-label="Đóng cửa sổ thanh toán" className="absolute right-3 top-3 z-10 rounded-full bg-slate-950/80 p-2 text-white shadow-lg transition hover:bg-red-500">
+              <X className="h-5 w-5" />
+            </button>
+            <div id="payos-embedded-checkout" className="h-full w-full overflow-auto" />
+          </div>
+        </div>
+      )}
       <section className="relative overflow-hidden rounded-[2rem] border border-amber-300/20 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.22),transparent_34%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(2,6,23,0.98)_55%,rgba(76,29,149,0.35))] p-7 shadow-[0_30px_100px_rgba(0,0,0,0.45)] md:p-12">
         <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-amber-300/10 blur-3xl" />
         <div className="relative z-10 grid items-center gap-10 text-center lg:grid-cols-[1.25fr_.75fr] lg:text-left">
@@ -252,7 +262,7 @@ export default function VipPage() {
                 <div className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-5">
                   <p className="text-sm font-bold text-emerald-300">Thanh toán trong cửa sổ bảo mật PayOS ngay trên CINE3D. VIP sẽ tự động kích hoạt khi ngân hàng xác nhận.</p>
                   <div className="mt-4 flex flex-wrap items-center gap-3">
-                    <button type="button" disabled={!payosReady} onClick={() => payosCheckoutRef.current?.open()} className="inline-flex items-center gap-2 rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-wait disabled:opacity-50">
+                    <button type="button" disabled={!payosReady} onClick={() => setPayosModalOpen(true)} className="inline-flex items-center gap-2 rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-wait disabled:opacity-50">
                       <Zap className="h-4 w-4" /> {payosReady ? 'Mở cửa sổ thanh toán' : 'Đang tải PayOS...'}
                     </button>
                     <a href={pendingOrder.checkoutUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-slate-500 underline decoration-slate-700 underline-offset-4 hover:text-white">
@@ -276,7 +286,7 @@ export default function VipPage() {
                 <X className="h-4 w-4" /> Hủy giao dịch
               </button>
             </div>
-            {pendingOrder.provider === 'PAYOS' ? <div id="payos-embedded-checkout" className="hidden" /> : paymentQrUrl ? <div className="mx-auto w-full max-w-[320px] rounded-3xl border border-white/10 bg-white p-3 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+            {pendingOrder.provider === 'PAYOS' ? null : paymentQrUrl ? <div className="mx-auto w-full max-w-[320px] rounded-3xl border border-white/10 bg-white p-3 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
               <Image src={paymentQrUrl} alt={`Mã QR thanh toán đơn ${pendingOrder.orderCode}`} width={600} height={760} className="h-auto w-full rounded-2xl" priority />
               <p className="px-2 pb-1 pt-3 text-center text-xs font-black text-slate-900">Quét bằng ứng dụng ngân hàng</p>
               <p className="px-2 pb-2 text-center text-[10px] text-slate-500">QR đã gồm số tiền và mã đơn</p>
