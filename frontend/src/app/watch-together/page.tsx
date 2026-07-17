@@ -334,7 +334,7 @@ export default function WatchTogetherPage() {
         <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-live="polite">
           {reactions.map((reaction) => <div key={reaction.id} title={reaction.name} className="absolute bottom-14 animate-[ping_3s_ease-out_forwards] text-3xl drop-shadow-lg" style={{ left: `${12 + reaction.lane * 18}%` }}>{reaction.emoji}</div>)}
         </div>
-        <div className="absolute bottom-3 right-3 flex gap-1 rounded-full border border-white/10 bg-black/65 p-1.5 backdrop-blur-md">
+        <div className="absolute right-3 top-3 flex gap-1 rounded-full border border-white/10 bg-black/65 p-1.5 backdrop-blur-md">
           {['❤️', '😂', '😮', '👏', '🔥', '😢'].map((emoji) => <button key={emoji} type="button" onClick={() => sendReaction(emoji)} className="rounded-full p-1.5 text-lg transition hover:scale-125 hover:bg-white/10" aria-label={`Gửi reaction ${emoji}`}>{emoji}</button>)}
         </div>
       </section>
