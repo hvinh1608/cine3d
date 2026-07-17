@@ -60,3 +60,16 @@ test('early-access movies hide every source from free viewers until the deadline
   assert.equal(afterEarlyAccess.requiresVip, false);
   assert.equal(afterEarlyAccess.episodes[0].videoSources.length, 1);
 });
+
+test('repeatedly failed sources are hidden while retaining a last-resort source', () => {
+  const movie = { isVip: false, episodes: [{ videoSources: [
+    { id: 'dead', quality: '1080p', healthStatus: 'failed', consecutiveFailures: 3 },
+    { id: 'good', quality: '1080p', healthStatus: 'healthy', consecutiveFailures: 0 },
+  ] }] };
+  assert.deepEqual(shapeMovieForViewer(movie, false).episodes[0].videoSources.map((source) => source.id), ['good']);
+
+  const allFailed = { isVip: false, episodes: [{ videoSources: [
+    { id: 'last-resort', quality: '1080p', healthStatus: 'failed', consecutiveFailures: 5 },
+  ] }] };
+  assert.deepEqual(shapeMovieForViewer(allFailed, false).episodes[0].videoSources.map((source) => source.id), ['last-resort']);
+});

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Film, Heart, Shield, Laptop, HelpCircle } from 'lucide-react';
+import { Activity, Film, Heart, Shield, Laptop, HelpCircle } from 'lucide-react';
 
 export default function Footer() {
   return (
@@ -65,6 +65,7 @@ export default function Footer() {
                 <HelpCircle className="w-3.5 h-3.5 mr-1" /> Góp ý & hỗ trợ
               </Link>
             </li>
+            <li><Link href="/status" className="flex items-center transition-colors hover:text-white"><Activity className="mr-1 h-3.5 w-3.5" /> Trạng thái hệ thống</Link></li>
           </ul>
         </div>
       </div>

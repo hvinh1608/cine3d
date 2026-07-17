@@ -1,6 +1,8 @@
 export type VipVideoSource = {
   isPremium?: boolean;
   quality?: string;
+  healthStatus?: string;
+  consecutiveFailures?: number;
   [key: string]: unknown;
 };
 
@@ -20,11 +22,14 @@ export function shapeMovieForViewer(movie: any, canAccessVip: boolean, now = new
     isEarlyAccess,
     requiresVip: wholeMovieRequiresVip && !canAccessVip,
     episodes: (movie.episodes || []).map((episode: any) => {
-      const sources: VipVideoSource[] = (episode.videoSources || []).map((source: VipVideoSource) => ({
+      const allSources: VipVideoSource[] = (episode.videoSources || []).map((source: VipVideoSource) => ({
         ...source,
         // 2K/4K are always treated as Premium, even when an older DB row lacks the flag.
         isPremium: sourceRequiresVip(source),
       }));
+      const usableSources = allSources.filter((source) => source.healthStatus !== 'failed' || Number(source.consecutiveFailures || 0) < 3);
+      // Never make an episode unplayable solely because every background health check failed.
+      const sources = usableSources.length ? usableSources : allSources;
       const premiumCount = sources.filter(sourceRequiresVip).length;
       const videoSources = canAccessVip
         ? [...sources].sort((a, b) => Number(sourceRequiresVip(b)) - Number(sourceRequiresVip(a)))

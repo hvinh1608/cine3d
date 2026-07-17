@@ -208,6 +208,13 @@ io.on('connection', (socket) => {
       touchRoom(room); persistKnownRoom(room); io.to(roomId).emit('room:message', { name: room.users.get(socket.id) || 'Khách', message: message.trim().slice(0, 300) });
     }
   });
+  socket.on('room:reaction', (emoji: string) => {
+    const roomId = socket.data.roomId as string | undefined; const room = roomId ? watchRooms.get(roomId) : undefined;
+    const allowed = new Set(['❤️', '😂', '😮', '👏', '🔥', '😢']);
+    if (!roomId || !room || !allowed.has(emoji) || !takeRateSlot(socket, 'reactionEvents', 5, 5_000)) return;
+    touchRoom(room); persistKnownRoom(room);
+    io.to(roomId).emit('room:reaction', { id: crypto.randomBytes(6).toString('hex'), emoji, name: room.users.get(socket.id) || 'Khách', createdAt: Date.now() });
+  });
   socket.on('room:episode', (episode: number, callback?: (result: { ok?: boolean; error?: string }) => void) => {
     const roomId = socket.data.roomId as string | undefined; const room = roomId ? watchRooms.get(roomId) : undefined;
     if (!roomId || !room || room.hostId !== socket.id) return callback?.({ error: 'Chỉ chủ phòng mới được đổi tập.' });

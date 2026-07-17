@@ -15,6 +15,7 @@ const SOCKET_URL = API_URL.replace(/\/api\/?$/, '');
 type RoomState = { playing: boolean; currentTime: number; updatedAt: number };
 type RoomUser = { id: string; name: string };
 type ChatMessage = { name: string; message: string };
+type RoomReaction = { id: string; emoji: string; name: string; createdAt: number; lane: number };
 type RoomSnapshot = { users: RoomUser[]; hostId: string; episode?: number; isPrivate?: boolean };
 type RoomResult = RoomSnapshot & { error?: string; passwordRequired?: boolean; roomId: string; slug: string; episode: number; state: RoomState };
 
@@ -33,6 +34,7 @@ export default function WatchTogetherPage() {
   const [users, setUsers] = useState<RoomUser[]>([]);
   const [hostId, setHostId] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [reactions, setReactions] = useState<RoomReaction[]>([]);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [playerError, setPlayerError] = useState('');
@@ -194,6 +196,11 @@ export default function WatchTogetherPage() {
       setHostId(snapshot.hostId || '');
     });
     socket.on('room:message', (next: ChatMessage) => setMessages((current) => [...current.slice(-49), next]));
+    socket.on('room:reaction', (next: Omit<RoomReaction, 'lane'>) => {
+      const reaction = { ...next, lane: Math.floor(Math.random() * 5) };
+      setReactions((current) => [...current.slice(-14), reaction]);
+      window.setTimeout(() => setReactions((current) => current.filter((item) => item.id !== next.id)), 3_200);
+    });
     socket.on('room:episode', ({ episode: nextEpisode, state: nextState }: { episode: number; state: RoomState }) => {
       setRoomEpisode(nextEpisode);
       setState(nextState);
@@ -243,6 +250,8 @@ export default function WatchTogetherPage() {
     socketRef.current?.emit('room:message', message);
     setMessage('');
   };
+
+  const sendReaction = (emoji: string) => socketRef.current?.emit('room:reaction', emoji);
 
   const copyInvite = async () => {
     try {
@@ -322,6 +331,12 @@ export default function WatchTogetherPage() {
         {!isHost && (!soundEnabled || playbackBlocked || !state.playing) && <button onClick={() => { const video = videoRef.current; setSoundEnabled(true); setPlaybackBlocked(false); if (video) { video.muted = false; if (state.playing) void video.play().catch(() => setPlaybackBlocked(true)); } }} className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-red-600 px-4 py-2 text-xs font-bold shadow-lg">
           {state.playing ? (playbackBlocked ? 'Bấm để phát đồng bộ' : 'Bật tiếng & xem') : 'Chờ chủ phòng phát'}
         </button>}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-live="polite">
+          {reactions.map((reaction) => <div key={reaction.id} title={reaction.name} className="absolute bottom-14 animate-[ping_3s_ease-out_forwards] text-3xl drop-shadow-lg" style={{ left: `${12 + reaction.lane * 18}%` }}>{reaction.emoji}</div>)}
+        </div>
+        <div className="absolute bottom-3 right-3 flex gap-1 rounded-full border border-white/10 bg-black/65 p-1.5 backdrop-blur-md">
+          {['❤️', '😂', '😮', '👏', '🔥', '😢'].map((emoji) => <button key={emoji} type="button" onClick={() => sendReaction(emoji)} className="rounded-full p-1.5 text-lg transition hover:scale-125 hover:bg-white/10" aria-label={`Gửi reaction ${emoji}`}>{emoji}</button>)}
+        </div>
       </section>
 
       <aside className="glass-panel space-y-4 rounded-2xl p-4">
