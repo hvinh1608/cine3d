@@ -10,6 +10,15 @@ Luồng VIP mặc định sử dụng xác nhận giao dịch thủ công:
 
 Đặt `VIP_PAYMENT_MODE=disabled` trên backend để tắt tạo/xác nhận đơn. Các gói mặc định được tạo bởi Prisma seed và không bị ghi đè nếu đã tồn tại trong database.
 
+### Thanh toán tự động qua payOS
+
+1. Tạo kênh thanh toán tại `my.payos.vn`, sau đó cấu hình `PAYOS_CLIENT_ID`, `PAYOS_API_KEY` và `PAYOS_CHECKSUM_KEY` chỉ trên backend.
+2. Đặt `VIP_PAYMENT_MODE=payos`, `PAYOS_RETURN_URL=https://ten-mien/vip?payment=success` và `PAYOS_CANCEL_URL=https://ten-mien/vip?payment=cancelled`.
+3. Trong kênh thanh toán payOS, cấu hình webhook công khai HTTPS là `https://api-ten-mien/api/vip/payos/webhook`.
+4. Chạy migration/deploy database rồi khởi động lại backend. Đơn PayOS sẽ tự hết hạn sau 30 phút và chỉ được kích hoạt khi webhook có chữ ký hợp lệ, đúng mã đơn và đúng số tiền.
+
+Không đặt ba khóa PayOS trong biến môi trường frontend hoặc commit chúng vào Git.
+
 Website xem phim trực tuyến với thiết kế giao diện không gian 3D, chiều sâu điện ảnh cao cấp và mượt mà. 
 
 ## Database production và email tài khoản

@@ -31,14 +31,19 @@ async function payosRequest(path: string, init: RequestInit) {
   return payload.data;
 }
 
-export async function createPayosPayment(input: { orderCode: number; amount: number; description: string; returnUrl: string; cancelUrl: string; itemName: string }) {
+export async function createPayosPayment(input: { orderCode: number; amount: number; description: string; returnUrl: string; cancelUrl: string; itemName: string; expiredAt: Date }) {
   const signatureData = {
     amount: input.amount, cancelUrl: input.cancelUrl, description: input.description,
     orderCode: input.orderCode, returnUrl: input.returnUrl,
   };
   return payosRequest('/v2/payment-requests', {
     method: 'POST',
-    body: JSON.stringify({ ...signatureData, items: [{ name: input.itemName, quantity: 1, price: input.amount }], signature: hmac(canonicalObject(signatureData)) }),
+    body: JSON.stringify({
+      ...signatureData,
+      items: [{ name: input.itemName, quantity: 1, price: input.amount }],
+      expiredAt: Math.floor(input.expiredAt.getTime() / 1000),
+      signature: hmac(canonicalObject(signatureData)),
+    }),
   }) as Promise<{ paymentLinkId: string; checkoutUrl: string; qrCode: string }>;
 }
 

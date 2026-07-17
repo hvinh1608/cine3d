@@ -99,6 +99,7 @@ export const createVipOrder = async (req: AuthenticatedRequest, res: Response) =
         const payment = await createPayosPayment({
           orderCode: Number(order.providerOrderCode), amount: order.amount,
           description: order.orderCode.slice(0, 25), itemName: order.plan.name,
+          expiredAt: order.expiresAt,
           returnUrl: process.env.PAYOS_RETURN_URL || `${process.env.CLIENT_URL || 'http://localhost:3000'}/vip?payment=success`,
           cancelUrl: process.env.PAYOS_CANCEL_URL || `${process.env.CLIENT_URL || 'http://localhost:3000'}/vip?payment=cancelled`,
         });
@@ -191,7 +192,7 @@ export const confirmVipOrder = async (req: AuthenticatedRequest, res: Response) 
   try {
     const result = await prisma.$transaction(async (tx) => {
       const claimed = await tx.vipOrder.updateMany({
-        where: { id: req.params.id, status: PENDING, expiresAt: { gt: now } },
+        where: { id: req.params.id, status: PENDING, provider: 'MANUAL', expiresAt: { gt: now } },
         data: { status: PAID, paidAt: now, confirmedById: req.user!.id },
       });
 
@@ -223,6 +224,7 @@ export const confirmVipOrder = async (req: AuthenticatedRequest, res: Response) 
     if (!result.order) return res.status(404).json({ message: 'Không tìm thấy đơn VIP.' });
     if (!result.changed) {
       if (result.order.status === PAID) return res.json({ message: 'Đơn đã được xác nhận trước đó.', order: result.order });
+      if (result.order.provider === 'PAYOS') return res.status(409).json({ message: 'Đơn payOS chỉ được kích hoạt bởi webhook thanh toán hợp lệ.' });
       return res.status(409).json({ message: 'Đơn đã hết hạn hoặc không còn chờ xác nhận.' });
     }
 
