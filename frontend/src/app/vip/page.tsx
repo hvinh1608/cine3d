@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AxiosError } from 'axios';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -80,6 +80,7 @@ export default function VipPage() {
   const [loading, setLoading] = useState(true);
   const [submittingPlanId, setSubmittingPlanId] = useState<string | null>(null);
   const [payosReady, setPayosReady] = useState(false);
+  const payosCheckoutRef = useRef<PayOSCheckoutInstance | null>(null);
   const userId = user?.id;
   const userIsVip = user?.isVip;
   const userVipExpiresAt = user?.vipExpiresAt;
@@ -154,7 +155,7 @@ export default function VipPage() {
       RETURN_URL: `${window.location.origin}/vip?payment=success`,
       ELEMENT_ID: 'payos-embedded-checkout',
       CHECKOUT_URL: pendingOrder.checkoutUrl,
-      embedded: true,
+      embedded: false,
       onSuccess: () => {
         showToast('Thanh toán thành công. Đang kích hoạt VIP...', 'success');
         window.setTimeout(() => void loadOrders().catch(() => undefined), 1200);
@@ -166,8 +167,12 @@ export default function VipPage() {
           .finally(() => void loadOrders().catch(() => undefined));
       },
     });
+    payosCheckoutRef.current = checkout;
     checkout.open();
-    return () => checkout.exit();
+    return () => {
+      payosCheckoutRef.current = null;
+      checkout.exit();
+    };
   }, [loadOrders, payosReady, pendingOrder?.checkoutUrl, pendingOrder?.id, pendingOrder?.provider, showToast]);
 
   const createOrder = async (planId: string) => {
@@ -239,17 +244,21 @@ export default function VipPage() {
       {pendingOrder && (
         <section className="mt-8 overflow-hidden rounded-3xl border border-amber-300/25 bg-gradient-to-r from-amber-400/10 via-slate-950/80 to-slate-950/80 shadow-xl">
           <div className="border-b border-white/5 px-6 py-4"><div className="flex items-center gap-2 text-sm font-black text-amber-300"><Clock3 className="h-4 w-4 animate-pulse" /> Đang xác nhận giao dịch</div></div>
-          <div className="grid gap-7 p-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+          <div className={`grid gap-7 p-6 lg:items-start ${pendingOrder.provider === 'PAYOS' ? '' : 'lg:grid-cols-[minmax(0,1fr)_320px]'}`}>
             <div className="min-w-0">
               <p className="text-xl font-black text-white">{pendingOrder.plan.name} <span className="text-amber-300">· {formatMoney(pendingOrder.amount)}</span></p>
               <p className="mt-2 text-xs leading-5 text-slate-400">Mã giao dịch <span className="rounded bg-white/5 px-2 py-1 font-mono font-bold text-white">{pendingOrder.orderCode}</span> · hiệu lực đến {new Date(pendingOrder.expiresAt).toLocaleString('vi-VN')}</p>
               {pendingOrder.provider === 'PAYOS' && pendingOrder.checkoutUrl ? (
                 <div className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-5">
-                  <p className="text-sm font-bold text-emerald-300">Thanh toán ngay bên dưới. VIP sẽ tự động kích hoạt khi ngân hàng xác nhận giao dịch.</p>
-                  {!payosReady && <p className="mt-3 text-xs text-slate-400">Đang tải giao diện thanh toán PayOS...</p>}
-                  <a href={pendingOrder.checkoutUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex text-xs font-bold text-slate-400 underline decoration-slate-600 underline-offset-4 hover:text-white">
-                    Mở trang thanh toán dự phòng
-                  </a>
+                  <p className="text-sm font-bold text-emerald-300">Thanh toán trong cửa sổ bảo mật PayOS ngay trên CINE3D. VIP sẽ tự động kích hoạt khi ngân hàng xác nhận.</p>
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <button type="button" disabled={!payosReady} onClick={() => payosCheckoutRef.current?.open()} className="inline-flex items-center gap-2 rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-wait disabled:opacity-50">
+                      <Zap className="h-4 w-4" /> {payosReady ? 'Mở cửa sổ thanh toán' : 'Đang tải PayOS...'}
+                    </button>
+                    <a href={pendingOrder.checkoutUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-slate-500 underline decoration-slate-700 underline-offset-4 hover:text-white">
+                      Mở trang dự phòng
+                    </a>
+                  </div>
                 </div>
               ) : <><div className="mt-6 grid gap-3 sm:grid-cols-2">
                 <PaymentDetail label="Ngân hàng" value={VIP_BANK.name} />
@@ -267,7 +276,7 @@ export default function VipPage() {
                 <X className="h-4 w-4" /> Hủy giao dịch
               </button>
             </div>
-            {pendingOrder.provider === 'PAYOS' ? <div id="payos-embedded-checkout" className="min-h-[620px] w-full overflow-hidden rounded-3xl bg-white shadow-[0_20px_60px_rgba(0,0,0,0.35)] lg:col-span-1" /> : paymentQrUrl ? <div className="mx-auto w-full max-w-[320px] rounded-3xl border border-white/10 bg-white p-3 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+            {pendingOrder.provider === 'PAYOS' ? <div id="payos-embedded-checkout" className="hidden" /> : paymentQrUrl ? <div className="mx-auto w-full max-w-[320px] rounded-3xl border border-white/10 bg-white p-3 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
               <Image src={paymentQrUrl} alt={`Mã QR thanh toán đơn ${pendingOrder.orderCode}`} width={600} height={760} className="h-auto w-full rounded-2xl" priority />
               <p className="px-2 pb-1 pt-3 text-center text-xs font-black text-slate-900">Quét bằng ứng dụng ngân hàng</p>
               <p className="px-2 pb-2 text-center text-[10px] text-slate-500">QR đã gồm số tiền và mã đơn</p>
