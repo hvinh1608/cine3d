@@ -5,6 +5,7 @@ import type { AxiosError } from 'axios';
 import Link from 'next/link';
 import Image from 'next/image';
 import Script from 'next/script';
+import { createPortal } from 'react-dom';
 import { BadgeCheck, Check, Clock3, Copy, Crown, Download, MonitorPlay, ReceiptText, ShieldCheck, Sparkles, X, Zap } from 'lucide-react';
 import api from '../../lib/api';
 import { useStore } from '../../hooks/useStore';
@@ -175,6 +176,13 @@ export default function VipPage() {
     };
   }, [loadOrders, payosModalOpen, payosReady, pendingOrder?.checkoutUrl, pendingOrder?.id, pendingOrder?.provider, showToast]);
 
+  useEffect(() => {
+    if (!payosModalOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previousOverflow; };
+  }, [payosModalOpen]);
+
   const createOrder = async (planId: string) => {
     if (!user) return;
     setSubmittingPlanId(planId);
@@ -211,15 +219,16 @@ export default function VipPage() {
         onReady={() => setPayosReady(true)}
         onError={() => showToast('Không tải được giao diện PayOS. Bạn vẫn có thể mở trang thanh toán dự phòng.', 'error')}
       />
-      {payosModalOpen && pendingOrder?.provider === 'PAYOS' && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Thanh toán PayOS">
-          <div className="relative h-[min(760px,94vh)] w-full max-w-[520px] overflow-hidden rounded-3xl border border-white/15 bg-white shadow-[0_30px_120px_rgba(0,0,0,0.75)]">
-            <button type="button" onClick={() => setPayosModalOpen(false)} aria-label="Đóng cửa sổ thanh toán" className="absolute right-3 top-3 z-10 rounded-full bg-slate-950/80 p-2 text-white shadow-lg transition hover:bg-red-500">
+      {payosModalOpen && pendingOrder?.provider === 'PAYOS' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-3 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Thanh toán PayOS" onMouseDown={(event) => { if (event.target === event.currentTarget) setPayosModalOpen(false); }}>
+          <div className="relative h-[min(640px,92dvh)] w-full max-w-[760px] overflow-hidden rounded-3xl border border-white/15 bg-white shadow-[0_30px_120px_rgba(0,0,0,0.8)]">
+            <button type="button" onClick={() => setPayosModalOpen(false)} aria-label="Đóng cửa sổ thanh toán" className="absolute right-3 top-3 z-[10000] rounded-full bg-slate-950 p-2.5 text-white shadow-xl transition hover:bg-red-500">
               <X className="h-5 w-5" />
             </button>
-            <div id="payos-embedded-checkout" className="h-full w-full overflow-auto" />
+            <div id="payos-embedded-checkout" className="h-full w-full overflow-auto overscroll-contain" />
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
       <section className="relative overflow-hidden rounded-[2rem] border border-amber-300/20 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.22),transparent_34%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(2,6,23,0.98)_55%,rgba(76,29,149,0.35))] p-7 shadow-[0_30px_100px_rgba(0,0,0,0.45)] md:p-12">
         <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-amber-300/10 blur-3xl" />
