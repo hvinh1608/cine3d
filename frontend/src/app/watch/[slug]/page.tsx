@@ -243,16 +243,14 @@ function WatchPageContent() {
     let disposed = false;
     let hls: import('hls.js').default | null = null;
     if (activeSource.type === 'hls') {
-      if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = activeSource.url;
-      } else {
-        void import('hls.js').then(({ default: Hls }) => {
-          if (disposed || !Hls.isSupported()) return;
+      void import('hls.js').then(({ default: Hls }) => {
+        if (disposed) return;
+        if (Hls.isSupported()) {
           const instance = new Hls({ maxBufferLength: dataSaver ? 15 : 30, maxMaxBufferLength: dataSaver ? 30 : 60, capLevelToPlayerSize: true });
           if (disposed) { instance.destroy(); return; }
-        hls = instance;
-        instance.loadSource(activeSource.url);
-        instance.attachMedia(video);
+          hls = instance;
+          instance.loadSource(activeSource.url);
+          instance.attachMedia(video);
         
         instance.on(Hls.Events.MANIFEST_PARSED, () => {
           const loadedLevels = instance.levels.map((level, index) => ({
@@ -283,10 +281,13 @@ function WatchPageContent() {
             setActiveSource(fallback);
           }
         });
-
-        hlsRef.current = instance;
-        }).catch(() => showToast('Không thể tải bộ phát HLS.', 'error'));
-      }
+          hlsRef.current = instance;
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+          video.src = activeSource.url;
+        } else {
+          showToast('Trình duyệt không hỗ trợ nguồn phát HLS này.', 'error');
+        }
+      }).catch(() => showToast('Không thể tải bộ phát HLS.', 'error'));
     } else {
       // Direct MP4
       video.src = activeSource.url;
