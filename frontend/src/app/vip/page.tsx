@@ -221,11 +221,18 @@ export default function VipPage() {
       />
       {payosModalOpen && pendingOrder?.provider === 'PAYOS' && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-3 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Thanh toán PayOS" onMouseDown={(event) => { if (event.target === event.currentTarget) setPayosModalOpen(false); }}>
-          <div className="relative h-[min(470px,88dvh)] w-full max-w-[520px] overflow-hidden rounded-3xl border border-white/15 bg-white shadow-[0_30px_120px_rgba(0,0,0,0.8)]">
-            <button type="button" onClick={() => setPayosModalOpen(false)} aria-label="Đóng cửa sổ thanh toán" className="absolute right-3 top-3 z-[10000] rounded-full bg-slate-950 p-2.5 text-white shadow-xl transition hover:bg-red-500">
+          <div className="relative flex h-[min(590px,92dvh)] w-full max-w-[520px] flex-col overflow-hidden rounded-3xl border border-white/15 bg-white shadow-[0_30px_120px_rgba(0,0,0,0.8)]">
+            <div className="shrink-0 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.2),transparent_42%),linear-gradient(135deg,#07111f,#020617)] px-5 py-4 pr-16 text-white">
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300"><ShieldCheck className="h-4 w-4" /> Thanh toán bảo mật qua PayOS</div>
+              <div className="mt-3 flex items-end justify-between gap-4">
+                <div className="min-w-0"><p className="truncate text-lg font-black">{pendingOrder.plan.name}</p><p className="mt-1 text-xs text-slate-400">Mã đơn <span className="font-mono font-bold text-slate-200">{pendingOrder.orderCode}</span></p></div>
+                <p className="shrink-0 text-xl font-black text-emerald-300">{formatMoney(pendingOrder.amount)}</p>
+              </div>
+            </div>
+            <button type="button" onClick={() => setPayosModalOpen(false)} aria-label="Đóng cửa sổ thanh toán" className="absolute right-3 top-3 z-[10000] rounded-full bg-white/10 p-2.5 text-white shadow-xl transition hover:bg-red-500">
               <X className="h-5 w-5" />
             </button>
-            <div id="payos-embedded-checkout" className="!static !inset-auto !h-full !min-h-0 !w-full !max-w-full overflow-auto overscroll-contain" />
+            <div id="payos-embedded-checkout" className="!static !inset-auto !min-h-0 !w-full !max-w-full flex-1 overflow-auto overscroll-contain" />
           </div>
         </div>,
         document.body,
