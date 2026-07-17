@@ -73,6 +73,7 @@ services:
       REQUIRE_EMAIL_VERIFICATION: "${REQUIRE_EMAIL_VERIFICATION:-false}"
       GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
       REDIS_URL: "redis://redis:6379"
+      WATCH_ROOM_TOKEN_SECRET: "${WATCH_ROOM_TOKEN_SECRET:-}"
     depends_on:
       db:
         condition: service_healthy

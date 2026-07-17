@@ -13,6 +13,7 @@ import { checkDueVideoSources } from './services/source-health.service';
 import { decodeAccessToken } from './middleware/auth';
 import { hasVipAccess } from './lib/vip';
 import { cacheDelete, cacheSet, closeRedis, redisStatus } from './lib/redis';
+import { issueRoomAccessToken, verifyRoomAccessToken } from './lib/watch-room-token';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -110,8 +111,9 @@ io.use(async (socket, next) => {
 });
 const WATCH_ROOM_TTL_MS = Math.max(5 * 60_000, Number(process.env.WATCH_ROOM_TTL_MS) || 30 * 60_000);
 const WATCH_ROOM_MAX_USERS = Math.min(50, Math.max(2, Number(process.env.WATCH_ROOM_MAX_USERS) || 20));
-type WatchRoom = { slug: string; episode: number; hostId: string; state: { playing: boolean; currentTime: number; updatedAt: number }; users: Map<string, string>; isPrivate: boolean; passwordHash: string | null; createdAt: number; expiresAt: number };
+type WatchRoom = { slug: string; episode: number; hostId: string; hostUserId: string; state: { playing: boolean; currentTime: number; updatedAt: number }; users: Map<string, string>; userIds: Map<string, string>; isPrivate: boolean; passwordHash: string | null; accessKey: string; createdAt: number; expiresAt: number };
 const watchRooms = new Map<string, WatchRoom>();
+const hostTransferTimers = new Map<string, NodeJS.Timeout>();
 const getUsers = (room: WatchRoom) => [...room.users.entries()].map(([id, name]) => ({ id, name }));
 const roomSnapshot = (room: WatchRoom) => ({ users: getUsers(room), hostId: room.hostId, episode: room.episode, isPrivate: room.isPrivate });
 const publicRoomList = () => [...watchRooms.entries()]
@@ -132,13 +134,33 @@ const cleanName = (name: unknown, fallback: string) => typeof name === 'string' 
 const touchRoom = (room: WatchRoom) => { room.expiresAt = Date.now() + WATCH_ROOM_TTL_MS; };
 const roomPasswordHash = (password: string) => crypto.createHash('sha256').update(password).digest('hex');
 const persistRoom = (roomId: string, room: WatchRoom) => cacheSet(`cine3d:watch-room:${roomId}`, {
-  slug: room.slug, episode: room.episode, hostId: room.hostId, state: room.state,
-  users: [...room.users.entries()], isPrivate: room.isPrivate, passwordHash: room.passwordHash,
+  slug: room.slug, episode: room.episode, hostId: room.hostId, hostUserId: room.hostUserId, state: room.state,
+  users: [...room.users.entries()], userIds: [...room.userIds.entries()], isPrivate: room.isPrivate, passwordHash: room.passwordHash, accessKey: room.accessKey,
   createdAt: room.createdAt, expiresAt: room.expiresAt,
 }, Math.max(1_000, room.expiresAt - Date.now()));
 const persistKnownRoom = (room: WatchRoom) => {
   const entry = [...watchRooms.entries()].find(([, candidate]) => candidate === room);
   if (entry) void persistRoom(entry[0], room);
+};
+const clearHostTransfer = (roomId: string) => {
+  const timer = hostTransferTimers.get(roomId);
+  if (timer) clearTimeout(timer);
+  hostTransferTimers.delete(roomId);
+};
+const scheduleHostTransfer = (roomId: string, room: WatchRoom) => {
+  clearHostTransfer(roomId);
+  const timer = setTimeout(() => {
+    hostTransferTimers.delete(roomId);
+    if (room.users.has(room.hostId)) return;
+    const nextHostId = room.users.keys().next().value as string | undefined;
+    room.hostId = nextHostId || '';
+    room.hostUserId = nextHostId ? room.userIds.get(nextHostId) || '' : '';
+    persistKnownRoom(room);
+    if (room.users.size) io.to(roomId).emit('room:users', roomSnapshot(room));
+    broadcastPublicRooms();
+  }, 8_000);
+  timer.unref();
+  hostTransferTimers.set(roomId, timer);
 };
 
 function takeRateSlot(socket: Socket, key: string, maximum: number, windowMs: number) {
@@ -156,8 +178,10 @@ function leaveWatchRoom(socket: Socket) {
   delete socket.data.roomId;
   if (!roomId || !room) return;
   socket.leave(roomId);
+  const wasHost = room.hostId === socket.id;
   room.users.delete(socket.id);
-  if (room.hostId === socket.id) room.hostId = room.users.keys().next().value || '';
+  room.userIds.delete(socket.id);
+  if (wasHost) scheduleHostTransfer(roomId, room);
   touchRoom(room);
   persistKnownRoom(room);
   if (room.users.size) io.to(roomId).emit('room:users', roomSnapshot(room));
@@ -173,24 +197,28 @@ io.on('connection', (socket) => {
     if (isPrivate && (typeof password !== 'string' || password.length < 4 || password.length > 50)) return callback({ error: 'Mật khẩu phòng phải từ 4 đến 50 ký tự.' });
     leaveWatchRoom(socket);
     const roomId = crypto.randomBytes(4).toString('hex');
-    const room: WatchRoom = { slug: slug.trim(), episode: Math.max(1, Number(episode) || 1), hostId: socket.id, state: { playing: false, currentTime: 0, updatedAt: Date.now() }, users: new Map([[socket.id, cleanName(name, 'Chủ phòng')]]), isPrivate, passwordHash: isPrivate ? roomPasswordHash(password) : null, createdAt: Date.now(), expiresAt: Date.now() + WATCH_ROOM_TTL_MS };
+    const room: WatchRoom = { slug: slug.trim(), episode: Math.max(1, Number(episode) || 1), hostId: socket.id, hostUserId: socket.data.user.id, state: { playing: false, currentTime: 0, updatedAt: Date.now() }, users: new Map([[socket.id, cleanName(name, 'Chủ phòng')]]), userIds: new Map([[socket.id, socket.data.user.id]]), isPrivate, passwordHash: isPrivate ? roomPasswordHash(password) : null, accessKey: crypto.randomBytes(24).toString('base64url'), createdAt: Date.now(), expiresAt: Date.now() + WATCH_ROOM_TTL_MS };
     watchRooms.set(roomId, room); void persistRoom(roomId, room); socket.join(roomId); socket.data.roomId = roomId;
-    callback({ roomId, slug: room.slug, state: room.state, ...roomSnapshot(room) });
+    const roomAccessToken = isPrivate ? issueRoomAccessToken({ roomId, userId: socket.data.user.id, accessKey: room.accessKey, expiresAt: room.expiresAt }) : undefined;
+    callback({ roomId, slug: room.slug, state: room.state, roomAccessToken, ...roomSnapshot(room) });
     broadcastPublicRooms();
   });
-  socket.on('room:join', ({ roomId, name, password }, callback) => {
+  socket.on('room:join', ({ roomId, name, password, roomAccessToken }, callback) => {
     if (typeof roomId !== 'string' || !roomId) return callback({ error: 'Mã phòng không hợp lệ.' });
     const room = watchRooms.get(roomId);
     if (!room) return callback({ error: 'Phòng không tồn tại hoặc đã đóng.' });
-    if (room.isPrivate && room.passwordHash !== roomPasswordHash(typeof password === 'string' ? password : '')) return callback({ error: 'Mật khẩu phòng không đúng.', passwordRequired: true });
+    const tokenValid = room.isPrivate && verifyRoomAccessToken(roomAccessToken, { roomId, userId: socket.data.user.id, accessKey: room.accessKey });
+    if (room.isPrivate && !tokenValid && room.passwordHash !== roomPasswordHash(typeof password === 'string' ? password : '')) return callback({ error: 'Mật khẩu phòng không đúng.', passwordRequired: true });
     if (!room.users.has(socket.id) && room.users.size >= WATCH_ROOM_MAX_USERS) return callback({ error: `Phòng đã đủ ${WATCH_ROOM_MAX_USERS} người.` });
     leaveWatchRoom(socket);
-    room.users.set(socket.id, cleanName(name, 'Khách')); socket.join(roomId); socket.data.roomId = roomId;
-    if (!room.hostId || !room.users.has(room.hostId)) room.hostId = socket.id;
+    room.users.set(socket.id, cleanName(name, 'Khách')); room.userIds.set(socket.id, socket.data.user.id); socket.join(roomId); socket.data.roomId = roomId;
+    if (room.hostUserId === socket.data.user.id) { room.hostId = socket.id; clearHostTransfer(roomId); }
+    else if (!room.hostId && !room.hostUserId) { room.hostId = socket.id; room.hostUserId = socket.data.user.id; }
     touchRoom(room);
     persistKnownRoom(room);
     io.to(roomId).emit('room:users', roomSnapshot(room));
-    callback({ roomId, slug: room.slug, state: room.state, ...roomSnapshot(room) });
+    const nextRoomAccessToken = room.isPrivate ? issueRoomAccessToken({ roomId, userId: socket.data.user.id, accessKey: room.accessKey, expiresAt: room.expiresAt }) : undefined;
+    callback({ roomId, slug: room.slug, state: room.state, roomAccessToken: nextRoomAccessToken, ...roomSnapshot(room) });
     broadcastPublicRooms();
   });
   socket.on('room:control', (payload: { type: 'play' | 'pause' | 'seek'; currentTime: number }) => {
@@ -234,6 +262,7 @@ io.on('connection', (socket) => {
     if (!targetId || targetId === socket.id || !room.users.has(targetId)) return callback?.({ error: 'Thành viên không hợp lệ.' });
     const target = io.sockets.sockets.get(targetId);
     room.users.delete(targetId);
+    room.userIds.delete(targetId);
     persistKnownRoom(room);
     if (target) {
       target.emit('room:kicked', { message: 'Bạn đã được chủ phòng mời ra.' });
@@ -249,7 +278,7 @@ io.on('connection', (socket) => {
     const roomId = socket.data.roomId as string | undefined; const room = roomId ? watchRooms.get(roomId) : undefined;
     if (!roomId || !room || room.hostId !== socket.id) return callback?.({ error: 'Chỉ chủ phòng mới có thể đóng phòng.' });
     io.to(roomId).emit('room:closed', { message: 'Chủ phòng đã đóng phòng.' });
-    io.in(roomId).socketsLeave(roomId); watchRooms.delete(roomId); void cacheDelete(`cine3d:watch-room:${roomId}`); delete socket.data.roomId;
+    io.in(roomId).socketsLeave(roomId); watchRooms.delete(roomId); clearHostTransfer(roomId); void cacheDelete(`cine3d:watch-room:${roomId}`); delete socket.data.roomId;
     broadcastPublicRooms();
     callback?.({ ok: true });
   });
@@ -260,7 +289,7 @@ const watchRoomCleanup = setInterval(() => {
   const now = Date.now();
   let changed = false;
   for (const [roomId, room] of watchRooms) {
-    if (room.users.size === 0 && room.expiresAt <= now) { watchRooms.delete(roomId); void cacheDelete(`cine3d:watch-room:${roomId}`); changed = true; }
+    if (room.users.size === 0 && room.expiresAt <= now) { watchRooms.delete(roomId); clearHostTransfer(roomId); void cacheDelete(`cine3d:watch-room:${roomId}`); changed = true; }
   }
   if (changed) broadcastPublicRooms();
 }, 60_000);
@@ -318,6 +347,8 @@ async function shutdown(signal: string) {
   clearInterval(analyticsCleanup);
   clearInterval(releaseNotificationTimer);
   clearInterval(sourceHealthTimer);
+  for (const timer of hostTransferTimers.values()) clearTimeout(timer);
+  hostTransferTimers.clear();
   server.close(async () => {
     io.close();
     await closeRedis();

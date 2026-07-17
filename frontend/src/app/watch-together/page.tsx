@@ -12,13 +12,13 @@ import type { Movie } from '../../types/movie';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const SOCKET_URL = API_URL.replace(/\/api\/?$/, '');
-const roomPasswordKey = (roomId: string) => `cine3d-watch-room-password:${roomId}`;
+const roomAccessTokenKey = (roomId: string) => `cine3d-watch-room-token:${roomId}`;
 type RoomState = { playing: boolean; currentTime: number; updatedAt: number };
 type RoomUser = { id: string; name: string };
 type ChatMessage = { name: string; message: string };
 type RoomReaction = { id: string; emoji: string; name: string; createdAt: number; lane: number };
 type RoomSnapshot = { users: RoomUser[]; hostId: string; episode?: number; isPrivate?: boolean };
-type RoomResult = RoomSnapshot & { error?: string; passwordRequired?: boolean; roomId: string; slug: string; episode: number; state: RoomState };
+type RoomResult = RoomSnapshot & { error?: string; passwordRequired?: boolean; roomAccessToken?: string; roomId: string; slug: string; episode: number; state: RoomState };
 
 export default function WatchTogetherPage() {
   const query = useSearchParams();
@@ -53,6 +53,7 @@ export default function WatchTogetherPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const pendingSeekHandler = useRef<(() => void) | null>(null);
+  const roomAccessTokenRef = useRef('');
   const source = useMemo(
     () => movie?.episodes?.find((item) => item.episodeOrder === roomEpisode)?.videoSources?.[0],
     [roomEpisode, movie]
@@ -61,9 +62,10 @@ export default function WatchTogetherPage() {
 
   useEffect(() => {
     if (!initialRoomId) return;
-    const savedPassword = window.sessionStorage.getItem(roomPasswordKey(initialRoomId)) || '';
+    window.sessionStorage.removeItem(`cine3d-watch-room-password:${initialRoomId}`);
+    const savedToken = window.sessionStorage.getItem(roomAccessTokenKey(initialRoomId)) || '';
     queueMicrotask(() => {
-      setPassword(savedPassword);
+      roomAccessTokenRef.current = savedToken;
       setStarted(true);
     });
   }, [initialRoomId]);
@@ -180,6 +182,7 @@ export default function WatchTogetherPage() {
         name: name || 'Khách',
         privateRoom,
         password,
+        roomAccessToken: roomAccessTokenRef.current,
       }, (result: RoomResult) => {
         if (result?.error) {
           setError(result.error);
@@ -193,7 +196,11 @@ export default function WatchTogetherPage() {
         setHostId(result.hostId || '');
         setRoomEpisode(result.episode || episode);
         setConnected(true);
-        if (result.isPrivate && password) window.sessionStorage.setItem(roomPasswordKey(result.roomId), password);
+        if (result.roomAccessToken) {
+          roomAccessTokenRef.current = result.roomAccessToken;
+          window.sessionStorage.setItem(roomAccessTokenKey(result.roomId), result.roomAccessToken);
+          setPassword('');
+        }
         window.history.replaceState({}, '', `/watch-together?room=${result.roomId}&slug=${encodeURIComponent(result.slug)}&ep=${result.episode}`);
         void axios.post('/analytics/events', { name: reconnectRoomId ? 'watch_room_join' : 'watch_room_create', path: '/watch-together', movieId: result.slug }).catch(() => undefined);
       });
