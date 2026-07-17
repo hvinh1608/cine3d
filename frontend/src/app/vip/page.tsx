@@ -221,11 +221,11 @@ export default function VipPage() {
       />
       {payosModalOpen && pendingOrder?.provider === 'PAYOS' && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-3 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Thanh toán PayOS" onMouseDown={(event) => { if (event.target === event.currentTarget) setPayosModalOpen(false); }}>
-          <div className="relative h-[min(640px,92dvh)] w-full max-w-[760px] overflow-hidden rounded-3xl border border-white/15 bg-white shadow-[0_30px_120px_rgba(0,0,0,0.8)]">
+          <div className="relative h-[min(470px,88dvh)] w-full max-w-[520px] overflow-hidden rounded-3xl border border-white/15 bg-white shadow-[0_30px_120px_rgba(0,0,0,0.8)]">
             <button type="button" onClick={() => setPayosModalOpen(false)} aria-label="Đóng cửa sổ thanh toán" className="absolute right-3 top-3 z-[10000] rounded-full bg-slate-950 p-2.5 text-white shadow-xl transition hover:bg-red-500">
               <X className="h-5 w-5" />
             </button>
-            <div id="payos-embedded-checkout" className="h-full w-full overflow-auto overscroll-contain" />
+            <div id="payos-embedded-checkout" className="!static !inset-auto !h-full !min-h-0 !w-full !max-w-full overflow-auto overscroll-contain" />
           </div>
         </div>,
         document.body,

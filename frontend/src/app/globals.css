@@ -1,5 +1,23 @@
 @import "tailwindcss";
 
+/* payOS injects viewport-sized inline layout styles for embedded checkout.
+   Keep it constrained to CINE3D's compact payment modal instead. */
+#payos-embedded-checkout {
+  position: static !important;
+  inset: auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+}
+
+#payos-embedded-checkout iframe {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+}
+
 :root {
   --background: #020205;
   --foreground: #f8fafc;
