@@ -1,4 +1,7 @@
 import { notFound } from 'next/navigation';
+import type { Metadata } from 'next';
 import PersonPage, { type PersonData } from '../../../components/people/PersonPage';
+import { getSiteUrl } from '../../../lib/site';
 const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> { const { slug } = await params; const response = await fetch(`${API_URL}/actors/${encodeURIComponent(slug)}`, { next: { revalidate: 900 } }); if (!response.ok) return { title: 'Diễn viên | CINE3D', robots: { index: false } }; const person = await response.json() as PersonData; const url = `${getSiteUrl()}/actors/${slug}`; return { title: `${person.name} - Phim đã tham gia | CINE3D`, description: `Xem danh sách ${person.movies.length} phim có sự tham gia của ${person.name} trên CINE3D.`, alternates: { canonical: url }, openGraph: { title: person.name, description: `Phim có sự tham gia của ${person.name}.`, url, images: person.avatarUrl ? [person.avatarUrl] : [] } }; }
 export default async function ActorPage({ params }: { params: Promise<{ slug: string }> }) { const { slug } = await params; const response = await fetch(`${API_URL}/actors/${encodeURIComponent(slug)}`, { next: { revalidate: 900 } }); if (!response.ok) notFound(); return <PersonPage person={await response.json() as PersonData} role="Diễn viên" kind="actor" />; }

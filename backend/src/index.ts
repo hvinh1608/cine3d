@@ -3,6 +3,7 @@ import express from 'express';
 import { createServer } from 'http';
 import cors from 'cors';
 import helmet from 'helmet';
+import compression from 'compression';
 import { Server as SocketServer, Socket } from 'socket.io';
 import crypto from 'crypto';
 import path from 'path';
@@ -31,6 +32,7 @@ const allowedOrigins = new Set([
 
 // Global Middlewares
 app.use(helmet());
+app.use(compression());
 app.use(
   cors({
     origin(origin, callback) {
@@ -49,9 +51,9 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 // Public catalog responses can be reused briefly by browsers and edge caches.
 app.use('/api', (req, res, next) => {
   if (req.method === 'GET' && (req.path === '/movies' || req.path === '/movies/home')) {
-    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300');
   } else if (req.method === 'GET' && (req.path === '/genres' || req.path === '/countries')) {
-    res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400');
+    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400');
   }
   next();
 });

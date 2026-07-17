@@ -13,6 +13,8 @@ export async function generateMetadata({ searchParams }: { searchParams: SearchP
   return {
     title: query ? `Tìm phim “${query}” | CINE3D` : 'Khám phá phim | CINE3D',
     description: query ? `Kết quả tìm kiếm phim ${query} trên CINE3D.` : 'Tìm phim theo tên, thể loại, quốc gia và năm phát hành trên CINE3D.',
+    alternates: { canonical: '/search' },
+    robots: query ? { index: false, follow: true } : { index: true, follow: true },
   };
 }
 

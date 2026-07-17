@@ -121,7 +121,8 @@ export default function CinemaBackground() {
 
       <Canvas
         camera={{ position: [0, 0, 5], fov: 60 }}
-        dpr={[1, 1.5]}
+        dpr={1}
+        frameloop="always"
         gl={{ antialias: false, powerPreference: 'low-power' }}
       >
         <Particles />
