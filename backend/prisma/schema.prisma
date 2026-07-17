@@ -121,6 +121,9 @@ model VipOrder {
   status            String    @default("PENDING")
   provider          String    @default("MANUAL")
   providerReference String?   @unique
+  providerOrderCode String?   @unique
+  checkoutUrl       String?
+  paymentQrCode     String?
   expiresAt         DateTime
   paidAt            DateTime?
   confirmedById     String?

@@ -1,3 +1,5 @@
+import { cacheGet, cacheSet } from '../lib/redis';
+
 const BASE_URL = (process.env.KKPHIM_API_URL || 'https://phimapi.com').replace(/\/$/, '');
 const DEFAULT_CDN = 'https://phimimg.com';
 const TIMEOUT_MS = Number(process.env.KKPHIM_TIMEOUT_MS) || 10000;
@@ -72,9 +74,16 @@ async function kkFetch<T = any>(path: string, params?: Record<string, string | n
   }
 
   const key = url.toString();
+  const sharedKey = `cine3d:kkphim:${Buffer.from(key).toString('base64url')}`;
   const now = Date.now();
   const cached = cache.get(key);
   if (cached && cached.expiresAt > now) return cached.value as T;
+
+  const shared = await cacheGet<T>(sharedKey);
+  if (shared !== null) {
+    cache.set(key, { value: shared, expiresAt: now + cacheTtl(path) });
+    return shared;
+  }
 
   const inFlight = pending.get(key);
   if (inFlight) return inFlight as Promise<T>;
@@ -87,6 +96,7 @@ async function kkFetch<T = any>(path: string, params?: Record<string, string | n
           const value = await requestJson<T>(url);
           pruneCache(Date.now());
           cache.set(key, { value, expiresAt: Date.now() + cacheTtl(path) });
+          void cacheSet(sharedKey, value, cacheTtl(path));
           return value;
         } catch (error) {
           lastError = error;

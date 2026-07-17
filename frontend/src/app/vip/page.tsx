@@ -26,11 +26,14 @@ type VipOrder = {
   expiresAt: string;
   paidAt: string | null;
   createdAt: string;
+  provider: 'MANUAL' | 'PAYOS';
+  checkoutUrl: string | null;
+  paymentQrCode: string | null;
   plan: { id: string; code: string; name: string };
 };
 
 const statusLabels: Record<VipOrder['status'], string> = {
-  PENDING: 'Chờ admin xác nhận',
+  PENDING: 'Đang chờ thanh toán',
   PAID: 'Đã kích hoạt',
   CANCELLED: 'Đã hủy',
   EXPIRED: 'Đã hết hạn',
@@ -63,6 +66,7 @@ export default function VipPage() {
   const pendingOrder = useMemo(() => orders.find((order) => order.status === 'PENDING'), [orders]);
   const transferContent = pendingOrder?.orderCode || '';
   const paymentQrUrl = pendingOrder
+    && pendingOrder.provider !== 'PAYOS'
     ? `https://img.vietqr.io/image/${VIP_BANK.id}-${VIP_BANK.accountNumber}-compact2.png?amount=${pendingOrder.amount}&addInfo=${encodeURIComponent(transferContent)}&accountName=${encodeURIComponent(VIP_BANK.accountName)}`
     : '';
 
@@ -190,7 +194,14 @@ export default function VipPage() {
             <div className="min-w-0">
               <p className="text-xl font-black text-white">{pendingOrder.plan.name} <span className="text-amber-300">· {formatMoney(pendingOrder.amount)}</span></p>
               <p className="mt-2 text-xs leading-5 text-slate-400">Mã giao dịch <span className="rounded bg-white/5 px-2 py-1 font-mono font-bold text-white">{pendingOrder.orderCode}</span> · hiệu lực đến {new Date(pendingOrder.expiresAt).toLocaleString('vi-VN')}</p>
-              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              {pendingOrder.provider === 'PAYOS' && pendingOrder.checkoutUrl ? (
+                <div className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-5">
+                  <p className="text-sm font-bold text-emerald-300">payOS sẽ tự động kích hoạt VIP ngay khi ngân hàng xác nhận giao dịch.</p>
+                  <a href={pendingOrder.checkoutUrl} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-2 rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 hover:bg-emerald-300">
+                    Mở trang thanh toán payOS <Zap className="h-4 w-4" />
+                  </a>
+                </div>
+              ) : <><div className="mt-6 grid gap-3 sm:grid-cols-2">
                 <PaymentDetail label="Ngân hàng" value={VIP_BANK.name} />
                 <PaymentDetail label="Chủ tài khoản" value={VIP_BANK.accountName} />
                 <PaymentDetail label="Số tài khoản" value={VIP_BANK.accountNumber} onCopy={() => copyPaymentValue(VIP_BANK.accountNumber, 'số tài khoản')} />
@@ -198,7 +209,7 @@ export default function VipPage() {
               </div>
               <div className="mt-4 rounded-2xl border border-amber-300/15 bg-amber-300/[0.06] p-4 text-xs leading-5 text-amber-100/75">
                 Chuyển đúng <strong className="text-amber-300">{formatMoney(pendingOrder.amount)}</strong> và giữ nguyên nội dung <strong className="font-mono text-white">{transferContent}</strong> để admin xác nhận chính xác đơn của bạn.
-              </div>
+              </div></>}
               <div className="mt-5 flex max-w-xl items-center text-[10px] font-bold text-slate-500">
                 <span className="flex items-center gap-1 text-emerald-400"><BadgeCheck className="h-4 w-4" /> Tạo đơn</span><span className="mx-3 h-px flex-1 bg-emerald-400/30" /><span className="flex items-center gap-1 text-amber-300"><Clock3 className="h-4 w-4" /> Xác nhận</span><span className="mx-3 h-px flex-1 bg-white/10" /><span>Kích hoạt VIP</span>
               </div>
@@ -206,11 +217,11 @@ export default function VipPage() {
                 <X className="h-4 w-4" /> Hủy giao dịch
               </button>
             </div>
-            <div className="mx-auto w-full max-w-[320px] rounded-3xl border border-white/10 bg-white p-3 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+            {paymentQrUrl ? <div className="mx-auto w-full max-w-[320px] rounded-3xl border border-white/10 bg-white p-3 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
               <Image src={paymentQrUrl} alt={`Mã QR thanh toán đơn ${pendingOrder.orderCode}`} width={600} height={760} className="h-auto w-full rounded-2xl" priority />
               <p className="px-2 pb-1 pt-3 text-center text-xs font-black text-slate-900">Quét bằng ứng dụng ngân hàng</p>
               <p className="px-2 pb-2 text-center text-[10px] text-slate-500">QR đã gồm số tiền và mã đơn</p>
-            </div>
+            </div> : <div className="mx-auto flex min-h-64 w-full max-w-[320px] flex-col items-center justify-center rounded-3xl border border-emerald-400/20 bg-emerald-400/[0.06] p-7 text-center"><ShieldCheck className="h-14 w-14 text-emerald-300" /><p className="mt-4 font-black text-white">Thanh toán bảo mật qua payOS</p><p className="mt-2 text-xs leading-5 text-slate-400">Mã QR ngân hàng sẽ hiển thị trên trang thanh toán payOS.</p></div>}
           </div>
         </section>
       )}

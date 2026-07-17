@@ -82,6 +82,7 @@ import {
   createVipOrder,
   getMyVipOrders,
   cancelMyVipOrder,
+  handlePayosWebhook,
   getAdminVipOrders,
   confirmVipOrder,
   cancelAdminVipOrder,
@@ -186,6 +187,7 @@ router.get('/feedback/me', authenticateToken as any, getMyFeedback as any);
 
 // --- VIP Checkout Routes ---
 router.get('/vip/plans', getVipPlans as any);
+router.post('/vip/payos/webhook', rateLimit(60 * 1000, 120), handlePayosWebhook as any);
 router.post('/vip/orders', rateLimit(60 * 60 * 1000, 10), authenticateToken as any, createVipOrder as any);
 router.get('/vip/orders/me', authenticateToken as any, getMyVipOrders as any);
 router.post('/vip/orders/:id/cancel', authenticateToken as any, cancelMyVipOrder as any);

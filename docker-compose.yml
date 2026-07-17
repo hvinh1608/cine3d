@@ -1,4 +1,19 @@
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: webxemphim-redis
+    restart: always
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - webxemphim-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   db:
     image: postgres:15-alpine
     container_name: webxemphim-db
@@ -40,6 +55,11 @@ services:
       SEED_ADMIN_PASSWORD: "${SEED_ADMIN_PASSWORD:-}"
       SEED_ADMIN_USERNAME: "${SEED_ADMIN_USERNAME:-admin}"
       VIP_PAYMENT_MODE: "${VIP_PAYMENT_MODE:-manual}"
+      PAYOS_CLIENT_ID: "${PAYOS_CLIENT_ID:-}"
+      PAYOS_API_KEY: "${PAYOS_API_KEY:-}"
+      PAYOS_CHECKSUM_KEY: "${PAYOS_CHECKSUM_KEY:-}"
+      PAYOS_RETURN_URL: "${PAYOS_RETURN_URL:-http://localhost:3000/vip?payment=success}"
+      PAYOS_CANCEL_URL: "${PAYOS_CANCEL_URL:-http://localhost:3000/vip?payment=cancelled}"
       RESEND_API_KEY: "${RESEND_API_KEY:-}"
       BREVO_API_KEY: "${BREVO_API_KEY:-}"
       MAIL_FROM: "${MAIL_FROM:-}"
@@ -52,8 +72,11 @@ services:
       PASSWORD_RESET_URL: "${PASSWORD_RESET_URL:-http://localhost:3000/account}"
       REQUIRE_EMAIL_VERIFICATION: "${REQUIRE_EMAIL_VERIFICATION:-false}"
       GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
+      REDIS_URL: "redis://redis:6379"
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - webxemphim-network
@@ -89,6 +112,7 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
 
 networks:
   webxemphim-network:

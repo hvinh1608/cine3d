@@ -12,6 +12,7 @@ import { sendPushToUsers } from './services/push.service';
 import { checkDueVideoSources } from './services/source-health.service';
 import { decodeAccessToken } from './middleware/auth';
 import { hasVipAccess } from './lib/vip';
+import { cacheDelete, cacheSet, closeRedis, redisStatus } from './lib/redis';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -70,7 +71,7 @@ app.use('/api', apiRouter);
 app.get('/health', async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'OK', database: 'connected', timestamp: new Date() });
+    res.json({ status: 'OK', database: 'connected', redis: await redisStatus(), timestamp: new Date() });
   } catch (error) {
     console.error('Database health check failed.', error);
     res.status(503).json({ status: 'ERROR', database: 'unavailable', timestamp: new Date() });
@@ -130,6 +131,15 @@ const broadcastPublicRooms = () => io.emit('rooms:update', publicRoomList());
 const cleanName = (name: unknown, fallback: string) => typeof name === 'string' && name.trim() ? name.trim().slice(0, 30) : fallback;
 const touchRoom = (room: WatchRoom) => { room.expiresAt = Date.now() + WATCH_ROOM_TTL_MS; };
 const roomPasswordHash = (password: string) => crypto.createHash('sha256').update(password).digest('hex');
+const persistRoom = (roomId: string, room: WatchRoom) => cacheSet(`cine3d:watch-room:${roomId}`, {
+  slug: room.slug, episode: room.episode, hostId: room.hostId, state: room.state,
+  users: [...room.users.entries()], isPrivate: room.isPrivate, passwordHash: room.passwordHash,
+  createdAt: room.createdAt, expiresAt: room.expiresAt,
+}, Math.max(1_000, room.expiresAt - Date.now()));
+const persistKnownRoom = (room: WatchRoom) => {
+  const entry = [...watchRooms.entries()].find(([, candidate]) => candidate === room);
+  if (entry) void persistRoom(entry[0], room);
+};
 
 function takeRateSlot(socket: Socket, key: string, maximum: number, windowMs: number) {
   const now = Date.now();
@@ -149,6 +159,7 @@ function leaveWatchRoom(socket: Socket) {
   room.users.delete(socket.id);
   if (room.hostId === socket.id) room.hostId = room.users.keys().next().value || '';
   touchRoom(room);
+  persistKnownRoom(room);
   if (room.users.size) io.to(roomId).emit('room:users', roomSnapshot(room));
   broadcastPublicRooms();
 }
@@ -163,7 +174,7 @@ io.on('connection', (socket) => {
     leaveWatchRoom(socket);
     const roomId = crypto.randomBytes(4).toString('hex');
     const room: WatchRoom = { slug: slug.trim(), episode: Math.max(1, Number(episode) || 1), hostId: socket.id, state: { playing: false, currentTime: 0, updatedAt: Date.now() }, users: new Map([[socket.id, cleanName(name, 'Chủ phòng')]]), isPrivate, passwordHash: isPrivate ? roomPasswordHash(password) : null, createdAt: Date.now(), expiresAt: Date.now() + WATCH_ROOM_TTL_MS };
-    watchRooms.set(roomId, room); socket.join(roomId); socket.data.roomId = roomId;
+    watchRooms.set(roomId, room); void persistRoom(roomId, room); socket.join(roomId); socket.data.roomId = roomId;
     callback({ roomId, slug: room.slug, state: room.state, ...roomSnapshot(room) });
     broadcastPublicRooms();
   });
@@ -177,6 +188,7 @@ io.on('connection', (socket) => {
     room.users.set(socket.id, cleanName(name, 'Khách')); socket.join(roomId); socket.data.roomId = roomId;
     if (!room.hostId || !room.users.has(room.hostId)) room.hostId = socket.id;
     touchRoom(room);
+    persistKnownRoom(room);
     io.to(roomId).emit('room:users', roomSnapshot(room));
     callback({ roomId, slug: room.slug, state: room.state, ...roomSnapshot(room) });
     broadcastPublicRooms();
@@ -187,13 +199,13 @@ io.on('connection', (socket) => {
     const previousPlaying = room.state.playing;
     const playing = payload.type === 'seek' ? previousPlaying : payload.type === 'play';
     room.state = { playing, currentTime: Math.min(24 * 60 * 60, Math.max(0, payload.currentTime)), updatedAt: Date.now() };
-    touchRoom(room); io.to(roomId).emit('room:state', room.state);
+    touchRoom(room); persistKnownRoom(room); io.to(roomId).emit('room:state', room.state);
     if (previousPlaying !== playing) broadcastPublicRooms();
   });
   socket.on('room:message', (message: string) => {
     const roomId = socket.data.roomId as string | undefined; const room = roomId ? watchRooms.get(roomId) : undefined;
     if (roomId && room && typeof message === 'string' && message.trim() && takeRateSlot(socket, 'messageEvents', 6, 10_000)) {
-      touchRoom(room); io.to(roomId).emit('room:message', { name: room.users.get(socket.id) || 'Khách', message: message.trim().slice(0, 300) });
+      touchRoom(room); persistKnownRoom(room); io.to(roomId).emit('room:message', { name: room.users.get(socket.id) || 'Khách', message: message.trim().slice(0, 300) });
     }
   });
   socket.on('room:episode', (episode: number, callback?: (result: { ok?: boolean; error?: string }) => void) => {
@@ -204,6 +216,7 @@ io.on('connection', (socket) => {
     room.episode = nextEpisode;
     room.state = { playing: false, currentTime: 0, updatedAt: Date.now() };
     touchRoom(room);
+    persistKnownRoom(room);
     io.to(roomId).emit('room:episode', { episode: room.episode, state: room.state });
     broadcastPublicRooms();
     callback?.({ ok: true });
@@ -214,6 +227,7 @@ io.on('connection', (socket) => {
     if (!targetId || targetId === socket.id || !room.users.has(targetId)) return callback?.({ error: 'Thành viên không hợp lệ.' });
     const target = io.sockets.sockets.get(targetId);
     room.users.delete(targetId);
+    persistKnownRoom(room);
     if (target) {
       target.emit('room:kicked', { message: 'Bạn đã được chủ phòng mời ra.' });
       target.leave(roomId);
@@ -228,7 +242,7 @@ io.on('connection', (socket) => {
     const roomId = socket.data.roomId as string | undefined; const room = roomId ? watchRooms.get(roomId) : undefined;
     if (!roomId || !room || room.hostId !== socket.id) return callback?.({ error: 'Chỉ chủ phòng mới có thể đóng phòng.' });
     io.to(roomId).emit('room:closed', { message: 'Chủ phòng đã đóng phòng.' });
-    io.in(roomId).socketsLeave(roomId); watchRooms.delete(roomId); delete socket.data.roomId;
+    io.in(roomId).socketsLeave(roomId); watchRooms.delete(roomId); void cacheDelete(`cine3d:watch-room:${roomId}`); delete socket.data.roomId;
     broadcastPublicRooms();
     callback?.({ ok: true });
   });
@@ -239,7 +253,7 @@ const watchRoomCleanup = setInterval(() => {
   const now = Date.now();
   let changed = false;
   for (const [roomId, room] of watchRooms) {
-    if (room.users.size === 0 && room.expiresAt <= now) { watchRooms.delete(roomId); changed = true; }
+    if (room.users.size === 0 && room.expiresAt <= now) { watchRooms.delete(roomId); void cacheDelete(`cine3d:watch-room:${roomId}`); changed = true; }
   }
   if (changed) broadcastPublicRooms();
 }, 60_000);
@@ -299,6 +313,7 @@ async function shutdown(signal: string) {
   clearInterval(sourceHealthTimer);
   server.close(async () => {
     io.close();
+    await closeRedis();
     await prisma.$disconnect();
     process.exit(0);
   });
