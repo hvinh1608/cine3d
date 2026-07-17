@@ -27,6 +27,7 @@ type AdminStats = { totalUsers: number; totalMovies: number; totalEpisodes: numb
 type AnalyticsEventItem = { id: string; name?: string; path?: string | null; movieId?: string | null; metadata?: unknown; createdAt: string };
 type AnalyticsSummary = { periodDays: number; activeUsers: number; events: Record<string, number>; recentPlayerErrors: AnalyticsEventItem[]; recentQualityEvents?: AnalyticsEventItem[] };
 type SourceHealth = { id: string; server: string; quality: string; url: string; healthStatus: string; lastCheckedAt?: string | null; lastStatusCode?: number | null; lastResponseTimeMs?: number | null; lastError?: string | null; consecutiveFailures: number; episode: { title: string; episodeOrder: number; movie: { title: string; slug: string } } };
+type SystemHealth = { backend: boolean; database: string; redis: string; checkedAt?: string };
 
 const isUserVipActive = (user: AdminUser) => Boolean(user.isVip || (user.vipExpiresAt && new Date(user.vipExpiresAt).getTime() > Date.now()));
 const requestMessage = (error: unknown, fallback: string) => (error as AxiosError<{ message?: string }>).response?.data?.message || fallback;
@@ -58,6 +59,18 @@ export default function AdminPage() {
   const [analytics, setAnalytics] = useState<AnalyticsSummary>({ periodDays: 7, activeUsers: 0, events: {}, recentPlayerErrors: [] });
   const [sourceHealth, setSourceHealth] = useState<{ sources: SourceHealth[]; totals: Record<string, number> }>({ sources: [], totals: {} });
   const [checkingSources, setCheckingSources] = useState(false);
+  const [systemHealth, setSystemHealth] = useState<SystemHealth>({ backend: false, database: 'checking', redis: 'checking' });
+
+  const loadSystemHealth = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_URL.replace(/\/api\/?$/, '')}/health`, { cache: 'no-store' });
+      if (!response.ok) throw new Error('Health check failed');
+      const data = await response.json();
+      setSystemHealth({ backend: true, database: data.database || 'unknown', redis: data.redis || 'unknown', checkedAt: data.timestamp });
+    } catch {
+      setSystemHealth({ backend: false, database: 'unavailable', redis: 'unavailable', checkedAt: new Date().toISOString() });
+    }
+  }, []);
 
   // Entities List States
   const [movies, setMovies] = useState<AdminMovie[]>([]);
@@ -171,8 +184,8 @@ export default function AdminPage() {
   }, [accessToken, movieCountry, showToast]);
 
   useEffect(() => {
-    queueMicrotask(() => void loadAdminData());
-  }, [loadAdminData]);
+    queueMicrotask(() => { void loadAdminData(); void loadSystemHealth(); });
+  }, [loadAdminData, loadSystemHealth]);
 
   const loadMoviesPage = useCallback(async (page: number, search = movieSearch) => {
     if (!accessToken) return;
@@ -693,6 +706,18 @@ export default function AdminPage() {
             <h2 className="text-xl font-black uppercase tracking-wide flex items-center text-purple-400">
               <BarChart3 className="w-5 h-5 mr-2" /> Thống kê hệ thống
             </h2>
+
+            <section className="rounded-2xl border border-white/5 bg-slate-900/40 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="flex items-center text-sm font-black uppercase tracking-wider text-slate-200"><ServerCrash className="mr-2 h-4 w-4 text-emerald-400" /> Tình trạng dịch vụ</h3><p className="mt-1 text-[10px] text-slate-500">Chỉ hiển thị cho quản trị viên</p></div><button type="button" onClick={() => void loadSystemHealth()} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-[10px] font-bold text-slate-300 hover:bg-white/5"><RefreshCw className="h-3.5 w-3.5" /> Kiểm tra lại</button></div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                {[
+                  ['Backend API', systemHealth.backend, systemHealth.backend ? 'Hoạt động' : 'Mất kết nối'],
+                  ['PostgreSQL', systemHealth.database === 'connected', systemHealth.database === 'connected' ? 'Đã kết nối' : systemHealth.database],
+                  ['Redis', systemHealth.redis === 'connected', systemHealth.redis === 'connected' ? 'Đã kết nối' : systemHealth.redis === 'fallback' ? 'Memory fallback' : systemHealth.redis],
+                ].map(([label, ok, detail]) => <div key={String(label)} className="rounded-xl border border-white/5 bg-black/20 p-4"><div className="flex items-center justify-between"><span className="text-[10px] font-black uppercase text-slate-500">{label}</span>{ok ? <CheckCircle2 className="h-4 w-4 text-emerald-400" /> : <AlertTriangle className="h-4 w-4 text-amber-400" />}</div><p className={`mt-2 text-sm font-bold ${ok ? 'text-emerald-300' : 'text-amber-300'}`}>{String(detail)}</p></div>)}
+              </div>
+              {systemHealth.checkedAt && <p className="mt-3 text-right text-[9px] text-slate-600">Cập nhật {new Date(systemHealth.checkedAt).toLocaleString('vi-VN')}</p>}
+            </section>
             
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-slate-900/60 border border-white/5 p-5 rounded-2xl relative group overflow-hidden shadow-lg hover:border-purple-500/20 transition-all duration-300">
