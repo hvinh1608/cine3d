@@ -66,6 +66,13 @@ const formatMoney = (value: number) => new Intl.NumberFormat('vi-VN', {
   maximumFractionDigits: 0,
 }).format(value);
 
+const formatCountdown = (seconds: number) => {
+  const safeSeconds = Math.max(0, seconds);
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainder = safeSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+};
+
 const VIP_BANK = {
   id: 'MBBank',
   name: 'MB Bank',
@@ -82,11 +89,13 @@ export default function VipPage() {
   const [submittingPlanId, setSubmittingPlanId] = useState<string | null>(null);
   const [payosReady, setPayosReady] = useState(false);
   const [payosModalOpen, setPayosModalOpen] = useState(false);
+  const [paymentClock, setPaymentClock] = useState(() => Date.now());
   const userId = user?.id;
   const userIsVip = user?.isVip;
   const userVipExpiresAt = user?.vipExpiresAt;
 
   const pendingOrder = useMemo(() => orders.find((order) => order.status === 'PENDING'), [orders]);
+  const paymentSecondsRemaining = pendingOrder ? Math.max(0, Math.ceil((new Date(pendingOrder.expiresAt).getTime() - paymentClock) / 1000)) : 0;
   const transferContent = pendingOrder?.orderCode || '';
   const paymentQrUrl = pendingOrder
     && pendingOrder.provider !== 'PAYOS'
@@ -183,6 +192,20 @@ export default function VipPage() {
     return () => { document.body.style.overflow = previousOverflow; };
   }, [payosModalOpen]);
 
+  useEffect(() => {
+    if (!payosModalOpen || !pendingOrder) return;
+    setPaymentClock(Date.now());
+    const timer = window.setInterval(() => setPaymentClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [payosModalOpen, pendingOrder]);
+
+  useEffect(() => {
+    if (!payosModalOpen || !pendingOrder || paymentSecondsRemaining > 0) return;
+    setPayosModalOpen(false);
+    showToast('Mã QR thanh toán đã hết hạn.', 'error');
+    void loadOrders().catch(() => undefined);
+  }, [loadOrders, paymentSecondsRemaining, payosModalOpen, pendingOrder, showToast]);
+
   const createOrder = async (planId: string) => {
     if (!user) return;
     setSubmittingPlanId(planId);
@@ -221,7 +244,7 @@ export default function VipPage() {
       />
       {payosModalOpen && pendingOrder?.provider === 'PAYOS' && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-3 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Thanh toán PayOS" onMouseDown={(event) => { if (event.target === event.currentTarget) setPayosModalOpen(false); }}>
-          <div className="relative flex h-[min(590px,92dvh)] w-full max-w-[520px] flex-col overflow-hidden rounded-3xl border border-white/15 bg-white shadow-[0_30px_120px_rgba(0,0,0,0.8)]">
+          <div className="relative flex h-[min(640px,94dvh)] w-full max-w-[520px] flex-col overflow-hidden rounded-3xl border border-white/15 bg-white shadow-[0_30px_120px_rgba(0,0,0,0.8)]">
             <div className="shrink-0 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.2),transparent_42%),linear-gradient(135deg,#07111f,#020617)] px-5 py-4 pr-16 text-white">
               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300"><ShieldCheck className="h-4 w-4" /> Thanh toán bảo mật qua PayOS</div>
               <div className="mt-3 flex items-end justify-between gap-4">
@@ -233,6 +256,10 @@ export default function VipPage() {
               <X className="h-5 w-5" />
             </button>
             <div id="payos-embedded-checkout" className="!static !inset-auto !min-h-0 !w-full !max-w-full flex-1 overflow-auto overscroll-contain" />
+            <div className="flex shrink-0 items-center justify-between gap-4 border-t border-slate-200 bg-slate-50 px-5 py-3 text-slate-900">
+              <div className="flex min-w-0 items-center gap-3"><span className="rounded-full bg-amber-100 p-2 text-amber-600"><Clock3 className="h-4 w-4" /></span><div><p className="text-xs font-black">Mã QR hết hạn sau</p><p className="mt-0.5 truncate text-[10px] text-slate-500">Không chuyển khoản sau thời gian này</p></div></div>
+              <div className="text-right"><p className={`font-mono text-xl font-black ${paymentSecondsRemaining <= 300 ? 'text-red-500' : 'text-amber-600'}`}>{formatCountdown(paymentSecondsRemaining)}</p><p className="text-[9px] text-slate-400">{new Date(pendingOrder.expiresAt).toLocaleTimeString('vi-VN')}</p></div>
+            </div>
           </div>
         </div>,
         document.body,
