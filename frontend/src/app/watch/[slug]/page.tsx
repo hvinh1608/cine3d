@@ -4,12 +4,15 @@ import React, { useState, useEffect, useRef, Suspense, useCallback } from 'react
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, ChevronRight, ChevronLeft, ListVideo, Server, LightbulbOff, ArrowLeft, Subtitles, Gauge, Tv, Settings, Maximize2, Lock, Crown, Download, Users, Share2, Info, Star, PictureInPicture2, Search, Flag, Wifi } from 'lucide-react';
 import { useStore } from '../../../hooks/useStore';
 import axios from '../../../lib/api';
-import Hls from 'hls.js';
 import type { Episode, Movie, VideoSource } from '../../../types/movie';
-import MovieComments from '../../../components/community/MovieComments';
+
+const MovieComments = dynamic(() => import('../../../components/community/MovieComments'), {
+  loading: () => <div className="mt-8 h-48 animate-pulse rounded-3xl bg-white/5" />,
+});
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -38,7 +41,7 @@ function WatchPageContent() {
   const slug = params.slug as string;
   const activeEpOrder = parseInt(searchParams.get('ep') || '1', 10);
 
-  const { user, accessToken, showToast, selectedProfileId } = useStore();
+  const { user, accessToken, showToast, selectedProfileId, reduceMotion } = useStore();
   const [movie, setMovie] = useState<PlaybackMovie | null>(null);
   const [activeEpisode, setActiveEpisode] = useState<PlaybackEpisode | null>(null);
   const [activeSource, setActiveSource] = useState<VideoSource | null>(null);
@@ -79,7 +82,7 @@ function WatchPageContent() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
-  const hlsRef = useRef<Hls | null>(null);
+  const hlsRef = useRef<import('hls.js').default | null>(null);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playTrackedEpisodeRef = useRef<string | null>(null);
   const loadStartedAtRef = useRef(0);
@@ -237,10 +240,16 @@ function WatchPageContent() {
     setQualities([]);
     setCurrentQualityIndex(-1);
 
-    let hls: Hls | null = null;
+    let disposed = false;
+    let hls: import('hls.js').default | null = null;
     if (activeSource.type === 'hls') {
-      if (Hls.isSupported()) {
-        const instance = new Hls({ maxBufferLength: dataSaver ? 15 : 30, maxMaxBufferLength: dataSaver ? 30 : 60, capLevelToPlayerSize: true });
+      if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = activeSource.url;
+      } else {
+        void import('hls.js').then(({ default: Hls }) => {
+          if (disposed || !Hls.isSupported()) return;
+          const instance = new Hls({ maxBufferLength: dataSaver ? 15 : 30, maxMaxBufferLength: dataSaver ? 30 : 60, capLevelToPlayerSize: true });
+          if (disposed) { instance.destroy(); return; }
         hls = instance;
         instance.loadSource(activeSource.url);
         instance.attachMedia(video);
@@ -276,8 +285,7 @@ function WatchPageContent() {
         });
 
         hlsRef.current = instance;
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        video.src = activeSource.url;
+        }).catch(() => showToast('Không thể tải bộ phát HLS.', 'error'));
       }
     } else {
       // Direct MP4
@@ -307,6 +315,7 @@ function WatchPageContent() {
     setPlaybackRate(1);
 
     return () => {
+      disposed = true;
       if (hls) {
         hls.destroy();
         if (hlsRef.current === hls) hlsRef.current = null;
@@ -376,7 +385,7 @@ function WatchPageContent() {
       return;
     }
 
-    const interval = window.setInterval(() => saveProgress(), 10_000);
+    const interval = window.setInterval(() => saveProgress(), 30_000);
 
     return () => {
       window.clearInterval(interval);
@@ -397,7 +406,7 @@ function WatchPageContent() {
 
   // Real-time Ambilight color analysis from canvas
   useEffect(() => {
-    if (!playing || !videoRef.current || !activeSource) return;
+    if (!playing || !videoRef.current || !activeSource || dataSaver || reduceMotion) return;
     const video = videoRef.current;
     const canvas = document.createElement('canvas');
     canvas.width = 10;
@@ -406,6 +415,7 @@ function WatchPageContent() {
     if (!ctx) return;
 
     const analyzeFrame = () => {
+      if (document.visibilityState !== 'visible') return;
       try {
         ctx.drawImage(video, 0, 0, 10, 10);
         const data = ctx.getImageData(0, 0, 10, 10).data;
@@ -437,7 +447,7 @@ function WatchPageContent() {
 
     const intervalId = setInterval(analyzeFrame, 1000);
     return () => clearInterval(intervalId);
-  }, [playing, activeSource]);
+  }, [playing, activeSource, dataSaver, reduceMotion]);
 
   // Player controls handlings
   const togglePlay = () => {
