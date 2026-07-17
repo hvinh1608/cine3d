@@ -12,6 +12,7 @@ import type { Movie } from '../../types/movie';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const SOCKET_URL = API_URL.replace(/\/api\/?$/, '');
+const roomPasswordKey = (roomId: string) => `cine3d-watch-room-password:${roomId}`;
 type RoomState = { playing: boolean; currentTime: number; updatedAt: number };
 type RoomUser = { id: string; name: string };
 type ChatMessage = { name: string; message: string };
@@ -38,7 +39,7 @@ export default function WatchTogetherPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [playerError, setPlayerError] = useState('');
-  const [started, setStarted] = useState(Boolean(initialRoomId));
+  const [started, setStarted] = useState(false);
   const [connected, setConnected] = useState(false);
   const [socketId, setSocketId] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(false);
@@ -57,6 +58,15 @@ export default function WatchTogetherPage() {
     [roomEpisode, movie]
   );
   const isHost = Boolean(hostId && hostId === socketId);
+
+  useEffect(() => {
+    if (!initialRoomId) return;
+    const savedPassword = window.sessionStorage.getItem(roomPasswordKey(initialRoomId)) || '';
+    queueMicrotask(() => {
+      setPassword(savedPassword);
+      setStarted(true);
+    });
+  }, [initialRoomId]);
 
   useEffect(() => {
     if (!slug) return;
@@ -183,6 +193,7 @@ export default function WatchTogetherPage() {
         setHostId(result.hostId || '');
         setRoomEpisode(result.episode || episode);
         setConnected(true);
+        if (result.isPrivate && password) window.sessionStorage.setItem(roomPasswordKey(result.roomId), password);
         window.history.replaceState({}, '', `/watch-together?room=${result.roomId}&slug=${encodeURIComponent(result.slug)}&ep=${result.episode}`);
         void axios.post('/analytics/events', { name: reconnectRoomId ? 'watch_room_join' : 'watch_room_create', path: '/watch-together', movieId: result.slug }).catch(() => undefined);
       });
