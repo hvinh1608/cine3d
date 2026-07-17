@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { ArrowRight, Search, SearchX, LogOut, ShieldAlert, Sparkles, Menu, X, Bell, Crown, History, Trash2, Home, User, Users, ChevronDown, CalendarDays, Clapperboard, MessageCircleQuestion, Projector } from 'lucide-react';
+import { ArrowRight, Search, SearchX, LogOut, ShieldAlert, Sparkles, Menu, X, Bell, Crown, History, Trash2, Home, User, Users, ChevronDown, CalendarDays, Clapperboard, MessageCircleQuestion } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 import type { Movie } from '../../types/movie';
@@ -416,7 +416,6 @@ export default function Navbar() {
               </div>
             )}
           </div>
-          <Link href="/cinema" className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-purple-300 transition ${isTabActive('/cinema') ? 'bg-purple-400/10 text-white' : 'hover:bg-purple-400/10 hover:text-white'}`}><Projector className="h-4 w-4" /> Sảnh 3D</Link>
           <Link href="/watch-together/rooms" className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 transition ${isTabActive('/watch-together') ? 'bg-white/10 text-white' : 'hover:bg-white/5 hover:text-white'}`}><Users className="h-4 w-4 text-red-400" /> Xem Chung</Link>
           <Link href="/vip" className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-amber-400 transition ${isTabActive('/vip') ? 'bg-amber-400/10' : 'hover:bg-amber-400/10 hover:text-amber-300'}`}><Crown className="h-4 w-4" /> VIP</Link>
         </div>
@@ -598,7 +597,6 @@ export default function Navbar() {
             <Link href="/search" onClick={() => setMobileMenuOpen(false)} className="hover:text-yellow-500 py-1 border-b border-white/5 flex items-center justify-center">
               <Sparkles className="w-4 h-4 text-purple-400 mr-1 animate-pulse" /> Khám Phá
             </Link>
-            <Link href="/cinema" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center border-b border-white/5 py-1 text-purple-300 hover:text-purple-200"><Projector className="mr-1 h-4 w-4" /> Sảnh Cinema 3D</Link>
             <Link href="/watch-together/rooms" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center border-b border-white/5 py-1 text-red-300 hover:text-red-200">
               <Users className="mr-1 h-4 w-4" /> Xem Chung
             </Link>
