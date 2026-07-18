@@ -504,12 +504,13 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
           ref={recommendedRowRef}
           className="movie-row flex space-x-8 overflow-x-auto pb-4 scroll-smooth"
         >
-          {(hasPersonalizedRecommendations && personalized.length ? personalized : proposed).map((movie) => (
+          {(hasPersonalizedRecommendations && personalized.length ? personalized : proposed).map((movie, index) => (
             <div key={movie.id} className="w-[160px] sm:w-[200px] shrink-0 relative pt-2">
               <MovieCard3D
                 movie={movie}
                 onToggleFavorite={handleToggleFavorite}
                 isFavorited={favoriteIds.has(movie.id)}
+                slant={index % 2 === 0 ? 'left' : 'right'}
               />
             </div>
           ))}
@@ -548,12 +549,13 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
           ref={latestRowRef}
           className="movie-row flex space-x-8 overflow-x-auto pb-4 scroll-smooth"
         >
-          {allMovies.map((movie) => (
+          {allMovies.map((movie, index) => (
             <div key={movie.id} className="w-[160px] sm:w-[200px] shrink-0 relative pt-2">
               <MovieCard3D
                 movie={movie}
                 onToggleFavorite={handleToggleFavorite}
                 isFavorited={favoriteIds.has(movie.id)}
+                slant={index % 2 === 0 ? 'right' : 'left'}
               />
             </div>
           ))}
@@ -606,7 +608,8 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
                 <MovieCard3D
                   movie={movie}
                   onToggleFavorite={handleToggleFavorite}
-                isFavorited={favoriteIds.has(movie.id)}
+                  isFavorited={favoriteIds.has(movie.id)}
+                  slant={index % 2 === 0 ? 'left' : 'right'}
                 />
               </div>
             </div>
@@ -785,9 +788,9 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
             </div>
           </div>
           <div ref={section.ref} className="movie-row flex space-x-5 overflow-x-auto pb-4 scroll-smooth md:space-x-8">
-            {section.movies.map((movie) => (
+            {section.movies.map((movie, index) => (
               <div key={movie.id} className="relative w-[160px] shrink-0 pt-2 sm:w-[200px]">
-                <MovieCard3D movie={movie} onToggleFavorite={handleToggleFavorite} isFavorited={favoriteIds.has(movie.id)} />
+                <MovieCard3D movie={movie} onToggleFavorite={handleToggleFavorite} isFavorited={favoriteIds.has(movie.id)} slant={index % 2 === 0 ? 'left' : 'right'} />
               </div>
             ))}
           </div>

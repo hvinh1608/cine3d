@@ -11,9 +11,10 @@ interface Props {
   movie: Movie;
   onToggleFavorite?: (movieId: string, movie?: Movie) => void;
   isFavorited?: boolean;
+  slant?: 'left' | 'right';
 }
 
-export default function MovieCard3D({ movie, onToggleFavorite, isFavorited = false }: Props) {
+export default function MovieCard3D({ movie, onToggleFavorite, isFavorited = false, slant }: Props) {
   const { reduceMotion } = useStore();
   const [rotateX, setRotateX] = useState(0);
   const [rotateY, setRotateY] = useState(0);
@@ -58,15 +59,20 @@ export default function MovieCard3D({ movie, onToggleFavorite, isFavorited = fal
   };
 
   // Card transform styles
-  const cardStyle: React.CSSProperties = reduceMotion
-    ? {}
-    : {
+  const cardStyle: React.CSSProperties = {
+    ...(slant ? {
+      clipPath: slant === 'left'
+        ? 'polygon(0 0, 100% 6%, 100% 100%, 0 100%)'
+        : 'polygon(0 6%, 100% 0, 100% 100%, 0 100%)',
+    } : {}),
+    ...(!reduceMotion ? {
         transform: hovered
           ? `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.05, 1.05, 1.05)`
           : 'rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)',
         transition: hovered ? 'none' : 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)',
         transformStyle: 'preserve-3d',
-      };
+      } : {}),
+  };
 
   return (
     <div
