@@ -43,6 +43,10 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(initialData.loadError || '');
   const [reloadKey, setReloadKey] = useState(0);
+  const [recommendedCanScrollLeft, setRecommendedCanScrollLeft] = useState(false);
+  const [recommendedCanScrollRight, setRecommendedCanScrollRight] = useState(true);
+  const [latestCanScrollLeft, setLatestCanScrollLeft] = useState(false);
+  const [latestCanScrollRight, setLatestCanScrollRight] = useState(true);
 
   const recommendedRowRef = useRef<HTMLDivElement>(null);
   const latestRowRef = useRef<HTMLDivElement>(null);
@@ -61,6 +65,15 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
       left: direction * Math.max(320, row.clientWidth * 0.85),
       behavior: reduceMotion ? 'auto' : 'smooth',
     });
+  };
+
+  const syncScrollControls = (
+    row: HTMLDivElement,
+    setCanScrollLeft: (value: boolean) => void,
+    setCanScrollRight: (value: boolean) => void,
+  ) => {
+    setCanScrollLeft(row.scrollLeft > 8);
+    setCanScrollRight(row.scrollLeft + row.clientWidth < row.scrollWidth - 8);
   };
 
   // Fetch data from backend
@@ -483,12 +496,15 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
             <h2 className="text-lg md:text-xl font-black uppercase tracking-wider text-white">
               {hasPersonalizedRecommendations ? 'Dành Riêng Cho Bạn' : 'Phim Đề Xuất Cho Bạn'}
             </h2>
+            <Link href="/search" aria-label="Xem thêm phim đề xuất" className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/25 bg-black/20 text-slate-200 transition hover:border-white/60 hover:bg-white hover:text-black">
+              <ChevronRight className="h-5 w-5" />
+            </Link>
           </div>
         </div>
 
         <div className="relative">
-          <button type="button" onClick={() => scrollMovieRow(recommendedRowRef, -1)} aria-label="Xem phim phía trước" className="absolute left-0 top-1/2 z-40 flex h-11 w-11 -translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.45)] transition hover:scale-110 hover:bg-red-500 hover:text-white md:h-14 md:w-14"><ChevronLeft className="h-6 w-6" /></button>
-          <div ref={recommendedRowRef} className="movie-row flex space-x-8 overflow-x-auto pb-4 scroll-smooth">
+          {recommendedCanScrollLeft && <button type="button" onClick={() => scrollMovieRow(recommendedRowRef, -1)} aria-label="Xem phim phía trước" className="absolute left-0 top-1/2 z-40 flex h-11 w-11 -translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.45)] transition hover:scale-110 hover:bg-red-500 hover:text-white md:h-14 md:w-14"><ChevronLeft className="h-6 w-6" /></button>}
+          <div ref={recommendedRowRef} onScroll={(event) => syncScrollControls(event.currentTarget, setRecommendedCanScrollLeft, setRecommendedCanScrollRight)} className="movie-row flex space-x-8 overflow-x-auto pb-4 scroll-smooth">
             {(hasPersonalizedRecommendations && personalized.length ? personalized : proposed).map((movie, index) => (
               <div key={movie.id} className="w-[160px] sm:w-[200px] shrink-0 relative pt-2">
                 <MovieCard3D movie={movie} onToggleFavorite={handleToggleFavorite} isFavorited={favoriteIds.has(movie.id)} slant={index % 2 === 0 ? 'left' : 'right'} />
@@ -496,7 +512,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
             ))}
             {!personalized.length && proposed.length === 0 && <p className="w-full py-4 text-center text-sm text-slate-500">Chưa có phim đề xuất.</p>}
           </div>
-          <button type="button" onClick={() => scrollMovieRow(recommendedRowRef, 1)} aria-label="Xem phim tiếp theo" className="absolute right-0 top-1/2 z-40 flex h-11 w-11 translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.45)] transition hover:scale-110 hover:bg-red-500 hover:text-white md:h-14 md:w-14"><ChevronRight className="h-6 w-6" /></button>
+          {recommendedCanScrollRight && <button type="button" onClick={() => scrollMovieRow(recommendedRowRef, 1)} aria-label="Xem phim tiếp theo" className="absolute right-0 top-1/2 z-40 flex h-11 w-11 translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.45)] transition hover:scale-110 hover:bg-red-500 hover:text-white md:h-14 md:w-14"><ChevronRight className="h-6 w-6" /></button>}
         </div>
       </section>
 
@@ -508,12 +524,15 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
             <h2 className="text-lg md:text-xl font-black uppercase tracking-wider text-white">
               Mới Cập Nhật
             </h2>
+            <Link href="/search?sortBy=createdAt" aria-label="Xem tất cả phim mới cập nhật" className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/25 bg-black/20 text-slate-200 transition hover:border-white/60 hover:bg-white hover:text-black">
+              <ChevronRight className="h-5 w-5" />
+            </Link>
           </div>
         </div>
 
         <div className="relative">
-          <button type="button" onClick={() => scrollMovieRow(latestRowRef, -1)} aria-label="Xem phim phía trước" className="absolute left-0 top-1/2 z-40 flex h-11 w-11 -translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.45)] transition hover:scale-110 hover:bg-purple-500 hover:text-white md:h-14 md:w-14"><ChevronLeft className="h-6 w-6" /></button>
-          <div ref={latestRowRef} className="movie-row flex space-x-8 overflow-x-auto pb-4 scroll-smooth">
+          {latestCanScrollLeft && <button type="button" onClick={() => scrollMovieRow(latestRowRef, -1)} aria-label="Xem phim phía trước" className="absolute left-0 top-1/2 z-40 flex h-11 w-11 -translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.45)] transition hover:scale-110 hover:bg-purple-500 hover:text-white md:h-14 md:w-14"><ChevronLeft className="h-6 w-6" /></button>}
+          <div ref={latestRowRef} onScroll={(event) => syncScrollControls(event.currentTarget, setLatestCanScrollLeft, setLatestCanScrollRight)} className="movie-row flex space-x-8 overflow-x-auto pb-4 scroll-smooth">
             {allMovies.map((movie, index) => (
               <div key={movie.id} className="w-[160px] sm:w-[200px] shrink-0 relative pt-2">
                 <MovieCard3D movie={movie} onToggleFavorite={handleToggleFavorite} isFavorited={favoriteIds.has(movie.id)} slant={index % 2 === 0 ? 'right' : 'left'} />
@@ -521,7 +540,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
             ))}
             {allMovies.length === 0 && <p className="w-full py-4 text-center text-sm text-slate-500">Chưa có phim cập nhật.</p>}
           </div>
-          <button type="button" onClick={() => scrollMovieRow(latestRowRef, 1)} aria-label="Xem phim tiếp theo" className="absolute right-0 top-1/2 z-40 flex h-11 w-11 translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.45)] transition hover:scale-110 hover:bg-purple-500 hover:text-white md:h-14 md:w-14"><ChevronRight className="h-6 w-6" /></button>
+          {latestCanScrollRight && <button type="button" onClick={() => scrollMovieRow(latestRowRef, 1)} aria-label="Xem phim tiếp theo" className="absolute right-0 top-1/2 z-40 flex h-11 w-11 translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.45)] transition hover:scale-110 hover:bg-purple-500 hover:text-white md:h-14 md:w-14"><ChevronRight className="h-6 w-6" /></button>}
         </div>
       </section>
 
