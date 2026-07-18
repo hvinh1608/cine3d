@@ -5,6 +5,7 @@ import {
   register,
   login,
   googleLogin,
+  facebookLogin,
   refresh,
   logout,
   getProfile,
@@ -132,6 +133,7 @@ const interactionLimiter = rateLimit(60 * 1000, 60);
 router.post('/auth/register', authLimiter, register);
 router.post('/auth/login', authLimiter, login);
 router.post('/auth/google', authLimiter, googleLogin);
+router.post('/auth/facebook', authLimiter, facebookLogin);
 router.post('/auth/refresh', rateLimit(60 * 1000, 30), refresh);
 router.post('/auth/logout', logout);
 router.get('/auth/me', authenticateToken as any, getProfile as any);

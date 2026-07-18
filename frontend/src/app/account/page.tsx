@@ -9,6 +9,7 @@ import { User, Lock, Mail, Heart, History, Play, Bookmark, Trash2, LogOut, Check
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 import GoogleSignInButton from '../../components/auth/GoogleSignInButton';
+import FacebookSignInButton from '../../components/auth/FacebookSignInButton';
 import TurnstileWidget from '../../components/auth/TurnstileWidget';
 import ExperienceCenter from '../../components/account/ExperienceCenter';
 
@@ -178,6 +179,33 @@ export default function AccountPage() {
       router.replace('/');
     } catch (error) {
       setErrorMsg(requestMessage(error, 'Không thể đăng nhập bằng Google. Vui lòng thử lại.'));
+    } finally {
+      setTurnstileToken('');
+      setTurnstileKey((value) => value + 1);
+      submittingRef.current = false;
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleFacebookAccessToken = async (facebookAccessToken: string) => {
+    if (submittingRef.current) return;
+    if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !turnstileToken) {
+      setErrorMsg('Vui lòng hoàn tất xác minh Cloudflare trước khi đăng nhập.');
+      return;
+    }
+    submittingRef.current = true;
+    setIsSubmitting(true);
+    setErrorMsg('');
+    setAuthNotice('');
+    try {
+      const response = await axios.post('/auth/facebook', { accessToken: facebookAccessToken, turnstileToken });
+      setSession(response.data.user, response.data.accessToken);
+      const profilesResponse = await axios.get('/user/profiles').catch(() => null);
+      if (profilesResponse) setProfiles(profilesResponse.data);
+      showToast('Đăng nhập Facebook thành công!', 'success');
+      router.replace('/');
+    } catch (error) {
+      setErrorMsg(requestMessage(error, 'Không thể đăng nhập bằng Facebook. Vui lòng thử lại.'));
     } finally {
       setTurnstileToken('');
       setTurnstileKey((value) => value + 1);
@@ -364,6 +392,7 @@ export default function AccountPage() {
           {recoveryMode === 'none' && (
             <>
               <GoogleSignInButton onCredential={handleGoogleCredential} />
+              <FacebookSignInButton onAccessToken={handleFacebookAccessToken} />
               <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-slate-600">
                 <span className="h-px flex-1 bg-white/10" />
                 Hoặc dùng email

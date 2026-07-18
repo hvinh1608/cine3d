@@ -1,0 +1,7 @@
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = { title: 'Chính sách quyền riêng tư | CINE3D' };
+
+export default function PrivacyPage() {
+  return <main className="mx-auto w-full max-w-3xl px-5 py-12 text-slate-300"><h1 className="text-3xl font-black text-white">Chính sách quyền riêng tư</h1><p className="mt-2 text-xs text-slate-500">Cập nhật ngày 18/07/2026</p><div className="mt-8 space-y-6 text-sm leading-7"><section><h2 className="text-lg font-bold text-white">Dữ liệu chúng tôi thu thập</h2><p>CINE3D lưu thông tin tài khoản như email, tên hiển thị, ảnh đại diện và mã định danh do phương thức đăng nhập cung cấp. Chúng tôi cũng lưu lịch sử xem, danh sách yêu thích và dữ liệu kỹ thuật cần thiết để bảo mật phiên đăng nhập.</p></section><section><h2 className="text-lg font-bold text-white">Mục đích sử dụng</h2><p>Dữ liệu được dùng để tạo và bảo vệ tài khoản, đồng bộ trải nghiệm xem, hỗ trợ người dùng và cải thiện dịch vụ. CINE3D không bán thông tin cá nhân.</p></section><section><h2 className="text-lg font-bold text-white">Đăng nhập Facebook và Google</h2><p>Khi đăng nhập qua nhà cung cấp bên thứ ba, CINE3D chỉ yêu cầu thông tin hồ sơ công khai và email mà bạn đồng ý chia sẻ. Bạn có thể thu hồi quyền tại phần cài đặt của nhà cung cấp.</p></section><section><h2 className="text-lg font-bold text-white">Liên hệ và quyền của bạn</h2><p>Bạn có thể yêu cầu xem, chỉnh sửa hoặc xóa dữ liệu bằng email <a className="text-red-400" href="mailto:hvinh.job@gmail.com">hvinh.job@gmail.com</a>.</p></section></div></main>;
+}

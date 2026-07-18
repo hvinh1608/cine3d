@@ -20,6 +20,9 @@ const REFRESH_COOKIE = REFRESH_COOKIE_NAME;
 const requireEmailVerification = process.env.REQUIRE_EMAIL_VERIFICATION === 'true';
 const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim();
 const googleClient = googleClientId ? new OAuth2Client(googleClientId) : null;
+const facebookAppId = process.env.FACEBOOK_APP_ID?.trim();
+const facebookAppSecret = process.env.FACEBOOK_APP_SECRET?.trim();
+const facebookGraphVersion = process.env.FACEBOOK_GRAPH_VERSION?.trim() || 'v24.0';
 const turnstileSecretKey = process.env.TURNSTILE_SECRET_KEY?.trim();
 const clientUrl = (process.env.CLIENT_URLS || process.env.CLIENT_URL || 'http://localhost:3000')
   .split(',')[0]
@@ -443,6 +446,87 @@ export const googleLogin = async (req: AuthenticatedRequest, res: Response) => {
     });
   } catch (error: unknown) {
     return internalError(res, 'Không thể hoàn tất đăng nhập Google.', error);
+  }
+};
+
+export const facebookLogin = async (req: AuthenticatedRequest, res: Response) => {
+  const accessToken = typeof req.body.accessToken === 'string' ? req.body.accessToken.trim() : '';
+  if (!accessToken) return res.status(400).json({ message: 'Facebook access token is required.' });
+  if (!(await verifyTurnstileToken(req.body.turnstileToken, req))) {
+    return res.status(400).json({ message: 'Vui lòng hoàn tất xác minh Cloudflare rồi thử lại.' });
+  }
+  if (!facebookAppId || !facebookAppSecret) {
+    return res.status(503).json({ message: 'Đăng nhập Facebook chưa được cấu hình.' });
+  }
+
+  try {
+    const appAccessToken = `${facebookAppId}|${facebookAppSecret}`;
+    const debugUrl = new URL(`https://graph.facebook.com/${facebookGraphVersion}/debug_token`);
+    debugUrl.searchParams.set('input_token', accessToken);
+    debugUrl.searchParams.set('access_token', appAccessToken);
+    const debugResponse = await fetch(debugUrl);
+    const debugResult = await debugResponse.json() as { data?: { app_id?: string; is_valid?: boolean; user_id?: string } };
+    const tokenData = debugResult.data;
+    if (!debugResponse.ok || !tokenData?.is_valid || tokenData.app_id !== facebookAppId || !tokenData.user_id) {
+      return res.status(401).json({ message: 'Phiên đăng nhập Facebook không hợp lệ hoặc đã hết hạn.' });
+    }
+
+    const proof = crypto.createHmac('sha256', facebookAppSecret).update(accessToken).digest('hex');
+    const profileUrl = new URL(`https://graph.facebook.com/${facebookGraphVersion}/me`);
+    profileUrl.searchParams.set('fields', 'id,name,email,picture.type(large)');
+    profileUrl.searchParams.set('access_token', accessToken);
+    profileUrl.searchParams.set('appsecret_proof', proof);
+    const profileResponse = await fetch(profileUrl);
+    const profile = await profileResponse.json() as {
+      id?: string;
+      name?: string;
+      email?: string;
+      picture?: { data?: { url?: string } };
+    };
+    const facebookId = profile.id;
+    const email = profile.email?.trim().toLowerCase();
+    if (!profileResponse.ok || !facebookId || facebookId !== tokenData.user_id) {
+      return res.status(401).json({ message: 'Không thể xác minh tài khoản Facebook.' });
+    }
+    if (!email) {
+      return res.status(400).json({ message: 'Facebook chưa chia sẻ email. Hãy cấp quyền email hoặc đăng nhập bằng phương thức khác.' });
+    }
+
+    let user = await prisma.user.findUnique({ where: { facebookId }, include: { role: true } });
+    if (!user) {
+      const emailAccount = await prisma.user.findUnique({ where: { email }, select: { id: true, isLocked: true } });
+      if (emailAccount?.isLocked) return res.status(403).json({ message: 'Account is locked. Please contact support.' });
+      if (emailAccount) {
+        return res.status(409).json({
+          message: 'Email này đã thuộc một tài khoản CINE3D. Hãy đăng nhập bằng phương thức đã sử dụng trước đó.',
+          code: 'EMAIL_ACCOUNT_EXISTS',
+        });
+      }
+    }
+    if (user?.isLocked) return res.status(403).json({ message: 'Account is locked. Please contact support.' });
+
+    const avatar = profile.picture?.data?.url || null;
+    if (user) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: { facebookId, isVerified: true, avatar: user.avatar || avatar },
+        include: { role: true },
+      });
+    } else {
+      const role = await prisma.role.upsert({ where: { name: 'USER' }, update: {}, create: { name: 'USER' } });
+      const username = await createAvailableUsername(profile.name || '', email);
+      const password = await bcrypt.hash(crypto.randomBytes(48).toString('hex'), 10);
+      user = await prisma.user.create({
+        data: { facebookId, email, username, password, avatar, isVerified: true, roleId: role.id },
+        include: { role: true },
+      });
+    }
+
+    const session = await createSession(user, req);
+    res.cookie(REFRESH_COOKIE, session.refreshToken, cookieOptions);
+    return res.json({ message: 'Đăng nhập Facebook thành công.', accessToken: session.accessToken, user: session.user });
+  } catch (error: unknown) {
+    return internalError(res, 'Không thể hoàn tất đăng nhập Facebook.', error);
   }
 };
 

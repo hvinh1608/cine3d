@@ -22,7 +22,7 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const original = error.config as (InternalAxiosRequestConfig & { _retried?: boolean }) | undefined;
     const status = error.response?.status;
-    const isAuthRoute = /\/auth\/(login|register|google|refresh|logout)/.test(original?.url || '');
+    const isAuthRoute = /\/auth\/(login|register|google|facebook|refresh|logout)/.test(original?.url || '');
     const user = useStore.getState().user;
 
     if (!original || original._retried || isAuthRoute || !user || (status !== 401 && status !== 403)) {
