@@ -16,6 +16,7 @@ declare global {
 }
 
 export default function FacebookSignInButton({ onAccessToken }: { onAccessToken: (token: string) => void }) {
+  const enabled = process.env.NEXT_PUBLIC_FACEBOOK_LOGIN_ENABLED === 'true';
   const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
   const apiVersion = process.env.NEXT_PUBLIC_FACEBOOK_API_VERSION || 'v24.0';
   const [ready, setReady] = useState(false);
@@ -33,7 +34,7 @@ export default function FacebookSignInButton({ onAccessToken }: { onAccessToken:
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appId, apiVersion]);
 
-  if (!appId) return null;
+  if (!enabled || !appId) return null;
 
   return (
     <div className="space-y-2">
