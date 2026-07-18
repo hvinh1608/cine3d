@@ -15,6 +15,10 @@ import ExperienceCenter from '../../components/account/ExperienceCenter';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const requestMessage = (error: unknown, fallback: string) => (error as AxiosError<{ message?: string }>).response?.data?.message || fallback;
 const requestCode = (error: unknown) => (error as AxiosError<{ code?: string }>).response?.data?.code;
+const normalizeEmail = (value: string) => {
+  const trimmed = value.trim();
+  return trimmed.includes('@') ? trimmed : `${trimmed}@gmail.com`;
+};
 
 const PRESET_AVATARS = [
   'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
@@ -122,9 +126,10 @@ export default function AccountPage() {
 
     try {
       const endpoint = isLogin ? '/auth/login' : '/auth/register';
+      const normalizedEmail = normalizeEmail(email);
       const payload = isLogin
-        ? { email: email.trim(), password, turnstileToken }
-        : { email: email.trim(), username: username.trim(), password, turnstileToken };
+        ? { email: normalizedEmail, password, turnstileToken }
+        : { email: normalizedEmail, username: username.trim(), password, turnstileToken };
       const res = await axios.post(endpoint, payload);
       if (res.data.requiresVerification) {
         setIsLogin(true);
@@ -205,7 +210,7 @@ export default function AccountPage() {
         window.history.replaceState({}, '', '/account');
         setAuthNotice('Đổi mật khẩu thành công. Hãy đăng nhập bằng mật khẩu mới.');
       } else {
-        const response = await axios.post('/auth/forgot-password', { email: email.trim(), turnstileToken });
+        const response = await axios.post('/auth/forgot-password', { email: normalizeEmail(email), turnstileToken });
         setAuthNotice(response.data.message || 'Nếu email tồn tại, hướng dẫn khôi phục đã được gửi.');
       }
     } catch (error) {
@@ -372,14 +377,19 @@ export default function AccountPage() {
               {recoveryMode === 'forgot' ? (
                 <div className="relative">
                   <input
-                    type="email"
+                    type="text"
+                    inputMode="email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    spellCheck={false}
                     required
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
-                    placeholder="Email tài khoản"
-                    className="w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-red-500"
+                    placeholder="hvinh.job"
+                    className={`w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 text-sm text-white outline-none focus:border-red-500 ${email.includes('@') ? 'pr-4' : 'pr-28'}`}
                   />
                   <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                  {!email.includes('@') && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-500">@gmail.com</span>}
                 </div>
               ) : (
                 <div className="relative">
@@ -407,14 +417,19 @@ export default function AccountPage() {
           <form onSubmit={handleAuthSubmit} className="space-y-4">
             <div className="relative">
               <input
-                type="email"
+                type="text"
+                inputMode="email"
+                autoComplete="email"
+                autoCapitalize="none"
+                spellCheck={false}
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Địa chỉ Email"
-                className="w-full bg-slate-900 border border-white/10 focus:border-red-500 rounded-xl pl-10 pr-4 py-3 text-xs md:text-sm outline-none text-white"
+                placeholder="hvinh.job"
+                className={`w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 text-xs text-white outline-none focus:border-red-500 md:text-sm ${email.includes('@') ? 'pr-4' : 'pr-28'}`}
               />
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
+              {!email.includes('@') && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500 md:text-sm">@gmail.com</span>}
             </div>
 
             {!isLogin && (
