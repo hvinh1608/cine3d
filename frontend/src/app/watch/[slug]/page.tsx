@@ -21,6 +21,7 @@ type PlaybackMovie = Movie & { requiresVip?: boolean; isEarlyAccess?: boolean; e
 type HlsQuality = { index: number; height: number; bitrate: number; name: string };
 type HistoryRecord = { movieId: string; episodeId: string | null; watchedTime: number };
 type VideoWithRemotePlayback = HTMLVideoElement & { remote?: { prompt: () => Promise<void> } };
+type TimelinePreview = { visible: boolean; time: number; position: number; image: string | null };
 
 export default function WatchPage() {
   return (
@@ -79,6 +80,7 @@ function WatchPageContent() {
   const [dataSaver, setDataSaver] = useState(false);
   const [episodeQuery, setEpisodeQuery] = useState('');
   const [selectedSeason, setSelectedSeason] = useState(1);
+  const [timelinePreview, setTimelinePreview] = useState<TimelinePreview>({ visible: false, time: 0, position: 0, image: null });
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
@@ -88,6 +90,8 @@ function WatchPageContent() {
   const loadStartedAtRef = useRef(0);
   const bufferingStartedAtRef = useRef<number | null>(null);
   const originalCueTimesRef = useRef(new WeakMap<TextTrackCue, { start: number; end: number }>());
+  const timelineFramesRef = useRef(new Map<number, string>());
+  const lastCapturedFrameRef = useRef(-1);
 
   useEffect(() => {
     try {
@@ -149,6 +153,12 @@ function WatchPageContent() {
     const timer = window.setTimeout(applyCuePreferences, 300);
     return () => window.clearTimeout(timer);
   }, [activeEpisode, activeSubTrack, subtitleStyle.offset, subtitleStyle.position]);
+
+  useEffect(() => {
+    timelineFramesRef.current.clear();
+    lastCapturedFrameRef.current = -1;
+    queueMicrotask(() => setTimelinePreview({ visible: false, time: 0, position: 0, image: null }));
+  }, [activeEpisode?.id]);
 
   // Helper to trigger controls visibility and reset auto-hide timer
   const triggerControls = useCallback(() => {
@@ -490,7 +500,29 @@ function WatchPageContent() {
 
   const handleTimeUpdate = () => {
     if (!videoRef.current) return;
-    setCurrentTime(videoRef.current.currentTime);
+    const video = videoRef.current;
+    setCurrentTime(video.currentTime);
+
+    // Keep lightweight local snapshots for timeline previews. Cross-origin
+    // sources may disallow canvas reads; playback still works in that case.
+    const bucket = Math.floor(video.currentTime / 10) * 10;
+    if (bucket === lastCapturedFrameRef.current || video.readyState < 2 || !video.videoWidth) return;
+    lastCapturedFrameRef.current = bucket;
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 192;
+      canvas.height = 108;
+      const context = canvas.getContext('2d');
+      if (!context) return;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      timelineFramesRef.current.set(bucket, canvas.toDataURL('image/jpeg', 0.62));
+      if (timelineFramesRef.current.size > 180) {
+        const oldest = timelineFramesRef.current.keys().next().value;
+        if (oldest !== undefined) timelineFramesRef.current.delete(oldest);
+      }
+    } catch {
+      // The CDN did not grant canvas access (CORS); retain the time-only preview.
+    }
   };
 
   const handleLoadedMetadata = () => {
@@ -539,6 +571,20 @@ function WatchPageContent() {
     videoRef.current.currentTime = newTime;
     setCurrentTime(newTime);
     triggerControls();
+  };
+
+  const updateTimelinePreview = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!duration) return;
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const ratio = Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
+    const time = ratio * duration;
+    const bucket = Math.round(time / 10) * 10;
+    setTimelinePreview({
+      visible: true,
+      time,
+      position: Math.min(92, Math.max(8, ratio * 100)),
+      image: timelineFramesRef.current.get(bucket) || null,
+    });
   };
 
   const handleFullscreen = () => {
@@ -1101,7 +1147,28 @@ function WatchPageContent() {
                 }`}>
                   
                   {/* Progress Slider */}
-                  <div className="flex items-center space-x-3 w-full">
+                  <div
+                    className="relative flex w-full items-center space-x-3"
+                    onPointerMove={updateTimelinePreview}
+                    onPointerLeave={() => setTimelinePreview((preview) => ({ ...preview, visible: false }))}
+                  >
+                    {timelinePreview.visible && (
+                      <div
+                        className="pointer-events-none absolute bottom-5 z-50 -translate-x-1/2 overflow-hidden rounded-lg border border-white/20 bg-black/90 shadow-2xl"
+                        style={{ left: `${timelinePreview.position}%` }}
+                      >
+                        {timelinePreview.image ? (
+                          <Image src={timelinePreview.image} alt="" width={160} height={90} unoptimized className="h-[90px] w-40 object-cover" />
+                        ) : (
+                          <div className="flex h-14 w-28 items-center justify-center bg-slate-950 text-[10px] font-bold text-slate-500">
+                            Xem trước
+                          </div>
+                        )}
+                        <div className="px-2 py-1 text-center text-[10px] font-black tabular-nums text-white">
+                          {formatTime(timelinePreview.time)}
+                        </div>
+                      </div>
+                    )}
                     <span className="text-[10px] md:text-xs font-semibold text-slate-300">{formatTime(currentTime)}</span>
                     <input
                       type="range"
