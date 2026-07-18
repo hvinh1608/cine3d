@@ -156,12 +156,25 @@ export const getPersonalizedRecommendations = async (req: Request, res: Response
     const genreScores = new Map<string, number>();
     history.forEach((item, index) => item.movie.movieGenres.forEach(({ genreId }) => genreScores.set(genreId, (genreScores.get(genreId) || 0) + Math.max(1, 20 - index))));
     const genreIds = [...genreScores.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([id]) => id);
-    const movies = await prisma.movie.findMany({
+    const candidates = await prisma.movie.findMany({
       where: { id: { notIn: watchedIds }, ...(genreIds.length ? { movieGenres: { some: { genreId: { in: genreIds } } } } : {}) },
-      orderBy: [{ ratingAvg: 'desc' }, { views: 'desc' }, { updatedAt: 'desc' }], take: 18,
+      orderBy: [{ updatedAt: 'desc' }], take: 80,
       include: { movieGenres: { include: { genre: true } }, country: true },
     });
-    return res.json({ movies, personalized: history.length > 0 });
+    const personalized = history.length > 0 && genreIds.length > 0;
+    const movies = personalized
+      ? candidates
+          .map((movie) => ({
+            movie,
+            score: movie.movieGenres.reduce((total, item) => total + (genreScores.get(item.genreId) || 0), 0)
+              + Number(movie.ratingAvg || 0) * 2
+              + Math.log10(Math.max(1, Number(movie.views || 0))),
+          }))
+          .sort((first, second) => second.score - first.score || second.movie.updatedAt.getTime() - first.movie.updatedAt.getTime())
+          .slice(0, 18)
+          .map(({ movie }) => movie)
+      : candidates.slice(0, 18);
+    return res.json({ movies, personalized });
   } catch (error) {
     return internalError(res, 'Không thể tải gợi ý cá nhân hóa.', error);
   }

@@ -29,6 +29,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
   const [allMovies, setAllMovies] = useState<Movie[]>(initialData.movies);
   const [animeList, setAnimeList] = useState<Movie[]>(initialData.anime);
   const [personalized, setPersonalized] = useState<Movie[]>([]);
+  const [hasPersonalizedRecommendations, setHasPersonalizedRecommendations] = useState(false);
   const [activeAnimeIndex, setActiveAnimeIndex] = useState(0);
 
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
@@ -106,13 +107,27 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
   }, [user, accessToken, setWatchHistory]);
 
   useEffect(() => {
-    if (!user) { queueMicrotask(() => setPersonalized([])); return; }
+    if (!user) {
+      queueMicrotask(() => {
+        setPersonalized([]);
+        setHasPersonalizedRecommendations(false);
+      });
+      return;
+    }
     const controller = new AbortController();
     axios.get(`${API_URL}/movies/recommendations/me`, { signal: controller.signal })
-      .then((response) => setPersonalized(Array.isArray(response.data?.movies) ? response.data.movies : []))
-      .catch(() => { if (!controller.signal.aborted) setPersonalized([]); });
+      .then((response) => {
+        setPersonalized(Array.isArray(response.data?.movies) ? response.data.movies : []);
+        setHasPersonalizedRecommendations(response.data?.personalized === true);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setPersonalized([]);
+          setHasPersonalizedRecommendations(false);
+        }
+      });
     return () => controller.abort();
-  }, [user]);
+  }, [accessToken, user, watchHistory.length]);
 
   // Parallax backdrop tracking
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -454,7 +469,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
           <div className="flex items-center space-x-2">
             <div className="w-1 h-5 bg-red-600 rounded-full" />
             <h2 className="text-lg md:text-xl font-black uppercase tracking-wider text-white">
-              {personalized.length ? 'Dành Riêng Cho Bạn' : 'Phim Đề Xuất Cho Bạn'}
+              {hasPersonalizedRecommendations ? 'Dành Riêng Cho Bạn' : 'Phim Đề Xuất Cho Bạn'}
             </h2>
           </div>
           <div className="flex items-center space-x-1.5">
@@ -477,7 +492,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
           ref={recommendedRowRef}
           className="movie-row flex space-x-8 overflow-x-auto pb-4 scroll-smooth"
         >
-          {(personalized.length ? personalized : proposed).map((movie) => (
+          {(hasPersonalizedRecommendations && personalized.length ? personalized : proposed).map((movie) => (
             <div key={movie.id} className="w-[160px] sm:w-[200px] shrink-0 relative pt-2">
               <MovieCard3D
                 movie={movie}
