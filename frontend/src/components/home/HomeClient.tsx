@@ -477,91 +477,51 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
 
       {/* ROW 1: RECOMMENDED MOVIES (PORTRAIT CARDS LIKE TOP 5) */}
       <section className="max-w-7xl mx-auto px-4 md:px-8 w-full mt-14">
-        <div className="flex items-center justify-between mb-5">
+        <div className="mb-5 flex items-center">
           <div className="flex items-center space-x-2">
             <div className="w-1 h-5 bg-red-600 rounded-full" />
             <h2 className="text-lg md:text-xl font-black uppercase tracking-wider text-white">
               {hasPersonalizedRecommendations ? 'Dành Riêng Cho Bạn' : 'Phim Đề Xuất Cho Bạn'}
             </h2>
           </div>
-          <div className="flex items-center space-x-1.5">
-            <button
-              onClick={() => scrollMovieRow(recommendedRowRef, -1)}
-              className="p-1.5 rounded-full border border-white/10 bg-slate-900/60 hover:bg-red-600 text-white transition-colors cursor-pointer"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => scrollMovieRow(recommendedRowRef, 1)}
-              className="p-1.5 rounded-full border border-white/10 bg-slate-900/60 hover:bg-red-600 text-white transition-colors cursor-pointer"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
         </div>
 
-        <div
-          ref={recommendedRowRef}
-          className="movie-row flex space-x-8 overflow-x-auto pb-4 scroll-smooth"
-        >
-          {(hasPersonalizedRecommendations && personalized.length ? personalized : proposed).map((movie, index) => (
-            <div key={movie.id} className="w-[160px] sm:w-[200px] shrink-0 relative pt-2">
-              <MovieCard3D
-                movie={movie}
-                onToggleFavorite={handleToggleFavorite}
-                isFavorited={favoriteIds.has(movie.id)}
-                slant={index % 2 === 0 ? 'left' : 'right'}
-              />
-            </div>
-          ))}
-          {!personalized.length && proposed.length === 0 && (
-            <p className="text-slate-500 text-sm py-4 w-full text-center">Chưa có phim đề xuất.</p>
-          )}
+        <div className="relative">
+          <button type="button" onClick={() => scrollMovieRow(recommendedRowRef, -1)} aria-label="Xem phim phía trước" className="absolute left-0 top-1/2 z-40 flex h-11 w-11 -translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.45)] transition hover:scale-110 hover:bg-red-500 hover:text-white md:h-14 md:w-14"><ChevronLeft className="h-6 w-6" /></button>
+          <div ref={recommendedRowRef} className="movie-row flex space-x-8 overflow-x-auto pb-4 scroll-smooth">
+            {(hasPersonalizedRecommendations && personalized.length ? personalized : proposed).map((movie, index) => (
+              <div key={movie.id} className="w-[160px] sm:w-[200px] shrink-0 relative pt-2">
+                <MovieCard3D movie={movie} onToggleFavorite={handleToggleFavorite} isFavorited={favoriteIds.has(movie.id)} slant={index % 2 === 0 ? 'left' : 'right'} />
+              </div>
+            ))}
+            {!personalized.length && proposed.length === 0 && <p className="w-full py-4 text-center text-sm text-slate-500">Chưa có phim đề xuất.</p>}
+          </div>
+          <button type="button" onClick={() => scrollMovieRow(recommendedRowRef, 1)} aria-label="Xem phim tiếp theo" className="absolute right-0 top-1/2 z-40 flex h-11 w-11 translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.45)] transition hover:scale-110 hover:bg-red-500 hover:text-white md:h-14 md:w-14"><ChevronRight className="h-6 w-6" /></button>
         </div>
       </section>
 
       {/* ROW 2: NEWLY UPDATED MOVIES (PORTRAIT CARDS LIKE TOP 5) */}
       <section className="max-w-7xl mx-auto px-4 md:px-8 w-full mt-12">
-        <div className="flex items-center justify-between mb-5">
+        <div className="mb-5 flex items-center">
           <div className="flex items-center space-x-2">
             <div className="w-1 h-5 bg-purple-600 rounded-full" />
             <h2 className="text-lg md:text-xl font-black uppercase tracking-wider text-white">
               Mới Cập Nhật
             </h2>
           </div>
-          <div className="flex items-center space-x-1.5">
-            <button
-              onClick={() => scrollMovieRow(latestRowRef, -1)}
-              className="p-1.5 rounded-full border border-white/10 bg-slate-900/60 hover:bg-purple-600 text-white transition-colors cursor-pointer"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => scrollMovieRow(latestRowRef, 1)}
-              className="p-1.5 rounded-full border border-white/10 bg-slate-900/60 hover:bg-purple-600 text-white transition-colors cursor-pointer"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
         </div>
 
-        <div
-          ref={latestRowRef}
-          className="movie-row flex space-x-8 overflow-x-auto pb-4 scroll-smooth"
-        >
-          {allMovies.map((movie, index) => (
-            <div key={movie.id} className="w-[160px] sm:w-[200px] shrink-0 relative pt-2">
-              <MovieCard3D
-                movie={movie}
-                onToggleFavorite={handleToggleFavorite}
-                isFavorited={favoriteIds.has(movie.id)}
-                slant={index % 2 === 0 ? 'right' : 'left'}
-              />
-            </div>
-          ))}
-          {allMovies.length === 0 && (
-            <p className="text-slate-500 text-sm py-4 w-full text-center">Chưa có phim cập nhật.</p>
-          )}
+        <div className="relative">
+          <button type="button" onClick={() => scrollMovieRow(latestRowRef, -1)} aria-label="Xem phim phía trước" className="absolute left-0 top-1/2 z-40 flex h-11 w-11 -translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.45)] transition hover:scale-110 hover:bg-purple-500 hover:text-white md:h-14 md:w-14"><ChevronLeft className="h-6 w-6" /></button>
+          <div ref={latestRowRef} className="movie-row flex space-x-8 overflow-x-auto pb-4 scroll-smooth">
+            {allMovies.map((movie, index) => (
+              <div key={movie.id} className="w-[160px] sm:w-[200px] shrink-0 relative pt-2">
+                <MovieCard3D movie={movie} onToggleFavorite={handleToggleFavorite} isFavorited={favoriteIds.has(movie.id)} slant={index % 2 === 0 ? 'right' : 'left'} />
+              </div>
+            ))}
+            {allMovies.length === 0 && <p className="w-full py-4 text-center text-sm text-slate-500">Chưa có phim cập nhật.</p>}
+          </div>
+          <button type="button" onClick={() => scrollMovieRow(latestRowRef, 1)} aria-label="Xem phim tiếp theo" className="absolute right-0 top-1/2 z-40 flex h-11 w-11 translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.45)] transition hover:scale-110 hover:bg-purple-500 hover:text-white md:h-14 md:w-14"><ChevronRight className="h-6 w-6" /></button>
         </div>
       </section>
 
