@@ -579,11 +579,19 @@ function WatchPageContent() {
     const ratio = Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
     const time = ratio * duration;
     const bucket = Math.round(time / 10) * 10;
+    const capturedBuckets = Array.from(timelineFramesRef.current.keys());
+    const nearestBucket = capturedBuckets.reduce<number | null>((nearest, captured) => {
+      if (nearest === null) return captured;
+      return Math.abs(captured - bucket) < Math.abs(nearest - bucket) ? captured : nearest;
+    }, null);
+    const nearestImage = nearestBucket !== null && Math.abs(nearestBucket - bucket) <= 30
+      ? timelineFramesRef.current.get(nearestBucket) || null
+      : null;
     setTimelinePreview({
       visible: true,
       time,
       position: Math.min(92, Math.max(8, ratio * 100)),
-      image: timelineFramesRef.current.get(bucket) || null,
+      image: timelineFramesRef.current.get(bucket) || nearestImage,
     });
   };
 
@@ -1157,13 +1165,14 @@ function WatchPageContent() {
                         className="pointer-events-none absolute bottom-5 z-50 -translate-x-1/2 overflow-hidden rounded-lg border border-white/20 bg-black/90 shadow-2xl"
                         style={{ left: `${timelinePreview.position}%` }}
                       >
-                        {timelinePreview.image ? (
-                          <Image src={timelinePreview.image} alt="" width={160} height={90} unoptimized className="h-[90px] w-40 object-cover" />
-                        ) : (
-                          <div className="flex h-14 w-28 items-center justify-center bg-slate-950 text-[10px] font-bold text-slate-500">
-                            Xem trước
-                          </div>
-                        )}
+                        <Image
+                          src={timelinePreview.image || movie.backdropUrl || movie.posterUrl}
+                          alt=""
+                          width={160}
+                          height={90}
+                          unoptimized
+                          className="h-[90px] w-40 object-cover"
+                        />
                         <div className="px-2 py-1 text-center text-[10px] font-black tabular-nums text-white">
                           {formatTime(timelinePreview.time)}
                         </div>
