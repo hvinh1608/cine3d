@@ -8,6 +8,7 @@ import CinemaBackground from '../components/canvas/DynamicCinemaBackground';
 import AuthBootstrap from '../components/auth/AuthBootstrap';
 import ToastViewport from '../components/ui/ToastViewport';
 import BackToTop from '../components/ui/BackToTop';
+import CinemaSplash from '../components/ui/CinemaSplash';
 import PwaBootstrap from '../components/pwa/PwaBootstrap';
 import { getSiteUrl } from '../lib/site';
 
@@ -45,6 +46,7 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://phimimg.com" />
       </head>
       <body className="min-h-full flex flex-col bg-[#020205] text-slate-100 relative">
+        <CinemaSplash />
         <AuthBootstrap />
         <PwaBootstrap />
         <ToastViewport />
