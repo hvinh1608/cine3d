@@ -47,6 +47,11 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
   const [recommendedCanScrollRight, setRecommendedCanScrollRight] = useState(true);
   const [latestCanScrollLeft, setLatestCanScrollLeft] = useState(false);
   const [latestCanScrollRight, setLatestCanScrollRight] = useState(true);
+  const [countryScrollState, setCountryScrollState] = useState<Record<string, { left: boolean; right: boolean }>>({
+    'trung-quoc': { left: false, right: true },
+    'han-quoc': { left: false, right: true },
+    'viet-nam': { left: false, right: true },
+  });
 
   const recommendedRowRef = useRef<HTMLDivElement>(null);
   const latestRowRef = useRef<HTMLDivElement>(null);
@@ -74,6 +79,14 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
   ) => {
     setCanScrollLeft(row.scrollLeft > 8);
     setCanScrollRight(row.scrollLeft + row.clientWidth < row.scrollWidth - 8);
+  };
+
+  const syncCountryScrollControls = (slug: string, row: HTMLDivElement) => {
+    const next = {
+      left: row.scrollLeft > 8,
+      right: row.scrollLeft + row.clientWidth < row.scrollWidth - 8,
+    };
+    setCountryScrollState((current) => ({ ...current, [slug]: next }));
   };
 
   // Fetch data from backend
@@ -546,26 +559,12 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
 
       {/* ROW 3: TOP 5 TODAY (PORTRAIT RANKED OVERLAY - ROPHIM STYLE) */}
       <section className="max-w-7xl mx-auto px-4 md:px-8 w-full mt-14 mb-8">
-        <div className="flex items-center justify-between mb-6">
+        <div className="mb-6 flex items-center">
           <div className="flex items-center space-x-2">
             <div className="w-1 h-5 bg-yellow-500 rounded-full" />
             <h2 className="text-lg md:text-xl font-black uppercase tracking-wider text-white">
               Top 5 Thịnh Hành
             </h2>
-          </div>
-          <div className="flex items-center space-x-1.5">
-            <button
-              onClick={() => scrollMovieRow(trendingRowRef, -1)}
-              className="p-1.5 rounded-full border border-white/10 bg-slate-900/60 hover:bg-yellow-500 hover:text-black text-white transition-colors cursor-pointer"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => scrollMovieRow(trendingRowRef, 1)}
-              className="p-1.5 rounded-full border border-white/10 bg-slate-900/60 hover:bg-yellow-500 hover:text-black text-white transition-colors cursor-pointer"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
           </div>
         </div>
 
@@ -753,7 +752,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
         { title: 'Phim Việt Nam Mới Nhất', slug: 'viet-nam', movies: vietnamMovies, ref: vietnamRowRef, accent: 'bg-emerald-500' },
       ] as const).map((section) => section.movies.length > 0 && (
         <section key={section.slug} className="mx-auto mt-12 w-full max-w-7xl px-4 md:px-8">
-          <div className="mb-5 flex items-center justify-between gap-3">
+          <div className="mb-5 flex items-center gap-3">
             <div className="flex min-w-0 items-center gap-2">
               <div className={`h-5 w-1 shrink-0 rounded-full ${section.accent}`} />
               <h2 className="truncate text-lg font-black uppercase tracking-wider text-white md:text-xl">{section.title}</h2>
@@ -761,17 +760,17 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
                 <ChevronRight className="h-5 w-5" />
               </Link>
             </div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              <button type="button" onClick={() => scrollMovieRow(section.ref, -1)} aria-label={`Cuộn ${section.title} sang trái`} className="rounded-full border border-white/10 bg-slate-900/60 p-1.5 text-white transition hover:bg-red-600"><ChevronLeft className="h-4 w-4" /></button>
-              <button type="button" onClick={() => scrollMovieRow(section.ref, 1)} aria-label={`Cuộn ${section.title} sang phải`} className="rounded-full border border-white/10 bg-slate-900/60 p-1.5 text-white transition hover:bg-red-600"><ChevronRight className="h-4 w-4" /></button>
-            </div>
           </div>
-          <div ref={section.ref} className="movie-row flex space-x-5 overflow-x-auto pb-4 scroll-smooth md:space-x-8">
-            {section.movies.map((movie, index) => (
-              <div key={movie.id} className="relative w-[160px] shrink-0 pt-2 sm:w-[200px]">
-                <MovieCard3D movie={movie} onToggleFavorite={handleToggleFavorite} isFavorited={favoriteIds.has(movie.id)} slant={index % 2 === 0 ? 'left' : 'right'} />
-              </div>
-            ))}
+          <div className="relative">
+            {countryScrollState[section.slug]?.left && <button type="button" onClick={() => scrollMovieRow(section.ref, -1)} aria-label={`Cuộn ${section.title} sang trái`} className="absolute left-0 top-1/2 z-40 flex h-11 w-11 -translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.45)] transition hover:scale-110 hover:bg-red-500 hover:text-white md:h-14 md:w-14"><ChevronLeft className="h-6 w-6" /></button>}
+            <div ref={section.ref} onScroll={(event) => syncCountryScrollControls(section.slug, event.currentTarget)} className="movie-row flex space-x-5 overflow-x-auto pb-4 scroll-smooth md:space-x-8">
+              {section.movies.map((movie, index) => (
+                <div key={movie.id} className="relative w-[160px] shrink-0 pt-2 sm:w-[200px]">
+                  <MovieCard3D movie={movie} onToggleFavorite={handleToggleFavorite} isFavorited={favoriteIds.has(movie.id)} slant={index % 2 === 0 ? 'left' : 'right'} />
+                </div>
+              ))}
+            </div>
+            {countryScrollState[section.slug]?.right && <button type="button" onClick={() => scrollMovieRow(section.ref, 1)} aria-label={`Cuộn ${section.title} sang phải`} className="absolute right-0 top-1/2 z-40 flex h-11 w-11 translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.45)] transition hover:scale-110 hover:bg-red-500 hover:text-white md:h-14 md:w-14"><ChevronRight className="h-6 w-6" /></button>}
           </div>
         </section>
       ))}
