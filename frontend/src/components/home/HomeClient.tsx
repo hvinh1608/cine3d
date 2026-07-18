@@ -17,6 +17,9 @@ export type HomeInitialData = {
   proposed: Movie[];
   movies: Movie[];
   anime: Movie[];
+  china: Movie[];
+  korea: Movie[];
+  vietnam: Movie[];
   loadError?: string;
 };
 
@@ -28,6 +31,9 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
   const [proposed, setProposed] = useState<Movie[]>(initialData.proposed);
   const [allMovies, setAllMovies] = useState<Movie[]>(initialData.movies);
   const [animeList, setAnimeList] = useState<Movie[]>(initialData.anime);
+  const [chinaMovies, setChinaMovies] = useState<Movie[]>(initialData.china);
+  const [koreaMovies, setKoreaMovies] = useState<Movie[]>(initialData.korea);
+  const [vietnamMovies, setVietnamMovies] = useState<Movie[]>(initialData.vietnam);
   const [personalized, setPersonalized] = useState<Movie[]>([]);
   const [hasPersonalizedRecommendations, setHasPersonalizedRecommendations] = useState(false);
   const [activeAnimeIndex, setActiveAnimeIndex] = useState(0);
@@ -42,6 +48,9 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
   const latestRowRef = useRef<HTMLDivElement>(null);
   const trendingRowRef = useRef<HTMLDivElement>(null);
   const animeRowRef = useRef<HTMLDivElement>(null);
+  const chinaRowRef = useRef<HTMLDivElement>(null);
+  const koreaRowRef = useRef<HTMLDivElement>(null);
+  const vietnamRowRef = useRef<HTMLDivElement>(null);
 
   const favoriteIds = useMemo(() => new Set(favorites.map((favorite) => favorite.id)), [favorites]);
 
@@ -74,6 +83,9 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
         setTrending(Array.isArray(data?.trending) ? data.trending : []);
         setProposed(Array.isArray(data?.proposed) ? data.proposed : []);
         setAllMovies(Array.isArray(data?.movies) ? data.movies : []);
+        setChinaMovies(Array.isArray(data?.countries?.china) ? data.countries.china : []);
+        setKoreaMovies(Array.isArray(data?.countries?.korea) ? data.countries.korea : []);
+        setVietnamMovies(Array.isArray(data?.countries?.vietnam) ? data.countries.vietnam : []);
       }
 
       if (animeResult.status === 'fulfilled') {
@@ -752,6 +764,35 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
 
         </section>
       )}
+
+      {([
+        { title: 'Phim Trung Quốc Mới Nhất', slug: 'trung-quoc', movies: chinaMovies, ref: chinaRowRef, accent: 'bg-red-500' },
+        { title: 'Phim Hàn Quốc Mới Nhất', slug: 'han-quoc', movies: koreaMovies, ref: koreaRowRef, accent: 'bg-pink-500' },
+        { title: 'Phim Việt Nam Mới Nhất', slug: 'viet-nam', movies: vietnamMovies, ref: vietnamRowRef, accent: 'bg-emerald-500' },
+      ] as const).map((section) => section.movies.length > 0 && (
+        <section key={section.slug} className="mx-auto mt-12 w-full max-w-7xl px-4 md:px-8">
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <div className={`h-5 w-1 shrink-0 rounded-full ${section.accent}`} />
+              <h2 className="truncate text-lg font-black uppercase tracking-wider text-white md:text-xl">{section.title}</h2>
+              <Link href={`/quoc-gia/${section.slug}`} aria-label={`Xem tất cả ${section.title}`} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/20 text-slate-300 transition hover:bg-white hover:text-black">
+                <ChevronRight className="h-5 w-5" />
+              </Link>
+            </div>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <button type="button" onClick={() => scrollMovieRow(section.ref, -1)} aria-label={`Cuộn ${section.title} sang trái`} className="rounded-full border border-white/10 bg-slate-900/60 p-1.5 text-white transition hover:bg-red-600"><ChevronLeft className="h-4 w-4" /></button>
+              <button type="button" onClick={() => scrollMovieRow(section.ref, 1)} aria-label={`Cuộn ${section.title} sang phải`} className="rounded-full border border-white/10 bg-slate-900/60 p-1.5 text-white transition hover:bg-red-600"><ChevronRight className="h-4 w-4" /></button>
+            </div>
+          </div>
+          <div ref={section.ref} className="movie-row flex space-x-5 overflow-x-auto pb-4 scroll-smooth md:space-x-8">
+            {section.movies.map((movie) => (
+              <div key={movie.id} className="relative w-[160px] shrink-0 pt-2 sm:w-[200px]">
+                <MovieCard3D movie={movie} onToggleFavorite={handleToggleFavorite} isFavorited={favoriteIds.has(movie.id)} />
+              </div>
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   );
 }

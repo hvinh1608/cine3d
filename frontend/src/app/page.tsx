@@ -25,6 +25,9 @@ async function loadHomeData(): Promise<HomeInitialData> {
     proposed: Array.isArray(home.proposed) ? home.proposed : [],
     movies: Array.isArray(home.movies) ? home.movies : [],
     anime: Array.isArray(anime.movies) ? anime.movies : [],
+    china: Array.isArray(home.countries?.china) ? home.countries.china : [],
+    korea: Array.isArray(home.countries?.korea) ? home.countries.korea : [],
+    vietnam: Array.isArray(home.countries?.vietnam) ? home.countries.vietnam : [],
     loadError: failedSections === 2
       ? 'Không tải được danh sách phim. Backend có thể đang khởi động, vui lòng thử lại.'
       : failedSections === 1
