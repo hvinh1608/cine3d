@@ -8,6 +8,7 @@ import CinemaBackground from '../components/canvas/DynamicCinemaBackground';
 import AuthBootstrap from '../components/auth/AuthBootstrap';
 import ToastViewport from '../components/ui/ToastViewport';
 import BackToTop from '../components/ui/BackToTop';
+import TranslationVoteBanner from '../components/ui/TranslationVoteBanner';
 import CinemaSplash from '../components/ui/CinemaSplash';
 import PwaBootstrap from '../components/pwa/PwaBootstrap';
 import { getSiteUrl } from '../lib/site';
@@ -51,6 +52,7 @@ export default function RootLayout({
         <PwaBootstrap />
         <ToastViewport />
         <BackToTop />
+        <TranslationVoteBanner />
         <CinemaBackground />
 
         <Suspense fallback={<div className="fixed top-0 left-0 w-full h-16 bg-black/80" />}>

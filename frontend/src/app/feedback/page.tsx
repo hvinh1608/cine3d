@@ -22,6 +22,16 @@ export default function FeedbackPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const catParam = urlParams.get('category');
+      if (catParam && categories.some(([val]) => val === catParam)) {
+        setCategory(catParam);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     if (!authReady || !user) return;
     api.get('/feedback/me').then(({ data }) => setItems(Array.isArray(data) ? data : [])).catch(() => showToast('Không tải được lịch sử góp ý.', 'error')).finally(() => setLoading(false));
   }, [authReady, showToast, user]);
