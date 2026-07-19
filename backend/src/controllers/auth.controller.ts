@@ -13,13 +13,19 @@ import {
   getRefreshCookieOptions,
   REFRESH_COOKIE_NAME,
 } from '../lib/auth-cookie';
+import {
+  configuredGoogleAudiences,
+  evaluateNativeAuthGate,
+  isNativeClient,
+  sessionResponse,
+} from '../lib/native-client';
 
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 const REFRESH_COOKIE = REFRESH_COOKIE_NAME;
 const requireEmailVerification = process.env.REQUIRE_EMAIL_VERIFICATION === 'true';
-const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim();
-const googleClient = googleClientId ? new OAuth2Client(googleClientId) : null;
+const googleAudiences = configuredGoogleAudiences();
+const googleClient = googleAudiences.length ? new OAuth2Client() : null;
 const facebookAppId = process.env.FACEBOOK_APP_ID?.trim();
 const facebookAppSecret = process.env.FACEBOOK_APP_SECRET?.trim();
 const facebookGraphVersion = process.env.FACEBOOK_GRAPH_VERSION?.trim() || 'v24.0';
@@ -31,9 +37,46 @@ const clientUrl = (process.env.CLIENT_URLS || process.env.CLIENT_URL || 'http://
 const cookieOptions = getRefreshCookieOptions();
 const cookieClearOptions = getRefreshCookieClearOptions();
 
-async function verifyTurnstileToken(token: unknown, req: AuthenticatedRequest) {
-  if (!turnstileSecretKey) return true;
-  if (typeof token !== 'string' || !token.trim()) return false;
+type BotGateFailure = {
+  ok: false;
+  status: 400;
+  code: 'NATIVE_ATTESTATION_REQUIRED' | 'NATIVE_ATTESTATION_MISMATCH' | 'TURNSTILE_REQUIRED';
+  message: string;
+};
+
+type BotGateResult = { ok: true } | BotGateFailure;
+
+async function verifyBotGate(token: unknown, req: AuthenticatedRequest): Promise<BotGateResult> {
+  if (isNativeClient(req)) {
+    const gate = evaluateNativeAuthGate(req.get('x-app-attestation'));
+    if (gate.ok) {
+      if (gate.mode === 'open') {
+        console.warn('[auth] MOBILE_APP_ATTESTATION_TOKEN is unset; allowing native client without Turnstile.');
+      }
+      return { ok: true };
+    }
+    return {
+      ok: false,
+      status: 400,
+      code: gate.code,
+      message: gate.code === 'NATIVE_ATTESTATION_MISMATCH'
+        ? 'App attestation không khớp máy chủ. Kiểm tra EXPO_PUBLIC_APP_ATTESTATION_TOKEN và MOBILE_APP_ATTESTATION_TOKEN.'
+        : 'Ứng dụng native cần header X-App-Attestation hợp lệ.',
+    };
+  }
+
+  if (!turnstileSecretKey) {
+    // Web auth without Turnstile configured (local/dev).
+    return { ok: true };
+  }
+  if (typeof token !== 'string' || !token.trim()) {
+    return {
+      ok: false,
+      status: 400,
+      code: 'TURNSTILE_REQUIRED',
+      message: 'Vui lòng hoàn tất xác minh Cloudflare rồi thử lại.',
+    };
+  }
 
   try {
     const response = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
@@ -45,13 +88,35 @@ async function verifyTurnstileToken(token: unknown, req: AuthenticatedRequest) {
         remoteip: req.ip,
       }),
     });
-    if (!response.ok) return false;
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: 400,
+        code: 'TURNSTILE_REQUIRED',
+        message: 'Vui lòng hoàn tất xác minh Cloudflare rồi thử lại.',
+      };
+    }
     const result = await response.json() as { success?: boolean };
-    return result.success === true;
+    if (result.success === true) return { ok: true };
+    return {
+      ok: false,
+      status: 400,
+      code: 'TURNSTILE_REQUIRED',
+      message: 'Vui lòng hoàn tất xác minh Cloudflare rồi thử lại.',
+    };
   } catch (error) {
     console.warn('Turnstile verification failed.', error);
-    return false;
+    return {
+      ok: false,
+      status: 400,
+      code: 'TURNSTILE_REQUIRED',
+      message: 'Vui lòng hoàn tất xác minh Cloudflare rồi thử lại.',
+    };
   }
+}
+
+function rejectBotGate(res: Response, gate: BotGateFailure) {
+  return res.status(gate.status).json({ message: gate.message, code: gate.code });
 }
 
 type SessionUser = {
@@ -202,9 +267,8 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
   if (typeof password !== 'string' || password.length < 8) {
     return res.status(400).json({ message: 'Password must be at least 8 characters.' });
   }
-  if (!(await verifyTurnstileToken(req.body.turnstileToken, req))) {
-    return res.status(400).json({ message: 'Vui lòng hoàn tất xác minh Cloudflare rồi thử lại.' });
-  }
+  const botGate = await verifyBotGate(req.body.turnstileToken, req);
+  if (!botGate.ok) return rejectBotGate(res, botGate);
   if (requireEmailVerification && !emailDeliveryConfigured) {
     return res.status(503).json({ message: 'Gửi email xác nhận chưa được cấu hình.' });
   }
@@ -284,13 +348,13 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
     }
 
     const session = await createSession(user, req);
-    res.cookie(REFRESH_COOKIE, session.refreshToken, cookieOptions);
+    if (!isNativeClient(req)) res.cookie(REFRESH_COOKIE, session.refreshToken, cookieOptions);
 
-    return res.status(201).json({
+    return res.status(201).json(sessionResponse(req, {
       message: 'User registered successfully.',
       accessToken: session.accessToken,
       user: session.user,
-    });
+    }, session.refreshToken));
   } catch (error: any) {
     return internalError(res, 'Internal server error.', error);
   }
@@ -304,9 +368,8 @@ export const login = async (req: AuthenticatedRequest, res: Response) => {
     return res.status(400).json({ message: 'Email and password are required.' });
   }
 
-  if (!(await verifyTurnstileToken(req.body.turnstileToken, req))) {
-    return res.status(400).json({ message: 'Vui lòng hoàn tất xác minh Cloudflare rồi thử lại.' });
-  }
+  const botGate = await verifyBotGate(req.body.turnstileToken, req);
+  if (!botGate.ok) return rejectBotGate(res, botGate);
 
   try {
     const user = await prisma.user.findUnique({
@@ -335,11 +398,11 @@ export const login = async (req: AuthenticatedRequest, res: Response) => {
     }
 
     const session = await createSession(user, req);
-    res.cookie(REFRESH_COOKIE, session.refreshToken, cookieOptions);
-    return res.json({
+    if (!isNativeClient(req)) res.cookie(REFRESH_COOKIE, session.refreshToken, cookieOptions);
+    return res.json(sessionResponse(req, {
       accessToken: session.accessToken,
       user: session.user,
-    });
+    }, session.refreshToken));
   } catch (error: any) {
     return internalError(res, 'Internal server error.', error);
   }
@@ -350,10 +413,9 @@ export const googleLogin = async (req: AuthenticatedRequest, res: Response) => {
   if (!credential) {
     return res.status(400).json({ message: 'Google credential is required.' });
   }
-  if (!(await verifyTurnstileToken(req.body.turnstileToken, req))) {
-    return res.status(400).json({ message: 'Vui lòng hoàn tất xác minh Cloudflare rồi thử lại.' });
-  }
-  if (!googleClient || !googleClientId) {
+  const botGate = await verifyBotGate(req.body.turnstileToken, req);
+  if (!botGate.ok) return rejectBotGate(res, botGate);
+  if (!googleClient || !googleAudiences.length) {
     return res.status(503).json({ message: 'Đăng nhập Google chưa được cấu hình.' });
   }
 
@@ -361,7 +423,7 @@ export const googleLogin = async (req: AuthenticatedRequest, res: Response) => {
   try {
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
-      audience: googleClientId,
+      audience: googleAudiences,
     });
     payload = ticket.getPayload();
   } catch (error: unknown) {
@@ -438,12 +500,12 @@ export const googleLogin = async (req: AuthenticatedRequest, res: Response) => {
     }
 
     const session = await createSession(user, req);
-    res.cookie(REFRESH_COOKIE, session.refreshToken, cookieOptions);
-    return res.json({
+    if (!isNativeClient(req)) res.cookie(REFRESH_COOKIE, session.refreshToken, cookieOptions);
+    return res.json(sessionResponse(req, {
       message: 'Đăng nhập Google thành công.',
       accessToken: session.accessToken,
       user: session.user,
-    });
+    }, session.refreshToken));
   } catch (error: unknown) {
     return internalError(res, 'Không thể hoàn tất đăng nhập Google.', error);
   }
@@ -452,9 +514,8 @@ export const googleLogin = async (req: AuthenticatedRequest, res: Response) => {
 export const facebookLogin = async (req: AuthenticatedRequest, res: Response) => {
   const accessToken = typeof req.body.accessToken === 'string' ? req.body.accessToken.trim() : '';
   if (!accessToken) return res.status(400).json({ message: 'Facebook access token is required.' });
-  if (!(await verifyTurnstileToken(req.body.turnstileToken, req))) {
-    return res.status(400).json({ message: 'Vui lòng hoàn tất xác minh Cloudflare rồi thử lại.' });
-  }
+  const botGate = await verifyBotGate(req.body.turnstileToken, req);
+  if (!botGate.ok) return rejectBotGate(res, botGate);
   if (!facebookAppId || !facebookAppSecret) {
     return res.status(503).json({ message: 'Đăng nhập Facebook chưa được cấu hình.' });
   }
@@ -523,15 +584,21 @@ export const facebookLogin = async (req: AuthenticatedRequest, res: Response) =>
     }
 
     const session = await createSession(user, req);
-    res.cookie(REFRESH_COOKIE, session.refreshToken, cookieOptions);
-    return res.json({ message: 'Đăng nhập Facebook thành công.', accessToken: session.accessToken, user: session.user });
+    if (!isNativeClient(req)) res.cookie(REFRESH_COOKIE, session.refreshToken, cookieOptions);
+    return res.json(sessionResponse(req, {
+      message: 'Đăng nhập Facebook thành công.',
+      accessToken: session.accessToken,
+      user: session.user,
+    }, session.refreshToken));
   } catch (error: unknown) {
     return internalError(res, 'Không thể hoàn tất đăng nhập Facebook.', error);
   }
 };
 
 export const refresh = async (req: AuthenticatedRequest, res: Response) => {
-  const refreshToken = getCookie(req, REFRESH_COOKIE) || req.body.refreshToken;
+  const refreshToken = isNativeClient(req)
+    ? req.body.refreshToken
+    : getCookie(req, REFRESH_COOKIE) || req.body.refreshToken;
 
   if (!refreshToken) {
     return res.status(400).json({ message: 'Refresh token is required.' });
@@ -589,8 +656,8 @@ export const refresh = async (req: AuthenticatedRequest, res: Response) => {
       }),
     ]);
 
-    res.cookie(REFRESH_COOKIE, newRefreshToken, cookieOptions);
-    return res.json({
+    if (!isNativeClient(req)) res.cookie(REFRESH_COOKIE, newRefreshToken, cookieOptions);
+    return res.json(sessionResponse(req, {
       accessToken,
       user: {
         id: storedToken.user.id,
@@ -601,7 +668,7 @@ export const refresh = async (req: AuthenticatedRequest, res: Response) => {
         isVip: hasVipAccess(storedToken.user),
         vipExpiresAt: storedToken.user.vipExpiresAt,
       },
-    });
+    }, newRefreshToken));
   } catch (error: any) {
     return internalError(res, 'Internal server error.', error);
   }
@@ -666,9 +733,8 @@ export const getProfile = async (req: AuthenticatedRequest, res: Response) => {
 export const forgotPassword = async (req: AuthenticatedRequest, res: Response) => {
   const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
   if (!email) return res.status(400).json({ message: 'Email is required.' });
-  if (!(await verifyTurnstileToken(req.body.turnstileToken, req))) {
-    return res.status(400).json({ message: 'Vui lòng hoàn tất xác minh Cloudflare rồi thử lại.' });
-  }
+  const botGate = await verifyBotGate(req.body.turnstileToken, req);
+  if (!botGate.ok) return rejectBotGate(res, botGate);
 
   const genericMessage = 'If an account with that email exists, password reset instructions have been sent.';
 
@@ -774,5 +840,37 @@ export const verifyEmail = async (req: AuthenticatedRequest, res: Response) => {
   } catch (error: unknown) {
     console.error('Email verification failed.', error);
     return res.redirect(`${clientUrl}/account?verified=error`);
+  }
+};
+
+export const verifyEmailNative = async (req: AuthenticatedRequest, res: Response) => {
+  const token = typeof req.body.token === 'string' ? req.body.token.trim() : '';
+  if (!token) return res.status(400).json({ message: 'Verification token is required.' });
+
+  try {
+    const user = await prisma.user.findFirst({
+      where: {
+        emailVerificationToken: hashToken(token),
+        emailVerificationExpires: { gt: new Date() },
+      },
+      select: { id: true },
+    });
+    if (!user) return res.status(400).json({ message: 'Invalid or expired verification token.' });
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        isVerified: true,
+        emailVerificationToken: null,
+        emailVerificationExpires: null,
+      },
+    });
+    return res.json({
+      message: 'Email verified successfully.',
+      verified: true,
+      deepLink: process.env.MOBILE_EMAIL_VERIFIED_DEEP_LINK?.trim() || null,
+    });
+  } catch (error) {
+    return internalError(res, 'Could not verify email.', error);
   }
 };
