@@ -22,12 +22,12 @@ const normalizeEmail = (value: string) => {
 };
 
 const PRESET_AVATARS = [
-  'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
-  'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=150&q=80',
-  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80',
-  'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=150&q=80',
-  'https://images.unsplash.com/photo-1628157582853-a796fa650a6a?auto=format&fit=crop&w=150&q=80',
-  'https://images.unsplash.com/photo-1527980965255-d3b416303d12?auto=format&fit=crop&w=150&q=80',
+  'https://cine3d.id.vn/avatars/1.jpg',
+  'https://cine3d.id.vn/avatars/2.jpg',
+  'https://cine3d.id.vn/avatars/3.jpg',
+  'https://cine3d.id.vn/avatars/4.jpg',
+  'https://cine3d.id.vn/avatars/5.jpg',
+  'https://cine3d.id.vn/avatars/6.jpg',
 ];
 
 export default function AccountPage() {
@@ -532,7 +532,7 @@ export default function AccountPage() {
         <div className="flex items-center space-x-4">
           <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-red-500 shrink-0">
             <Image
-              src={user.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80'}
+              src={user.avatar || 'https://cine3d.id.vn/avatars/1.jpg'}
               alt={user.username}
               fill
               sizes="64px"

@@ -36,7 +36,6 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
   const [vietnamMovies, setVietnamMovies] = useState<Movie[]>(initialData.vietnam);
   const [personalized, setPersonalized] = useState<Movie[]>([]);
   const [hasPersonalizedRecommendations, setHasPersonalizedRecommendations] = useState(false);
-  const [recommendationsResolved, setRecommendationsResolved] = useState(false);
   const [activeAnimeIndex, setActiveAnimeIndex] = useState(0);
 
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
@@ -146,31 +145,24 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
   }, [user, accessToken, setWatchHistory]);
 
   useEffect(() => {
-    if (!hasHydrated || !authReady) {
-      queueMicrotask(() => setRecommendationsResolved(false));
-      return;
-    }
+    if (!hasHydrated || !authReady) return;
     if (!user) {
       queueMicrotask(() => {
         setPersonalized([]);
         setHasPersonalizedRecommendations(false);
-        setRecommendationsResolved(true);
       });
       return;
     }
-    queueMicrotask(() => setRecommendationsResolved(false));
     const controller = new AbortController();
     axios.get(`${API_URL}/movies/recommendations/me`, { signal: controller.signal })
       .then((response) => {
         setPersonalized(Array.isArray(response.data?.movies) ? response.data.movies : []);
         setHasPersonalizedRecommendations(response.data?.personalized === true);
-        setRecommendationsResolved(true);
       })
       .catch(() => {
         if (!controller.signal.aborted) {
           setPersonalized([]);
           setHasPersonalizedRecommendations(false);
-          setRecommendationsResolved(true);
         }
       });
     return () => controller.abort();
@@ -516,11 +508,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
           <div className="flex items-center space-x-2">
             <div className="w-1 h-5 bg-red-600 rounded-full" />
             <h2 className="text-lg md:text-xl font-black uppercase tracking-wider text-white">
-              {recommendationsResolved ? (
-                hasPersonalizedRecommendations ? 'Dành Riêng Cho Bạn' : 'Phim Đề Xuất Cho Bạn'
-              ) : (
-                <span aria-label="Đang tải đề xuất" className="inline-block h-6 w-56 animate-pulse rounded bg-white/10 align-middle" />
-              )}
+              Đề Xuất Cho Bạn
             </h2>
             <Link href="/search" aria-label="Xem thêm phim đề xuất" className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/25 bg-black/20 text-slate-200 transition hover:border-white/60 hover:bg-white hover:text-black">
               <ChevronRight className="h-5 w-5" />
