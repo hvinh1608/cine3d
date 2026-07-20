@@ -142,6 +142,16 @@ function getSessionMetadata(req: AuthenticatedRequest) {
   };
 }
 
+function getRefreshTokenDuration(req: AuthenticatedRequest) {
+  const days = isNativeClient(req)
+    ? Number(process.env.NATIVE_REFRESH_TTL_DAYS || 30)
+    : 7;
+  return {
+    jwt: `${days}d`,
+    ms: days * 24 * 60 * 60 * 1000,
+  };
+}
+
 async function createSession(user: SessionUser, req: AuthenticatedRequest) {
   const payload = {
     id: user.id,
@@ -150,11 +160,12 @@ async function createSession(user: SessionUser, req: AuthenticatedRequest) {
     role: user.role.name,
   };
 
+  const refreshDuration = getRefreshTokenDuration(req);
   const accessToken = jwt.sign(payload, JWT_ACCESS_SECRET!, { expiresIn: '15m' });
   const refreshToken = jwt.sign(
     { ...payload, jti: crypto.randomUUID() },
     JWT_REFRESH_SECRET!,
-    { expiresIn: '7d' }
+    { expiresIn: refreshDuration.jwt }
   );
 
   await prisma.$transaction([
@@ -163,7 +174,7 @@ async function createSession(user: SessionUser, req: AuthenticatedRequest) {
       data: {
         token: hashToken(refreshToken),
         userId: user.id,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + refreshDuration.ms),
         ...getSessionMetadata(req),
       },
     }),
@@ -653,13 +664,14 @@ export const refresh = async (req: AuthenticatedRequest, res: Response) => {
       role: storedToken.user.role.name,
     };
 
+    const refreshDuration = getRefreshTokenDuration(req);
     const accessToken = jwt.sign(payload, JWT_ACCESS_SECRET!, { expiresIn: '15m' });
     const newRefreshToken = jwt.sign(
       { ...payload, jti: crypto.randomUUID() },
       JWT_REFRESH_SECRET!,
-      { expiresIn: '7d' }
+      { expiresIn: refreshDuration.jwt }
     );
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + refreshDuration.ms);
 
     await prisma.$transaction([
       prisma.refreshToken.delete({ where: { id: storedToken.id } }),

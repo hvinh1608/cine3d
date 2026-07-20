@@ -1,8 +1,10 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Button, SegmentedButtons, Text, TextInput } from 'react-native-paper';
+import { PasswordInput } from '@/components/password-input';
 import { ApiError } from '@/domain/models';
+import { tokenStorage } from '@/data/auth/token-storage';
 import { accountApi, type AuthSession } from '@/features/account/data/account-api';
 import { OAuthButtons } from '@/features/account/presentation/oauth-buttons';
 import { validateAuthForm, validateEmail, validatePassword } from '@/features/account/domain/validation';
@@ -36,8 +38,15 @@ export default function AuthRoute() {
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
   const setSession = useAppStore((state) => state.setSession);
 
+  useEffect(() => {
+    void tokenStorage.getRememberedEmail().then((savedEmail) => {
+      if (savedEmail) setEmail(savedEmail);
+    });
+  }, []);
+
   const complete = useCallback(async (session: AuthSession) => {
     if (!session.accessToken || !session.refreshToken || !session.user) throw new Error('Máy chủ không trả về native refresh token.');
+    await tokenStorage.saveRememberedEmail(session.user.email);
     await setSession({ accessToken: session.accessToken, refreshToken: session.refreshToken }, session.user);
     router.replace('/(tabs)/account');
   }, [setSession]);
@@ -93,9 +102,9 @@ export default function AuthRoute() {
         {errors.email ? <Text style={styles.error}>{errors.email}</Text> : null}
         {mode === 'register' ? <TextInput label="Tên hiển thị" value={username} onChangeText={setUsername} error={Boolean(errors.username)} /> : null}
         {errors.username ? <Text style={styles.error}>{errors.username}</Text> : null}
-        {mode === 'login' || mode === 'register' || mode === 'reset' ? <TextInput testID="auth-password" label="Mật khẩu" value={password} secureTextEntry onChangeText={setPassword} error={Boolean(errors.password)} /> : null}
+        {mode === 'login' || mode === 'register' || mode === 'reset' ? <PasswordInput testID="auth-password" label="Mật khẩu" value={password} onChangeText={setPassword} error={Boolean(errors.password)} /> : null}
         {errors.password ? <Text style={styles.error}>{errors.password}</Text> : null}
-        {mode === 'register' || mode === 'reset' ? <TextInput label="Nhập lại mật khẩu" value={confirmPassword} secureTextEntry onChangeText={setConfirmPassword} error={Boolean(errors.confirmPassword)} /> : null}
+        {mode === 'register' || mode === 'reset' ? <PasswordInput label="Nhập lại mật khẩu" value={confirmPassword} onChangeText={setConfirmPassword} error={Boolean(errors.confirmPassword)} /> : null}
         {errors.confirmPassword ? <Text style={styles.error}>{errors.confirmPassword}</Text> : null}
         {message ? <Text style={styles.message}>{message}</Text> : null}
         <Button testID="auth-submit" mode="contained" loading={busy} disabled={busy} onPress={() => void submit()}>{title}</Button>

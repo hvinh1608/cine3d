@@ -62,14 +62,27 @@ async function refreshAccessToken(): Promise<string> {
       session: {
         ...state.session,
         tokens: { accessToken: data.accessToken, refreshToken: nextRefreshToken },
-        ...(data.user ? { user: data.user } : {}),
       },
     }));
+    if (data.user) useAppStore.getState().setUser(data.user);
     return data.accessToken;
   })().finally(() => {
     refreshFlight = null;
   });
   return refreshFlight;
+}
+
+export async function syncSessionOnResume(): Promise<void> {
+  const refreshToken = useAppStore.getState().session.tokens.refreshToken;
+  if (!refreshToken) return;
+  try {
+    await refreshAccessToken();
+  } catch (error) {
+    const apiError = toApiError(error);
+    if (apiError.status === 401 || apiError.status === 403) {
+      await useAppStore.getState().logout();
+    }
+  }
 }
 
 apiClient.interceptors.request.use(async (request) => {
@@ -93,8 +106,11 @@ apiClient.interceptors.response.use(
         request.headers.Authorization = `Bearer ${await refreshAccessToken()}`;
         return await apiClient(request);
       } catch (refreshError) {
-        await useAppStore.getState().logout();
-        throw toApiError(refreshError);
+        const apiError = toApiError(refreshError);
+        if (apiError.status === 401 || apiError.status === 403) {
+          await useAppStore.getState().logout();
+        }
+        throw apiError;
       }
     }
     throw toApiError(error);

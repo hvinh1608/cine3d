@@ -10,6 +10,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { config } from '@/core/config';
 import { cacheRepository } from '@/data/cache/sqlite-cache';
+import { syncSessionOnResume } from '@/data/http/api-client';
 import { discoveryKeys } from '@/features/discovery/domain/discovery-repository';
 import { movieKeys } from '@/features/movies/domain/movie-repository';
 import { useAppStore } from '@/state/app-store';
@@ -41,7 +42,12 @@ export function AppProviders({ children }: PropsWithChildren) {
   useEffect(() => {
     void useAppStore.getState().hydrateSession().then(async () => {
       if (!useAppStore.getState().session.tokens.refreshToken) return;
-      try { useAppStore.getState().setUser(await accountApi.me()); } catch { /* interceptor handles expired sessions */ }
+      await syncSessionOnResume();
+      try {
+        useAppStore.getState().setUser(await accountApi.me());
+      } catch {
+        /* keep cached user when offline; interceptor handles expired sessions */
+      }
     });
     void cacheRepository.pruneStale();
     const networkSubscription = NetInfo.addEventListener((state) => {
@@ -50,7 +56,17 @@ export function AppProviders({ children }: PropsWithChildren) {
     });
     const subscription = AppState.addEventListener('change', (status) => {
       focusManager.setFocused(status === 'active');
-      if (status === 'active') void flushPerformanceEvents();
+      if (status === 'active') {
+        void flushPerformanceEvents();
+        void syncSessionOnResume().then(async () => {
+          if (!useAppStore.getState().session.tokens.refreshToken) return;
+          try {
+            useAppStore.getState().setUser(await accountApi.me());
+          } catch {
+            /* keep cached user when offline */
+          }
+        });
+      }
     });
     const notificationSubscription = Notifications.addNotificationResponseReceivedListener((response) => {
       const link = response.notification.request.content.data?.link;

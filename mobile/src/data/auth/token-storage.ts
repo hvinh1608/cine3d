@@ -1,4 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
+import type { User } from '@/domain/models';
 
 export interface AuthTokens {
   accessToken: string;
@@ -13,6 +14,8 @@ export interface KeyValueStorage {
 
 const ACCESS_TOKEN_KEY = 'cine3d.auth.access';
 const REFRESH_TOKEN_KEY = 'cine3d.auth.refresh';
+const USER_KEY = 'cine3d.auth.user';
+const REMEMBERED_EMAIL_KEY = 'cine3d.auth.remembered-email';
 const secureOptions: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
 };
@@ -42,10 +45,35 @@ export class TokenStorage {
     await this.storage.setItemAsync(ACCESS_TOKEN_KEY, accessToken);
   }
 
+  async saveUser(user: User): Promise<void> {
+    await this.storage.setItemAsync(USER_KEY, JSON.stringify(user));
+  }
+
+  async getUser(): Promise<User | null> {
+    const raw = await this.storage.getItemAsync(USER_KEY);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as User;
+    } catch {
+      return null;
+    }
+  }
+
+  async saveRememberedEmail(email: string): Promise<void> {
+    const normalized = email.trim().toLowerCase();
+    if (!normalized) return;
+    await this.storage.setItemAsync(REMEMBERED_EMAIL_KEY, normalized);
+  }
+
+  async getRememberedEmail(): Promise<string | null> {
+    return this.storage.getItemAsync(REMEMBERED_EMAIL_KEY);
+  }
+
   async clear(): Promise<void> {
     const results = await Promise.allSettled([
       this.storage.deleteItemAsync(ACCESS_TOKEN_KEY),
       this.storage.deleteItemAsync(REFRESH_TOKEN_KEY),
+      this.storage.deleteItemAsync(USER_KEY),
     ]);
     const failure = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
     if (failure) throw failure.reason;

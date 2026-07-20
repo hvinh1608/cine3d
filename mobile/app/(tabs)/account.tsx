@@ -30,7 +30,7 @@ export default function AccountRoute() {
   useEffect(() => { if (hydrated && tokens.refreshToken) void refresh(); }, [hydrated, tokens.refreshToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!hydrated) return <View style={styles.center}><Text>Đang khôi phục phiên đăng nhập…</Text></View>;
-  if (!tokens.refreshToken || !user) {
+  if (!tokens.refreshToken) {
     return (
       <View style={styles.center}>
         <Text variant="headlineMedium">CINE3D ID</Text>
@@ -40,6 +40,7 @@ export default function AccountRoute() {
       </View>
     );
   }
+  if (!user) return <View style={styles.center}><Text>Đang tải tài khoản…</Text></View>;
 
   const links = [
     ['Hồ sơ tài khoản', 'Đổi tên hiển thị và ảnh đại diện', '/account/profile'],

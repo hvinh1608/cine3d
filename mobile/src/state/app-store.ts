@@ -35,14 +35,21 @@ export const useAppStore = create<AppStore>((set) => ({
   preferences: defaultPreferences,
   hydrateSession: async () => {
     try {
-      const [tokens, preferences] = await Promise.all([tokenStorage.getTokens(), settingsStorage.load()]);
-      set((state) => ({ preferences, session: { ...state.session, tokens, hydrated: true } }));
+      const [tokens, preferences, user] = await Promise.all([
+        tokenStorage.getTokens(),
+        settingsStorage.load(),
+        tokenStorage.getUser(),
+      ]);
+      set((state) => ({
+        preferences,
+        session: { ...state.session, tokens, user, hydrated: true },
+      }));
     } catch {
-      set((state) => ({ session: { ...state.session, tokens: {}, hydrated: true } }));
+      set((state) => ({ session: { ...state.session, tokens: {}, user: null, hydrated: true } }));
     }
   },
   setSession: async (tokens, user) => {
-    await tokenStorage.saveTokens(tokens);
+    await Promise.all([tokenStorage.saveTokens(tokens), tokenStorage.saveUser(user)]);
     set((state) => ({ session: { ...state.session, tokens, user, hydrated: true } }));
   },
   updateAccessToken: async (accessToken) => {
@@ -54,7 +61,10 @@ export const useAppStore = create<AppStore>((set) => ({
   setActiveProfile: (activeProfile) => {
     set((state) => ({ session: { ...state.session, activeProfile } }));
   },
-  setUser: (user) => set((state) => ({ session: { ...state.session, user } })),
+  setUser: (user) => {
+    void tokenStorage.saveUser(user);
+    set((state) => ({ session: { ...state.session, user } }));
+  },
   setPreference: async (key, value) => {
     const next = { ...useAppStore.getState().preferences, [key]: value };
     set({ preferences: next });

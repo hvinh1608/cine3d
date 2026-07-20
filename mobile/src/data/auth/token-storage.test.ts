@@ -33,4 +33,28 @@ describe('TokenStorage', () => {
       refreshToken: 'refresh',
     });
   });
+
+  it('stores, reads and clears cached user snapshot', async () => {
+    const storage = new TokenStorage(memoryStorage());
+    const user = {
+      id: '1',
+      email: 'user@cine3d.test',
+      username: 'user',
+      role: 'USER',
+      isVip: false,
+    };
+
+    await storage.saveUser(user);
+    await expect(storage.getUser()).resolves.toEqual(user);
+    await storage.clear();
+    await expect(storage.getUser()).resolves.toBeNull();
+  });
+
+  it('remembers the last login email across session clears', async () => {
+    const storage = new TokenStorage(memoryStorage());
+    await storage.saveRememberedEmail('User@Cine3D.test');
+    await storage.clear();
+
+    await expect(storage.getRememberedEmail()).resolves.toBe('user@cine3d.test');
+  });
 });
