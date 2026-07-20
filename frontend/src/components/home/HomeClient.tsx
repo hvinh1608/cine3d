@@ -25,7 +25,7 @@ export type HomeInitialData = {
 };
 
 export default function HomeClient({ initialData }: { initialData: HomeInitialData }) {
-  const { user, accessToken, hasHydrated, authReady, favorites, watchHistory, setWatchHistory, reduceMotion, showToast } = useStore();
+  const { user, accessToken, hasHydrated, authReady, favoriteIds, watchHistory, setWatchHistory, reduceMotion, showToast } = useStore();
 
   const [banners, setBanners] = useState<Banner[]>(initialData.banners);
   const [trending, setTrending] = useState<Movie[]>(initialData.trending);
@@ -62,7 +62,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
   const koreaRowRef = useRef<HTMLDivElement>(null);
   const vietnamRowRef = useRef<HTMLDivElement>(null);
 
-  const favoriteIds = useMemo(() => new Set(favorites.map((favorite) => favorite.id)), [favorites]);
+  const favoriteIdSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
 
   const scrollMovieRow = (ref: React.RefObject<HTMLDivElement | null>, direction: -1 | 1) => {
     const row = ref.current;
@@ -511,7 +511,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
           <div ref={recommendedRowRef} onScroll={(event) => syncScrollControls(event.currentTarget, setRecommendedCanScrollLeft, setRecommendedCanScrollRight)} className="movie-row flex space-x-8 overflow-x-auto pb-4 scroll-smooth">
             {(hasPersonalizedRecommendations && personalized.length ? personalized : proposed).map((movie, index) => (
               <div key={movie.id} className="w-[160px] sm:w-[200px] shrink-0 relative pt-2">
-                <MovieCard3D movie={movie} onToggleFavorite={handleToggleFavorite} isFavorited={favoriteIds.has(movie.id)} slant={index % 2 === 0 ? 'left' : 'right'} />
+                <MovieCard3D movie={movie} onToggleFavorite={handleToggleFavorite} isFavorited={favoriteIdSet.has(movie.id)} slant={index % 2 === 0 ? 'left' : 'right'} />
               </div>
             ))}
             {!personalized.length && proposed.length === 0 && <p className="w-full py-4 text-center text-sm text-slate-500">Chưa có phim đề xuất.</p>}
@@ -539,7 +539,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
           <div ref={latestRowRef} onScroll={(event) => syncScrollControls(event.currentTarget, setLatestCanScrollLeft, setLatestCanScrollRight)} className="movie-row flex space-x-8 overflow-x-auto pb-4 scroll-smooth">
             {allMovies.map((movie, index) => (
               <div key={movie.id} className="w-[160px] sm:w-[200px] shrink-0 relative pt-2">
-                <MovieCard3D movie={movie} onToggleFavorite={handleToggleFavorite} isFavorited={favoriteIds.has(movie.id)} slant={index % 2 === 0 ? 'right' : 'left'} />
+                <MovieCard3D movie={movie} onToggleFavorite={handleToggleFavorite} isFavorited={favoriteIdSet.has(movie.id)} slant={index % 2 === 0 ? 'right' : 'left'} />
               </div>
             ))}
             {allMovies.length === 0 && <p className="w-full py-4 text-center text-sm text-slate-500">Chưa có phim cập nhật.</p>}
@@ -577,7 +577,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
                 <MovieCard3D
                   movie={movie}
                   onToggleFavorite={handleToggleFavorite}
-                  isFavorited={favoriteIds.has(movie.id)}
+                  isFavorited={favoriteIdSet.has(movie.id)}
                   slant={index % 2 === 0 ? 'left' : 'right'}
                 />
               </div>
@@ -672,7 +672,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
                       onClick={() => handleToggleFavorite(activeAnime.id, activeAnime)}
                       className="flex items-center justify-center w-12 h-12 rounded-full border border-white/10 bg-slate-950/40 hover:bg-white/10 text-white transition-all active:scale-90 shadow"
                     >
-                      {favorites.some(f => f.id === activeAnime.id) ? (
+                      {favoriteIdSet.has(activeAnime.id) ? (
                         <Check className="w-5 h-5 text-green-400" />
                       ) : (
                         <Plus className="w-5 h-5" />
@@ -757,7 +757,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
             <div ref={section.ref} onScroll={(event) => syncCountryScrollControls(section.slug, event.currentTarget)} className="movie-row flex space-x-5 overflow-x-auto pb-4 scroll-smooth md:space-x-8">
               {section.movies.map((movie, index) => (
                 <div key={movie.id} className="relative w-[160px] shrink-0 pt-2 sm:w-[200px]">
-                  <MovieCard3D movie={movie} onToggleFavorite={handleToggleFavorite} isFavorited={favoriteIds.has(movie.id)} slant={index % 2 === 0 ? 'left' : 'right'} />
+                  <MovieCard3D movie={movie} onToggleFavorite={handleToggleFavorite} isFavorited={favoriteIdSet.has(movie.id)} slant={index % 2 === 0 ? 'left' : 'right'} />
                 </div>
               ))}
             </div>

@@ -44,6 +44,7 @@ interface AppState {
   hasHydrated: boolean;
   authReady: boolean;
   favorites: Movie[];
+  favoriteIds: string[];
   watchlist: Movie[];
   watchHistory: WatchHistoryItem[];
   profiles: ViewerProfile[];
@@ -74,6 +75,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
   hasHydrated: false,
   authReady: false,
   favorites: [],
+  favoriteIds: [],
   watchlist: [],
   watchHistory: [],
   profiles: [],
@@ -83,23 +85,29 @@ export const useStore = create<AppState>()(persist((set, get) => ({
 
   setUser: (user) => set({ user }),
   setAccessToken: (accessToken) => set({ accessToken }),
-  setSession: (user, accessToken) => set({
-    user,
-    accessToken,
-    authReady: true,
-  }),
+  setSession: (user, accessToken) => set({ user, accessToken }),
   setHasHydrated: (hasHydrated) => set({ hasHydrated }),
   setAuthReady: (authReady) => set({ authReady }),
-  setFavorites: (favorites) => set({ favorites }),
+  setFavorites: (favorites) => set({
+    favorites,
+    favoriteIds: favorites.map((entry) => entry.id),
+  }),
   setWatchlist: (watchlist) => set({ watchlist }),
   setWatchHistory: (watchHistory) => set({ watchHistory }),
   setProfiles: (profiles) => set((state) => ({
     profiles,
-    selectedProfileId: profiles.some((profile) => profile.id === state.selectedProfileId)
-      ? state.selectedProfileId
-      : profiles[0]?.id || null,
+    selectedProfileId: state.selectedProfileId
+      && !profiles.some((profile) => profile.id === state.selectedProfileId)
+      ? (profiles[0]?.id || null)
+      : state.selectedProfileId,
   })),
-  selectProfile: (selectedProfileId) => set({ selectedProfileId, favorites: [], watchlist: [], watchHistory: [] }),
+  selectProfile: (selectedProfileId) => set({
+    selectedProfileId,
+    favorites: [],
+    favoriteIds: [],
+    watchlist: [],
+    watchHistory: [],
+  }),
   setReduceMotion: (reduceMotion) => set({ reduceMotion }),
   showToast: (message, tone = 'info') => set({ toast: { id: Date.now(), message, tone } }),
   clearToast: () => set({ toast: null }),
@@ -111,6 +119,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
       accessToken: null,
       authReady: true,
       favorites: [],
+      favoriteIds: [],
       watchlist: [],
       watchHistory: [],
       profiles: [],
@@ -145,6 +154,7 @@ export const useStore = create<AppState>()(persist((set, get) => ({
     user: state.user,
     reduceMotion: state.reduceMotion,
     selectedProfileId: state.selectedProfileId,
+    favoriteIds: state.favoriteIds,
   }),
   onRehydrateStorage: () => (state) => {
     state?.setHasHydrated(true);

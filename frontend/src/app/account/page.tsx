@@ -8,6 +8,7 @@ import type { AxiosError } from 'axios';
 import { User, Lock, Mail, Heart, History, Play, Bookmark, Trash2, LogOut, Check, Save, Crown, Upload, SlidersHorizontal, Trophy, Clock3, Flame } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
+import { loadFavorites } from '../../lib/user-library';
 import GoogleSignInButton from '../../components/auth/GoogleSignInButton';
 import FacebookSignInButton from '../../components/auth/FacebookSignInButton';
 import TurnstileWidget from '../../components/auth/TurnstileWidget';
@@ -143,6 +144,7 @@ export default function AccountPage() {
       setSession(res.data.user, res.data.accessToken);
       const profilesResponse = await axios.get('/user/profiles').catch(() => null);
       if (profilesResponse) setProfiles(profilesResponse.data);
+      await loadFavorites();
       showToast(isLogin ? 'Đăng nhập thành công!' : 'Đăng ký tài khoản thành công!', 'success');
       router.replace('/');
     } catch (error) {
@@ -177,6 +179,7 @@ export default function AccountPage() {
       setSession(response.data.user, response.data.accessToken);
       const profilesResponse = await axios.get('/user/profiles').catch(() => null);
       if (profilesResponse) setProfiles(profilesResponse.data);
+      await loadFavorites();
       showToast('Đăng nhập Google thành công!', 'success');
       router.replace('/');
     } catch (error) {
@@ -204,6 +207,7 @@ export default function AccountPage() {
       setSession(response.data.user, response.data.accessToken);
       const profilesResponse = await axios.get('/user/profiles').catch(() => null);
       if (profilesResponse) setProfiles(profilesResponse.data);
+      await loadFavorites();
       showToast('Đăng nhập Facebook thành công!', 'success');
       router.replace('/');
     } catch (error) {

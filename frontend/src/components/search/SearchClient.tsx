@@ -78,7 +78,7 @@ function SearchPageRoute({ initialData }: { initialData: SearchInitialData }) {
 function SearchPageContent({ initialData }: { initialData: SearchInitialData }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { favorites, user, showToast } = useStore();
+  const { favoriteIds, user, showToast } = useStore();
 
   const initialQuery = searchParams.get('q') || '';
   const [draftQuery, setDraftQuery] = useState(initialQuery);
@@ -104,7 +104,7 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
   const [showFilters, setShowFilters] = useState(false);
   const initialMoviesReadyRef = useRef(true);
 
-  const favoriteIds = useMemo(() => new Set(favorites.map((movie) => movie.id)), [favorites]);
+  const favoriteIdSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
   const years = useMemo(() => {
     const currentYear = new Date().getFullYear();
     return Array.from({ length: currentYear - 1979 }, (_, index) => currentYear - index);
@@ -367,7 +367,7 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
             <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 md:gap-x-5">
               {movies.map((movie) => (
                 <article key={movie.id} className="min-w-0">
-                  <MovieCard3D movie={movie} onToggleFavorite={handleToggleFavorite} isFavorited={favoriteIds.has(movie.id)} />
+                  <MovieCard3D movie={movie} onToggleFavorite={handleToggleFavorite} isFavorited={favoriteIdSet.has(movie.id)} />
                   <div className="mt-3 min-w-0 px-1">
                     <h3 className="truncate text-sm font-bold text-white" title={movie.title}>{movie.title}</h3>
                     <div className="mt-1 flex items-center justify-between gap-2 text-[11px] text-slate-500">

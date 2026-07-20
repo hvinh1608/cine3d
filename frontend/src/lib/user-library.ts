@@ -28,14 +28,22 @@ export async function toggleFavorite(movieId: string, movie?: Movie): Promise<vo
     const { data } = await api.post<{ favorited: boolean }>(`/user/favorites/${movieId}`);
     useStore.setState((state) => {
       const current = state.favorites;
+      let nextFavorites = current;
+      let nextFavoriteIds = state.favoriteIds;
+
       if (data.favorited) {
-        if (current.some((entry) => entry.id === movieId)) {
-          return { favorites: current };
+        if (!current.some((entry) => entry.id === movieId)) {
+          nextFavorites = movie ? [...current, movie] : current;
         }
-        if (!movie) return state;
-        return { favorites: [...current, movie] };
+        if (!nextFavoriteIds.includes(movieId)) {
+          nextFavoriteIds = [...nextFavoriteIds, movieId];
+        }
+      } else {
+        nextFavorites = current.filter((entry) => entry.id !== movieId);
+        nextFavoriteIds = nextFavoriteIds.filter((id) => id !== movieId);
       }
-      return { favorites: current.filter((entry) => entry.id !== movieId) };
+
+      return { favorites: nextFavorites, favoriteIds: nextFavoriteIds };
     });
 
     if (data.favorited && !movie) {

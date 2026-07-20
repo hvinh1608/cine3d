@@ -41,7 +41,7 @@ export default function MovieDetail() {
   const params = useParams();
   const slug = params.slug as string;
 
-  const { user, favorites, accessToken, showToast } = useStore();
+  const { user, favoriteIds, accessToken, showToast } = useStore();
   const [movie, setMovie] = useState<MovieDetailData | null>(null);
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [relatedMovies, setRelatedMovies] = useState<Movie[]>([]);
@@ -439,7 +439,7 @@ export default function MovieDetail() {
     );
   }
 
-  const isFavorited = favorites.some((f) => f.id === movie.id);
+  const isFavorited = favoriteIds.includes(movie.id);
 
   return (
     <div className="flex-1 w-full pb-20 relative select-none">
@@ -659,7 +659,7 @@ export default function MovieDetail() {
                     <MovieCardLandscape
                       movie={relatedMovie}
                       onToggleFavorite={() => void toggleFavorite(relatedMovie.id, relatedMovie)}
-                      isFavorited={favorites.some((favorite) => favorite.id === relatedMovie.id)}
+                      isFavorited={favoriteIds.includes(relatedMovie.id)}
                     />
                   </div>
                 ))}
