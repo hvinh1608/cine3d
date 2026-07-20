@@ -1,18 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { X, Film, Play } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 
 export default function TranslationVoteBanner() {
   const router = useRouter();
+  const pathname = usePathname();
   const { reduceMotion } = useStore();
   const [isVisible, setIsVisible] = useState(false);
-  const [isMounted, setIsMounted] = useState(false);
+  const isAccountPage = pathname === '/account' || pathname.startsWith('/account/');
 
   useEffect(() => {
-    setIsMounted(true);
+    if (isAccountPage) return;
+
     const isClosed = sessionStorage.getItem('cine3d-vote-banner-closed');
     if (!isClosed) {
       const timer = setTimeout(() => {
@@ -20,7 +22,7 @@ export default function TranslationVoteBanner() {
       }, 2000);
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [isAccountPage]);
 
   const handleClose = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -32,7 +34,7 @@ export default function TranslationVoteBanner() {
     router.push('/feedback?category=MOVIE_REQUEST');
   };
 
-  if (!isMounted || !isVisible) return null;
+  if (!isVisible || isAccountPage) return null;
 
   return (
     <div
