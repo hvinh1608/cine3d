@@ -47,14 +47,14 @@ export const authenticateToken = async (
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json({ message: 'Authentication token required.' });
+    return res.status(401).json({ message: 'Bạn cần đăng nhập để tiếp tục.' });
   }
 
   let decoded: AccessTokenPayload;
   try {
     decoded = decodeAccessToken(token);
   } catch {
-    return res.status(403).json({ message: 'Invalid or expired token.' });
+    return res.status(403).json({ message: 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' });
   }
 
   try {
@@ -63,13 +63,13 @@ export const authenticateToken = async (
       select: { id: true, email: true, username: true, isLocked: true, role: { select: { name: true } } },
     });
     if (!user || user.isLocked) {
-      return res.status(403).json({ message: 'Account is unavailable or locked.' });
+      return res.status(403).json({ message: 'Tài khoản không khả dụng hoặc đã bị khóa.' });
     }
     req.user = { id: user.id, email: user.email, username: user.username, role: user.role.name };
     next();
   } catch (error) {
     console.error('Authentication database lookup failed.', error);
-    return res.status(503).json({ message: 'Authentication service is temporarily unavailable.' });
+    return res.status(503).json({ message: 'Dịch vụ xác thực tạm thời không khả dụng.' });
   }
 };
 
@@ -79,7 +79,7 @@ export const requireAdmin = (
   next: NextFunction
 ) => {
   if (!req.user || req.user.role !== 'ADMIN') {
-    return res.status(403).json({ message: 'Access denied. Administrator privileges required.' });
+    return res.status(403).json({ message: 'Bạn không có quyền quản trị.' });
   }
   next();
 };

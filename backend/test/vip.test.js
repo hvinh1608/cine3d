@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { hasVipAccess, extendVipExpiry } = require('../dist/lib/vip');
+const { hasVipAccess, extendVipExpiry, mergeVipExpiry } = require('../dist/lib/vip');
 const { shapeMovieForViewer } = require('../dist/lib/vip-content');
 
 test('hasVipAccess supports permanent and time-limited VIP while denying locked users', () => {
@@ -16,6 +16,13 @@ test('extendVipExpiry stacks new time on an active subscription', () => {
   const current = new Date('2026-08-13T00:00:00.000Z');
   assert.equal(extendVipExpiry(current, 30, now).toISOString(), '2026-09-12T00:00:00.000Z');
   assert.equal(extendVipExpiry(null, 30, now).toISOString(), '2026-08-13T00:00:00.000Z');
+});
+
+test('provider VIP expiry never shortens existing access', () => {
+  const current = new Date('2026-09-01T00:00:00.000Z');
+  const provider = new Date('2026-08-01T00:00:00.000Z');
+  assert.equal(mergeVipExpiry(current, provider), current);
+  assert.equal(mergeVipExpiry(null, provider), provider);
 });
 
 test('free viewers only receive free sources while VIP viewers receive Premium, 2K and 4K first', () => {

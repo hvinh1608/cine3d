@@ -260,7 +260,9 @@ export const getAnalyticsSummary = async (_req: AuthenticatedRequest, res: Respo
 
 function currentRefreshHash(req: AuthenticatedRequest) {
   const raw = req.headers.cookie?.split(';').map((item) => item.trim()).find((item) => item.startsWith('cine3d_refresh='))?.split('=').slice(1).join('=');
-  return raw ? crypto.createHash('sha256').update(decodeURIComponent(raw)).digest('hex') : null;
+  const nativeToken = req.get('x-refresh-token')?.trim();
+  const token = raw ? decodeURIComponent(raw) : nativeToken;
+  return token ? crypto.createHash('sha256').update(token).digest('hex') : null;
 }
 
 export const getSessions = async (req: AuthenticatedRequest, res: Response) => {

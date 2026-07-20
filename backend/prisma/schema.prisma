@@ -57,6 +57,9 @@ model User {
   actorFollows       ActorFollow[]
   directorFollows    DirectorFollow[]
   feedbacks          Feedback[]
+  nativeDevices      NativeDevice[]
+  playPurchases      PlayPurchase[]
+  downloadEntitlements DownloadEntitlement[]
 
   @@index([email])
   @@index([username])
@@ -106,6 +109,7 @@ model VipPlan {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   orders       VipOrder[]
+  playPurchases PlayPurchase[]
 
   @@index([isActive, displayOrder])
 }
@@ -311,6 +315,7 @@ model Episode {
   videoSources        VideoSource[]
   subtitles           Subtitle[]
   profileWatchHistory ProfileWatchHistory[]
+  downloadEntitlements DownloadEntitlement[]
 
   @@unique([movieId, episodeOrder])
   @@index([movieId, seasonNumber, episodeOrder])
@@ -335,6 +340,7 @@ model VideoSource {
   consecutiveFailures Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  downloadEntitlements DownloadEntitlement[]
 
   @@index([episodeId])
   @@index([healthStatus, lastCheckedAt])
@@ -622,6 +628,76 @@ model PushSubscription {
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+}
+
+model NativeDevice {
+  id                   String   @id @default(uuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fcmToken             String   @unique
+  platform             String
+  deviceId             String?
+  deviceModel          String?
+  appVersion           String?
+  notificationsEnabled Boolean  @default(true)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([userId, updatedAt])
+  @@index([platform])
+  @@unique([userId, deviceId])
+}
+
+model PlayPurchase {
+  id                   String   @id @default(uuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId               String
+  plan                 VipPlan  @relation(fields: [planId], references: [id], onDelete: Restrict)
+  productId            String
+  purchaseToken        String   @unique
+  orderId              String?  @unique
+  status               String
+  expiryTime           DateTime?
+  acknowledged         Boolean  @default(false)
+  acknowledgedAt       DateTime?
+  providerPayload      Json?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([planId])
+  @@index([status, expiryTime])
+  @@index([productId])
+}
+
+model DownloadEntitlement {
+  id        String      @id @default(uuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  episodeId String
+  episode   Episode     @relation(fields: [episodeId], references: [id], onDelete: Cascade)
+  sourceId  String
+  source    VideoSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  tokenHash String      @unique
+  createdAt DateTime    @default(now())
+
+  @@index([userId, expiresAt])
+  @@index([episodeId])
+  @@index([sourceId])
+  @@index([expiresAt])
+}
+
+model AppVersionPolicy {
+  platform      String   @id
+  minVersion    String
+  latestVersion String
+  forceUpdate   Boolean  @default(false)
+  message       String?
+  storeUrl      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model AnalyticsEvent {

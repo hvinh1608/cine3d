@@ -16,3 +16,9 @@ export function extendVipExpiry(currentExpiry: Date | null, durationDays: number
   const base = currentExpiry && currentExpiry.getTime() > now.getTime() ? currentExpiry : now;
   return new Date(base.getTime() + durationDays * 24 * 60 * 60 * 1000);
 }
+
+export function mergeVipExpiry(currentExpiry: Date | null, providerExpiry: Date): Date {
+  return currentExpiry && currentExpiry.getTime() > providerExpiry.getTime()
+    ? currentExpiry
+    : providerExpiry;
+}

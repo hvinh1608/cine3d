@@ -12,6 +12,7 @@ import {
   forgotPassword,
   resetPassword,
   verifyEmail,
+  verifyEmailNative,
 } from '../controllers/auth.controller';
 import {
   getMovies,
@@ -41,6 +42,8 @@ import {
   getAvatarImage,
   getPlayerPreferences,
   updatePlayerPreferences,
+  markAllNotificationsRead,
+  deleteAccount,
 } from '../controllers/user.controller';
 import {
   getComments,
@@ -116,6 +119,15 @@ import {
   revokeOtherSessions,
 } from '../controllers/experience.controller';
 import { createFeedback, getMyFeedback, getAdminFeedback, updateFeedback } from '../controllers/feedback.controller';
+import {
+  createDownloadEntitlement,
+  deleteFcmToken,
+  getAppVersionPolicy,
+  getDownloadEntitlement,
+  registerFcmToken,
+  updateFcmPreferences,
+} from '../controllers/native.controller';
+import { handleGooglePlayRtdn, verifyGooglePlayPurchase } from '../controllers/billing.controller';
 
 const router = Router();
 
@@ -140,6 +152,7 @@ router.get('/auth/me', authenticateToken as any, getProfile as any);
 router.post('/auth/forgot-password', resetLimiter, forgotPassword as any);
 router.post('/auth/reset-password', resetLimiter, resetPassword as any);
 router.get('/auth/verify-email', resetLimiter, verifyEmail as any);
+router.post('/auth/verify-email', resetLimiter, verifyEmailNative as any);
 router.get('/auth/sessions', authenticateToken as any, getSessions as any);
 router.delete('/auth/sessions/others', authenticateToken as any, revokeOtherSessions as any);
 router.delete('/auth/sessions/:id', authenticateToken as any, revokeSession as any);
@@ -157,6 +170,7 @@ router.post('/movies/:id/view', rateLimit(60 * 1000, 20), incrementViews);
 
 // --- User Routes ---
 router.get('/avatars/:userId', getAvatarImage as any);
+router.delete('/user/account', rateLimit(60 * 60 * 1000, 5), authenticateToken as any, deleteAccount as any);
 router.put('/user/profile', authenticateToken as any, updateProfile as any);
 router.get('/user/player-preferences', authenticateToken as any, getPlayerPreferences as any);
 router.put('/user/player-preferences', authenticateToken as any, updatePlayerPreferences as any);
@@ -172,6 +186,7 @@ router.delete('/user/history/:id', authenticateToken as any, deleteWatchHistory 
 router.post('/user/history/bulk-delete', authenticateToken as any, deleteWatchHistoryBulk as any);
 router.get('/user/notifications', authenticateToken as any, getNotifications as any);
 router.put('/user/notifications/:id/read', authenticateToken as any, markNotificationRead as any);
+router.put('/user/notifications/read-all', authenticateToken as any, markAllNotificationsRead as any);
 router.get('/user/profiles', authenticateToken as any, getProfiles as any);
 router.post('/user/profiles', authenticateToken as any, createProfile as any);
 router.put('/user/profiles/:id', authenticateToken as any, updateViewerProfile as any);
@@ -190,6 +205,12 @@ router.get('/playlists/:id', optionalAuthenticate as any, getPlaylist as any);
 router.get('/push/public-key', getPushKey as any);
 router.post('/push/subscribe', authenticateToken as any, subscribePush as any);
 router.delete('/push/subscribe', authenticateToken as any, unsubscribePush as any);
+router.post('/push/fcm', authenticateToken as any, registerFcmToken as any);
+router.delete('/push/fcm', authenticateToken as any, deleteFcmToken as any);
+router.put('/push/fcm/preferences', authenticateToken as any, updateFcmPreferences as any);
+router.get('/app/version', getAppVersionPolicy as any);
+router.post('/downloads/entitlements', authenticateToken as any, createDownloadEntitlement as any);
+router.get('/downloads/entitlements/:token', authenticateToken as any, getDownloadEntitlement as any);
 router.post('/analytics/events', rateLimit(60 * 1000, 120), optionalAuthenticate as any, trackAnalytics as any);
 router.post('/feedback', rateLimit(60 * 60 * 1000, 5), authenticateToken as any, createFeedback as any);
 router.get('/feedback/me', authenticateToken as any, getMyFeedback as any);
@@ -200,6 +221,8 @@ router.post('/vip/payos/webhook', rateLimit(60 * 1000, 120), handlePayosWebhook 
 router.post('/vip/orders', rateLimit(60 * 60 * 1000, 10), authenticateToken as any, createVipOrder as any);
 router.get('/vip/orders/me', authenticateToken as any, getMyVipOrders as any);
 router.post('/vip/orders/:id/cancel', authenticateToken as any, cancelMyVipOrder as any);
+router.post('/billing/google/verify', rateLimit(60 * 1000, 20), authenticateToken as any, verifyGooglePlayPurchase as any);
+router.post('/billing/google/rtdn', rateLimit(60 * 1000, 120), handleGooglePlayRtdn as any);
 
 // --- Community / Interaction Routes ---
 router.get('/movies/:movieId/comments', optionalAuthenticate as any, getComments as any);

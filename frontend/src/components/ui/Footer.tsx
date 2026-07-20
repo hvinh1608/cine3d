@@ -40,6 +40,9 @@ export default function Footer() {
               <Link href="/search?type=movie" className="hover:text-white transition-colors">Phim Lẻ Mới</Link>
             </li>
             <li>
+              <Link href="/download" className="hover:text-white transition-colors">Tải app Android</Link>
+            </li>
+            <li>
               <Link href="/account" className="hover:text-white transition-colors">Thông Tin Cá Nhân</Link>
             </li>
           </ul>
@@ -52,13 +55,13 @@ export default function Footer() {
           </h4>
           <ul className="space-y-2 text-xs font-medium text-slate-500">
             <li>
-              <Link href="#" className="hover:text-white transition-colors">Điều khoản dịch vụ</Link>
+              <Link href="/terms" className="hover:text-white transition-colors">Điều khoản dịch vụ</Link>
             </li>
             <li>
-              <Link href="#" className="hover:text-white transition-colors">Chính sách bảo mật</Link>
+              <Link href="/privacy" className="hover:text-white transition-colors">Chính sách bảo mật</Link>
             </li>
             <li>
-              <Link href="#" className="hover:text-white transition-colors">Khiếu nại bản quyền</Link>
+              <Link href="/data-deletion" className="hover:text-white transition-colors">Xóa dữ liệu</Link>
             </li>
             <li>
               <Link href="/feedback" className="hover:text-white transition-colors flex items-center">

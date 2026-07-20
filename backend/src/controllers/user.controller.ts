@@ -2,12 +2,20 @@ import { Response } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import * as bcrypt from 'bcrypt';
 import { prisma } from '../lib/prisma';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { ensureMovieInDb } from '../services/movie.upsert';
 import { internalError } from '../lib/http-error';
 import { hasVipAccess } from '../lib/vip';
 import { getOwnedProfileId, hasRequestedProfile } from '../lib/profile';
+import {
+  ACCOUNT_DELETE_CONFIRMATION,
+  isValidAccountDeletionConfirmation,
+  requiresPasswordForAccountDeletion,
+} from '../lib/account-deletion';
+
+export { ACCOUNT_DELETE_CONFIRMATION };
 
 
 /** Resolve UUID or KKPhim slug to a DB movie id (upsert from KKPhim if needed). */
@@ -446,6 +454,19 @@ export const markNotificationRead = async (req: AuthenticatedRequest, res: Respo
   }
 };
 
+export const markAllNotificationsRead = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ message: 'Unauthorized.' });
+  try {
+    const result = await prisma.notification.updateMany({
+      where: { userId: req.user.id, isRead: false },
+      data: { isRead: true },
+    });
+    return res.json({ updated: result.count });
+  } catch (error) {
+    return internalError(res, 'Error updating notification status.', error);
+  }
+};
+
 export const deleteWatchHistory = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ message: 'Unauthorized.' });
   const { id } = req.params;
@@ -601,4 +622,53 @@ export const getAvatarImage = async (req: AuthenticatedRequest, res: Response) =
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
     return res.send(Buffer.from(avatar.data));
   } catch (error) { return internalError(res, 'Không thể tải ảnh đại diện.', error); }
+};
+
+/**
+ * Permanently delete the authenticated account and cascaded personal data.
+ * Requires confirmation phrase. Password accounts must also confirm password.
+ * Admin accounts cannot self-delete through this endpoint.
+ */
+export const deleteAccount = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ message: 'Unauthorized.' });
+
+  const confirmation = typeof req.body?.confirmation === 'string' ? req.body.confirmation.trim() : '';
+  if (!isValidAccountDeletionConfirmation(confirmation)) {
+    return res.status(400).json({
+      message: `Confirmation must exactly equal "${ACCOUNT_DELETE_CONFIRMATION}".`,
+    });
+  }
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        email: true,
+        password: true,
+        googleId: true,
+        facebookId: true,
+        role: { select: { name: true } },
+      },
+    });
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+    if (user.role.name === 'ADMIN') {
+      return res.status(403).json({ message: 'Admin accounts cannot be deleted from the client.' });
+    }
+
+    if (requiresPasswordForAccountDeletion(user)) {
+      const password = typeof req.body?.password === 'string' ? req.body.password : '';
+      if (!password) return res.status(400).json({ message: 'Password is required to delete this account.' });
+      const matches = await bcrypt.compare(password, user.password);
+      if (!matches) return res.status(401).json({ message: 'Incorrect password.' });
+    }
+
+    await prisma.user.delete({ where: { id: user.id } });
+    return res.json({
+      deleted: true,
+      message: 'Account and personal data were deleted. Billing and legal retention records may remain as required by law.',
+    });
+  } catch (error) {
+    return internalError(res, 'Could not delete account.', error);
+  }
 };

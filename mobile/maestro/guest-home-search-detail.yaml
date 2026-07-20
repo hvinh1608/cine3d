@@ -1,0 +1,17 @@
+appId: vn.cine3d.app
+name: Guest home, search, and detail
+---
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: home-screen
+- openLink: cine3d://search
+- assertVisible:
+    id: search-screen
+- tapOn:
+    id: search-input
+- inputText: "${SEARCH_QUERY}"
+- pressKey: Enter
+- openLink: "cine3d://movies/${MOVIE_SLUG}"
+- assertVisible:
+    id: movie-detail-screen

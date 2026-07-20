@@ -12,9 +12,11 @@ import GoogleSignInButton from '../../components/auth/GoogleSignInButton';
 import FacebookSignInButton from '../../components/auth/FacebookSignInButton';
 import TurnstileWidget from '../../components/auth/TurnstileWidget';
 import ExperienceCenter from '../../components/account/ExperienceCenter';
+import { localizeApiMessage } from '../../lib/api-errors';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
-const requestMessage = (error: unknown, fallback: string) => (error as AxiosError<{ message?: string }>).response?.data?.message || fallback;
+const requestMessage = (error: unknown, fallback: string) =>
+  localizeApiMessage((error as AxiosError<{ message?: string }>).response?.data?.message || fallback, fallback);
 const requestCode = (error: unknown) => (error as AxiosError<{ code?: string }>).response?.data?.code;
 const normalizeEmail = (value: string) => {
   const trimmed = value.trim();

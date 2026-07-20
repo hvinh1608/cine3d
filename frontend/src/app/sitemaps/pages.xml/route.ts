@@ -8,7 +8,7 @@ export const revalidate = 3600;
 
 export async function GET() {
   const siteUrl = getSiteUrl();
-  const urls = [siteUrl, `${siteUrl}/search`, `${siteUrl}/schedule`, `${siteUrl}/vip`];
+  const urls = [siteUrl, `${siteUrl}/search`, `${siteUrl}/schedule`, `${siteUrl}/vip`, `${siteUrl}/download`];
   try {
     const load = async (path: string) => {
       const response = await fetch(`${API_URL}${path}`, { next: { revalidate: 3600 } });

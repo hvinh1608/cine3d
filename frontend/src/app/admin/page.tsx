@@ -6,6 +6,7 @@ import { Shield, Film, ListVideo, AlertTriangle, Users, BarChart3, Plus, Trash2,
 import type { AxiosError } from 'axios';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
+import { localizeApiMessage } from '../../lib/api-errors';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const formatVnd = (value: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(value);
@@ -30,7 +31,8 @@ type SourceHealth = { id: string; server: string; quality: string; url: string; 
 type SystemHealth = { backend: boolean; database: string; redis: string; checkedAt?: string };
 
 const isUserVipActive = (user: AdminUser) => Boolean(user.isVip || (user.vipExpiresAt && new Date(user.vipExpiresAt).getTime() > Date.now()));
-const requestMessage = (error: unknown, fallback: string) => (error as AxiosError<{ message?: string }>).response?.data?.message || fallback;
+const requestMessage = (error: unknown, fallback: string) =>
+  localizeApiMessage((error as AxiosError<{ message?: string }>).response?.data?.message || fallback, fallback);
 
 export default function AdminPage() {
   const router = useRouter();

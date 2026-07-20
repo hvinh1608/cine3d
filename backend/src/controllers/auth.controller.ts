@@ -253,19 +253,19 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
   const { password } = req.body;
 
   if (!email || !username || !password) {
-    return res.status(400).json({ message: 'All fields are required.' });
+    return res.status(400).json({ message: 'Vui lòng điền đầy đủ thông tin.' });
   }
 
   if (!/^\S+@\S+\.\S+$/.test(email)) {
-    return res.status(400).json({ message: 'A valid email address is required.' });
+    return res.status(400).json({ message: 'Email không hợp lệ.' });
   }
 
   if (username.length < 3 || username.length > 40) {
-    return res.status(400).json({ message: 'Username must be between 3 and 40 characters.' });
+    return res.status(400).json({ message: 'Tên tài khoản phải từ 3 đến 40 ký tự.' });
   }
 
   if (typeof password !== 'string' || password.length < 8) {
-    return res.status(400).json({ message: 'Password must be at least 8 characters.' });
+    return res.status(400).json({ message: 'Mật khẩu phải có ít nhất 8 ký tự.' });
   }
   const botGate = await verifyBotGate(req.body.turnstileToken, req);
   if (!botGate.ok) return rejectBotGate(res, botGate);
@@ -351,12 +351,12 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
     if (!isNativeClient(req)) res.cookie(REFRESH_COOKIE, session.refreshToken, cookieOptions);
 
     return res.status(201).json(sessionResponse(req, {
-      message: 'User registered successfully.',
+      message: 'Đăng ký thành công.',
       accessToken: session.accessToken,
       user: session.user,
     }, session.refreshToken));
   } catch (error: any) {
-    return internalError(res, 'Internal server error.', error);
+    return internalError(res, 'Máy chủ đang gặp sự cố. Vui lòng thử lại sau.', error);
   }
 };
 
@@ -365,7 +365,7 @@ export const login = async (req: AuthenticatedRequest, res: Response) => {
   const { password } = req.body;
 
   if (!email || !password) {
-    return res.status(400).json({ message: 'Email and password are required.' });
+    return res.status(400).json({ message: 'Vui lòng nhập email và mật khẩu.' });
   }
 
   const botGate = await verifyBotGate(req.body.turnstileToken, req);
@@ -378,11 +378,11 @@ export const login = async (req: AuthenticatedRequest, res: Response) => {
     });
 
     if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials.' });
+      return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng.' });
     }
 
     if (user.isLocked) {
-      return res.status(403).json({ message: 'Account is locked. Please contact support.' });
+      return res.status(403).json({ message: 'Tài khoản đã bị khóa. Vui lòng liên hệ hỗ trợ.' });
     }
 
     if (requireEmailVerification && !user.isVerified) {
@@ -394,7 +394,7 @@ export const login = async (req: AuthenticatedRequest, res: Response) => {
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials.' });
+      return res.status(401).json({ message: 'Email hoặc mật khẩu không đúng.' });
     }
 
     const session = await createSession(user, req);
@@ -404,15 +404,30 @@ export const login = async (req: AuthenticatedRequest, res: Response) => {
       user: session.user,
     }, session.refreshToken));
   } catch (error: any) {
-    return internalError(res, 'Internal server error.', error);
+    return internalError(res, 'Máy chủ đang gặp sự cố. Vui lòng thử lại sau.', error);
   }
 };
+
+function sanitizeGoogleAvatar(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== 'https:') return null;
+    if (!parsed.hostname.endsWith('googleusercontent.com')) return null;
+    return trimmed;
+  } catch {
+    return null;
+  }
+}
 
 export const googleLogin = async (req: AuthenticatedRequest, res: Response) => {
   const credential = typeof req.body.credential === 'string' ? req.body.credential.trim() : '';
   if (!credential) {
-    return res.status(400).json({ message: 'Google credential is required.' });
+    return res.status(400).json({ message: 'Thiếu thông tin đăng nhập Google.' });
   }
+  const clientAvatar = sanitizeGoogleAvatar(req.body.avatar);
   const botGate = await verifyBotGate(req.body.turnstileToken, req);
   if (!botGate.ok) return rejectBotGate(res, botGate);
   if (!googleClient || !googleAudiences.length) {
@@ -450,7 +465,7 @@ export const googleLogin = async (req: AuthenticatedRequest, res: Response) => {
         select: { id: true, isLocked: true },
       });
       if (emailAccount?.isLocked) {
-        return res.status(403).json({ message: 'Account is locked. Please contact support.' });
+        return res.status(403).json({ message: 'Tài khoản đã bị khóa. Vui lòng liên hệ hỗ trợ.' });
       }
       if (emailAccount) {
         return res.status(409).json({
@@ -461,8 +476,10 @@ export const googleLogin = async (req: AuthenticatedRequest, res: Response) => {
     }
 
     if (user?.isLocked) {
-      return res.status(403).json({ message: 'Account is locked. Please contact support.' });
+      return res.status(403).json({ message: 'Tài khoản đã bị khóa. Vui lòng liên hệ hỗ trợ.' });
     }
+
+    const googleAvatar = sanitizeGoogleAvatar(payload?.picture) || clientAvatar;
 
     if (user) {
       user = await prisma.user.update({
@@ -470,7 +487,7 @@ export const googleLogin = async (req: AuthenticatedRequest, res: Response) => {
         data: {
           googleId,
           isVerified: true,
-          avatar: user.avatar || payload.picture || null,
+          avatar: user.avatar || googleAvatar || null,
           emailVerificationToken: null,
           emailVerificationExpires: null,
         },
@@ -491,7 +508,7 @@ export const googleLogin = async (req: AuthenticatedRequest, res: Response) => {
           email,
           username,
           password,
-          avatar: payload.picture || null,
+          avatar: googleAvatar,
           isVerified: true,
           roleId: role.id,
         },
@@ -513,7 +530,7 @@ export const googleLogin = async (req: AuthenticatedRequest, res: Response) => {
 
 export const facebookLogin = async (req: AuthenticatedRequest, res: Response) => {
   const accessToken = typeof req.body.accessToken === 'string' ? req.body.accessToken.trim() : '';
-  if (!accessToken) return res.status(400).json({ message: 'Facebook access token is required.' });
+  if (!accessToken) return res.status(400).json({ message: 'Thiếu thông tin đăng nhập Facebook.' });
   const botGate = await verifyBotGate(req.body.turnstileToken, req);
   if (!botGate.ok) return rejectBotGate(res, botGate);
   if (!facebookAppId || !facebookAppSecret) {
@@ -556,7 +573,7 @@ export const facebookLogin = async (req: AuthenticatedRequest, res: Response) =>
     let user = await prisma.user.findUnique({ where: { facebookId }, include: { role: true } });
     if (!user) {
       const emailAccount = await prisma.user.findUnique({ where: { email }, select: { id: true, isLocked: true } });
-      if (emailAccount?.isLocked) return res.status(403).json({ message: 'Account is locked. Please contact support.' });
+      if (emailAccount?.isLocked) return res.status(403).json({ message: 'Tài khoản đã bị khóa. Vui lòng liên hệ hỗ trợ.' });
       if (emailAccount) {
         return res.status(409).json({
           message: 'Email này đã thuộc một tài khoản CINE3D. Hãy đăng nhập bằng phương thức đã sử dụng trước đó.',
@@ -564,7 +581,7 @@ export const facebookLogin = async (req: AuthenticatedRequest, res: Response) =>
         });
       }
     }
-    if (user?.isLocked) return res.status(403).json({ message: 'Account is locked. Please contact support.' });
+    if (user?.isLocked) return res.status(403).json({ message: 'Tài khoản đã bị khóa. Vui lòng liên hệ hỗ trợ.' });
 
     const avatar = profile.picture?.data?.url || null;
     if (user) {
@@ -601,7 +618,7 @@ export const refresh = async (req: AuthenticatedRequest, res: Response) => {
     : getCookie(req, REFRESH_COOKIE) || req.body.refreshToken;
 
   if (!refreshToken) {
-    return res.status(400).json({ message: 'Refresh token is required.' });
+    return res.status(400).json({ message: 'Thiếu phiên đăng nhập.' });
   }
 
   try {
@@ -614,19 +631,19 @@ export const refresh = async (req: AuthenticatedRequest, res: Response) => {
       if (storedToken) {
         await prisma.refreshToken.delete({ where: { id: storedToken.id } });
       }
-      return res.status(403).json({ message: 'Invalid or expired refresh token.' });
+      return res.status(403).json({ message: 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.' });
     }
 
     try {
       jwt.verify(refreshToken, JWT_REFRESH_SECRET!);
     } catch {
       await prisma.refreshToken.delete({ where: { id: storedToken.id } });
-      return res.status(403).json({ message: 'Invalid or expired refresh token.' });
+      return res.status(403).json({ message: 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.' });
     }
 
     if (storedToken.user.isLocked) {
       await prisma.refreshToken.deleteMany({ where: { userId: storedToken.user.id } });
-      return res.status(403).json({ message: 'Account is locked. Please contact support.' });
+      return res.status(403).json({ message: 'Tài khoản đã bị khóa. Vui lòng liên hệ hỗ trợ.' });
     }
 
     const payload = {
@@ -670,7 +687,7 @@ export const refresh = async (req: AuthenticatedRequest, res: Response) => {
       },
     }, newRefreshToken));
   } catch (error: any) {
-    return internalError(res, 'Internal server error.', error);
+    return internalError(res, 'Máy chủ đang gặp sự cố. Vui lòng thử lại sau.', error);
   }
 };
 
@@ -683,15 +700,15 @@ export const logout = async (req: AuthenticatedRequest, res: Response) => {
     }
 
     res.clearCookie(REFRESH_COOKIE, cookieClearOptions);
-    return res.json({ message: 'Logged out successfully.' });
+    return res.json({ message: 'Đã đăng xuất.' });
   } catch (error: any) {
-    return internalError(res, 'Internal server error.', error);
+    return internalError(res, 'Máy chủ đang gặp sự cố. Vui lòng thử lại sau.', error);
   }
 };
 
 export const getProfile = async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) {
-    return res.status(401).json({ message: 'Unauthorized.' });
+    return res.status(401).json({ message: 'Bạn cần đăng nhập để tiếp tục.' });
   }
 
   try {
@@ -710,7 +727,7 @@ export const getProfile = async (req: AuthenticatedRequest, res: Response) => {
     });
 
     if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
+      return res.status(404).json({ message: 'Không tìm thấy tài khoản.' });
     }
 
     return res.json({
@@ -726,13 +743,13 @@ export const getProfile = async (req: AuthenticatedRequest, res: Response) => {
       },
     });
   } catch (error: any) {
-    return internalError(res, 'Internal server error.', error);
+    return internalError(res, 'Máy chủ đang gặp sự cố. Vui lòng thử lại sau.', error);
   }
 };
 
 export const forgotPassword = async (req: AuthenticatedRequest, res: Response) => {
   const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-  if (!email) return res.status(400).json({ message: 'Email is required.' });
+  if (!email) return res.status(400).json({ message: 'Vui lòng nhập email.' });
   const botGate = await verifyBotGate(req.body.turnstileToken, req);
   if (!botGate.ok) return rejectBotGate(res, botGate);
 
@@ -770,18 +787,18 @@ export const forgotPassword = async (req: AuthenticatedRequest, res: Response) =
 
     return res.json({ message: genericMessage });
   } catch (error: any) {
-    return internalError(res, 'Internal server error.', error);
+    return internalError(res, 'Máy chủ đang gặp sự cố. Vui lòng thử lại sau.', error);
   }
 };
 
 export const resetPassword = async (req: AuthenticatedRequest, res: Response) => {
   const { token, newPassword } = req.body;
   if (!token || !newPassword) {
-    return res.status(400).json({ message: 'Reset token and new password are required.' });
+    return res.status(400).json({ message: 'Thiếu mã đặt lại mật khẩu hoặc mật khẩu mới.' });
   }
 
   if (typeof newPassword !== 'string' || newPassword.length < 8) {
-    return res.status(400).json({ message: 'Password must be at least 8 characters.' });
+    return res.status(400).json({ message: 'Mật khẩu phải có ít nhất 8 ký tự.' });
   }
 
   try {
@@ -794,7 +811,7 @@ export const resetPassword = async (req: AuthenticatedRequest, res: Response) =>
     });
 
     if (!user) {
-      return res.status(400).json({ message: 'Invalid or expired reset token.' });
+      return res.status(400).json({ message: 'Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.' });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
@@ -809,9 +826,9 @@ export const resetPassword = async (req: AuthenticatedRequest, res: Response) =>
 
     await prisma.refreshToken.deleteMany({ where: { userId: user.id } });
 
-    return res.json({ message: 'Password updated successfully.' });
+    return res.json({ message: 'Đã cập nhật mật khẩu.' });
   } catch (error: any) {
-    return internalError(res, 'Internal server error.', error);
+    return internalError(res, 'Máy chủ đang gặp sự cố. Vui lòng thử lại sau.', error);
   }
 };
 
@@ -845,7 +862,7 @@ export const verifyEmail = async (req: AuthenticatedRequest, res: Response) => {
 
 export const verifyEmailNative = async (req: AuthenticatedRequest, res: Response) => {
   const token = typeof req.body.token === 'string' ? req.body.token.trim() : '';
-  if (!token) return res.status(400).json({ message: 'Verification token is required.' });
+  if (!token) return res.status(400).json({ message: 'Thiếu mã xác nhận email.' });
 
   try {
     const user = await prisma.user.findFirst({
@@ -855,7 +872,7 @@ export const verifyEmailNative = async (req: AuthenticatedRequest, res: Response
       },
       select: { id: true },
     });
-    if (!user) return res.status(400).json({ message: 'Invalid or expired verification token.' });
+    if (!user) return res.status(400).json({ message: 'Liên kết xác nhận không hợp lệ hoặc đã hết hạn.' });
 
     await prisma.user.update({
       where: { id: user.id },
@@ -866,7 +883,7 @@ export const verifyEmailNative = async (req: AuthenticatedRequest, res: Response
       },
     });
     return res.json({
-      message: 'Email verified successfully.',
+      message: 'Email đã được xác nhận.',
       verified: true,
       deepLink: process.env.MOBILE_EMAIL_VERIFIED_DEEP_LINK?.trim() || null,
     });

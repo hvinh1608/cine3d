@@ -1,0 +1,13 @@
+appId: vn.cine3d.app
+---
+- launchApp
+- tapOn: "Tài khoản"
+- tapOn:
+    text: ".*Pháp lý.*|.*Legal.*|.*Điều khoản.*"
+    optional: true
+- tapOn:
+    text: ".*xóa dữ liệu.*|.*Data deletion.*"
+    optional: true
+- assertVisible:
+    text: ".*Xóa tài khoản.*"
+    optional: true

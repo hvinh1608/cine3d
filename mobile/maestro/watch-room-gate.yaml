@@ -1,0 +1,12 @@
+appId: vn.cine3d.app
+name: Watch room guest gate
+---
+- launchApp:
+    clearState: true
+- openLink: cine3d://watch-together/rooms?roomId=release-check
+- assertVisible:
+    id: watch-room-auth-gate
+- tapOn:
+    id: watch-room-sign-in
+- assertVisible:
+    id: auth-screen

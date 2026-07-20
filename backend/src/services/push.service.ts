@@ -1,5 +1,6 @@
 import webPush from 'web-push';
 import { prisma } from '../lib/prisma';
+import { sendFcmToUsers } from './fcm.service';
 
 const publicKey = process.env.VAPID_PUBLIC_KEY?.trim();
 const privateKey = process.env.VAPID_PRIVATE_KEY?.trim();
@@ -19,12 +20,20 @@ export async function sendPushToUsers(
   userIds: string[],
   payload: { title: string; body: string; url?: string; icon?: string }
 ) {
-  if (!pushConfigured || userIds.length === 0) return;
+  if (userIds.length === 0) return;
+  const nativeDelivery = sendFcmToUsers(userIds, payload)
+    .catch((error) => console.warn('FCM delivery failed.', error));
+  if (!pushConfigured) {
+    await nativeDelivery;
+    return;
+  }
   const subscriptions = await prisma.pushSubscription.findMany({
     where: { userId: { in: [...new Set(userIds)] } },
   });
 
-  await Promise.allSettled(subscriptions.map(async (subscription) => {
+  await Promise.all([
+    nativeDelivery,
+    Promise.allSettled(subscriptions.map(async (subscription) => {
     try {
       await webPush.sendNotification(
         { endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } },
@@ -38,5 +47,6 @@ export async function sendPushToUsers(
       }
       console.warn('Web Push delivery failed.', error?.message || error);
     }
-  }));
+    })),
+  ]);
 }

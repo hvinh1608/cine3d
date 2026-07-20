@@ -1,0 +1,8 @@
+appId: vn.cine3d.app
+name: Native player route
+---
+- launchApp:
+    clearState: true
+- openLink: "cine3d://watch/${MOVIE_SLUG}?ep=1"
+- assertVisible:
+    id: player-screen

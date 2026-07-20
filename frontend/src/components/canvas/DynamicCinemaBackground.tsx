@@ -35,7 +35,7 @@ export default function DynamicCinemaBackground() {
     () => document.visibilityState === 'visible',
     () => false,
   );
-  const staticBackgroundRoute = ['/account', '/admin', '/vip', '/watch', '/watch-together'].some(
+  const staticBackgroundRoute = ['/account', '/admin', '/vip', '/download', '/watch', '/watch-together'].some(
     (route) => pathname === route || pathname.startsWith(`${route}/`),
   );
 
