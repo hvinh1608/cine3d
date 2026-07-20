@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Download, Smartphone, ShieldAlert, RefreshCw, CheckCircle2 } from 'lucide-react';
+import AndroidDownloadQr from '@/components/download/AndroidDownloadQr';
 
 export const metadata: Metadata = {
   title: 'Tải ứng dụng Android | CINE3D',
@@ -9,7 +10,7 @@ export const metadata: Metadata = {
 
 const APK_URL =
   process.env.NEXT_PUBLIC_ANDROID_APK_URL?.trim() ||
-  '/app/cine3d.apk';
+  'https://github.com/hvinh1608/cine3d/releases/download/apk-1.0.0/cine3d.apk';
 
 const steps = [
   {
@@ -34,36 +35,42 @@ export default function DownloadAppPage() {
   return (
     <main className="relative mx-auto w-full max-w-4xl px-5 py-12 text-slate-300 md:py-16">
       <div className="overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-zinc-900/90 via-[#0b0b12] to-black p-6 shadow-[0_30px_80px_rgba(0,0,0,0.45)] md:p-10">
-        <div className="flex flex-wrap items-center gap-3 text-xs font-black uppercase tracking-[0.2em] text-red-400">
-          <Smartphone className="h-4 w-4" />
-          Ứng dụng Android
-        </div>
-        <h1 className="mt-4 text-3xl font-black text-white md:text-5xl">
-          Tải CINE3D về điện thoại
-        </h1>
-        <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-400 md:text-base">
-          App chưa lên CH Play. Bạn tải APK trực tiếp từ CINE3D, cài ngoài cửa hàng, rồi đăng nhập bằng cùng tài khoản web để xem phim và dùng VIP.
-        </p>
+        <div className="grid items-center gap-8 md:grid-cols-[minmax(0,1fr)_250px]">
+          <div>
+            <div className="flex flex-wrap items-center gap-3 text-xs font-black uppercase tracking-[0.2em] text-red-400">
+              <Smartphone className="h-4 w-4" />
+              Ứng dụng Android
+            </div>
+            <h1 className="mt-4 text-3xl font-black text-white md:text-5xl">
+              Tải CINE3D về điện thoại
+            </h1>
+            <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-400 md:text-base">
+              App chưa lên CH Play. Bạn tải APK trực tiếp từ CINE3D, cài ngoài cửa hàng, rồi đăng nhập bằng cùng tài khoản web để xem phim và dùng VIP.
+            </p>
 
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <a
-            href={APK_URL}
-            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-6 py-3.5 text-sm font-black text-white transition hover:bg-red-500"
-          >
-            <Download className="h-5 w-5" />
-            Tải CINE3D APK
-          </a>
-          <Link
-            href="/vip"
-            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 px-6 py-3.5 text-sm font-bold text-white transition hover:border-white/40 hover:bg-white/5"
-          >
-            Mua VIP trên website
-          </Link>
-        </div>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <a
+                href={APK_URL}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-6 py-3.5 text-sm font-black text-white transition hover:bg-red-500"
+              >
+                <Download className="h-5 w-5" />
+                Tải CINE3D APK
+              </a>
+              <Link
+                href="/vip"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/15 px-6 py-3.5 text-sm font-bold text-white transition hover:border-white/40 hover:bg-white/5"
+              >
+                Mua VIP trên website
+              </Link>
+            </div>
 
-        <p className="mt-3 text-xs text-slate-500">
-          File: <span className="text-slate-300">cine3d.apk</span> · Android 7.0+ · Package <code className="text-amber-300">vn.cine3d.app</code>
-        </p>
+            <p className="mt-3 text-xs text-slate-500">
+              File: <span className="text-slate-300">cine3d.apk</span> · Android 7.0+ · Package <code className="text-amber-300">vn.cine3d.app</code>
+            </p>
+          </div>
+
+          <AndroidDownloadQr url={APK_URL} />
+        </div>
       </div>
 
       <section className="mt-10 grid gap-4 md:grid-cols-2">
