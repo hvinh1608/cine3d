@@ -10,6 +10,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { config } from '@/core/config';
 import { cacheRepository } from '@/data/cache/sqlite-cache';
+import { discoveryKeys } from '@/features/discovery/domain/discovery-repository';
+import { movieKeys } from '@/features/movies/domain/movie-repository';
 import { useAppStore } from '@/state/app-store';
 import { paperTheme } from '@/theme';
 import { ErrorBoundary, ToastHost } from '@/components/ui';
@@ -59,13 +61,20 @@ export function AppProviders({ children }: PropsWithChildren) {
   }, []);
   useEffect(() => {
     let previousToken = useAppStore.getState().session.tokens.accessToken;
+    let previousHydrated = useAppStore.getState().session.hydrated;
     return useAppStore.subscribe((state) => {
       const nextToken = state.session.tokens.accessToken;
+      const hydrated = state.session.hydrated;
       if (previousToken && !nextToken) {
         queryClient.clear();
         void cacheRepository.clearAll();
       }
+      if (hydrated && nextToken && (!previousToken || !previousHydrated)) {
+        void queryClient.invalidateQueries({ queryKey: movieKeys.history() });
+        void queryClient.invalidateQueries({ queryKey: discoveryKeys.history() });
+      }
       previousToken = nextToken;
+      previousHydrated = hydrated;
     });
   }, [queryClient]);
 

@@ -69,6 +69,7 @@
     "test": "jest --runInBand",
     "lint": "tsc --noEmit --pretty false",
     "build:check": "expo export --platform android --output-dir dist",
+    "icons": "node scripts/generate-icons.mjs",
     "check": "npm run typecheck && npm test && npm run build:check"
   },
   "jest": {

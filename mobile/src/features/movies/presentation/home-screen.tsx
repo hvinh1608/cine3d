@@ -1,16 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Link } from 'expo-router';
+import { Link, useFocusEffect } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { Play } from 'lucide-react-native';
 import { Button, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AsyncState, MovieRail, Screen } from '@/components/ui';
 import type { Banner } from '@/domain/models';
-import { discoveryRepository } from '@/features/discovery/data/http-discovery-repository';
-import { discoveryKeys } from '@/features/discovery/domain/discovery-repository';
 import { movieRepository } from '@/features/movies/data/http-movie-repository';
 import { movieKeys } from '@/features/movies/domain/movie-repository';
 import { useAppStore } from '@/state/app-store';
@@ -20,14 +18,16 @@ import { useResponsiveLayout } from '@/core/responsive';
 
 export function HomeScreen() {
   const { contentWidth } = useResponsiveLayout();
-  const authenticated = useAppStore((state) => Boolean(state.session.tokens.accessToken));
+  const hydrated = useAppStore((state) => state.session.hydrated);
+  const accessToken = useAppStore((state) => state.session.tokens.accessToken);
+  const authenticated = hydrated && Boolean(accessToken);
   const query = useQuery({
     queryKey: movieKeys.home(),
     queryFn: () => movieRepository.getHomeFeed({ forceNetwork: true }),
   });
   const history = useQuery({
-    queryKey: discoveryKeys.history(),
-    queryFn: () => discoveryRepository.getHistory(),
+    queryKey: movieKeys.history(),
+    queryFn: () => movieRepository.getHistory(),
     enabled: authenticated,
   });
   const feed = query.data;
@@ -42,6 +42,16 @@ export function HomeScreen() {
   const refresh = async () => {
     await Promise.all([query.refetch(), ...(authenticated ? [history.refetch()] : [])]);
   };
+
+  useFocusEffect(
+    useCallback(() => {
+      if (authenticated) void history.refetch();
+    }, [authenticated, history.refetch]),
+  );
+
+  useEffect(() => {
+    if (authenticated) void history.refetch();
+  }, [authenticated, accessToken, history.refetch]);
 
   return (
     <Screen testID="home-screen" edges={['left', 'right']}>
