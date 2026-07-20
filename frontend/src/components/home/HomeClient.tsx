@@ -44,6 +44,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState(initialData.loadError || '');
   const [reloadKey, setReloadKey] = useState(0);
+  const catalogRetryStarted = useRef(false);
   const [recommendedCanScrollLeft, setRecommendedCanScrollLeft] = useState(false);
   const [recommendedCanScrollRight, setRecommendedCanScrollRight] = useState(true);
   const [latestCanScrollLeft, setLatestCanScrollLeft] = useState(false);
@@ -131,6 +132,22 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
     void fetchData();
     return () => controller.abort();
   }, [reloadKey]);
+
+  useEffect(() => {
+    if (catalogRetryStarted.current) return;
+    const catalogEmpty = initialData.movies.length === 0
+      && initialData.trending.length === 0
+      && initialData.proposed.length === 0;
+    if (!catalogEmpty) return;
+    catalogRetryStarted.current = true;
+    setReloadKey(1);
+  }, [initialData.movies.length, initialData.proposed.length, initialData.trending.length]);
+
+  useEffect(() => {
+    if (catalogRetryStarted.current || allMovies.length > 0) return;
+    catalogRetryStarted.current = true;
+    setReloadKey((key) => (key === 0 ? 1 : key + 1));
+  }, [allMovies.length]);
 
   useEffect(() => {
     // Watch history must not force the public movie catalog to refetch after login.
@@ -249,7 +266,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
     }
   }, [activeAnimeIndex, reduceMotion]);
 
-  if (loading) {
+  if (loading && banners.length === 0 && allMovies.length === 0 && proposed.length === 0 && trending.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center h-[70vh]">
         <div className="relative w-16 h-16">
@@ -542,7 +559,21 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
                 <MovieCard3D movie={movie} onToggleFavorite={handleToggleFavorite} isFavorited={favoriteIdSet.has(movie.id)} slant={index % 2 === 0 ? 'right' : 'left'} />
               </div>
             ))}
-            {allMovies.length === 0 && <p className="w-full py-4 text-center text-sm text-slate-500">Chưa có phim cập nhật.</p>}
+            {allMovies.length === 0 && loading && (
+              <p className="w-full py-4 text-center text-sm text-slate-500">Đang tải phim mới cập nhật…</p>
+            )}
+            {allMovies.length === 0 && !loading && (
+              <div className="flex w-full flex-col items-center gap-3 py-4">
+                <p className="text-center text-sm text-slate-500">Chưa có phim cập nhật.</p>
+                <button
+                  type="button"
+                  onClick={() => setReloadKey((key) => key + 1)}
+                  className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-black text-slate-300 transition hover:bg-white/10"
+                >
+                  Thử tải lại
+                </button>
+              </div>
+            )}
           </div>
           {latestCanScrollRight && <button type="button" onClick={() => scrollMovieRow(latestRowRef, 1)} aria-label="Xem phim tiếp theo" className="absolute right-0 top-1/2 z-40 flex h-11 w-11 translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.45)] transition hover:scale-110 hover:bg-purple-500 hover:text-white md:h-14 md:w-14"><ChevronRight className="h-6 w-6" /></button>}
         </div>
