@@ -2,15 +2,12 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Download, Smartphone, ShieldAlert, RefreshCw, CheckCircle2 } from 'lucide-react';
 import AndroidDownloadQr from '@/components/download/AndroidDownloadQr';
+import { ANDROID_APK_URL } from '@/lib/android-app';
 
 export const metadata: Metadata = {
   title: 'Tải ứng dụng Android | CINE3D',
   description: 'Tải APK CINE3D cho Android, cài đặt ngoài CH Play và xem phim trên điện thoại.',
 };
-
-const APK_URL =
-  process.env.NEXT_PUBLIC_ANDROID_APK_URL?.trim() ||
-  'https://github.com/hvinh1608/cine3d/releases/download/apk-1.0.4/cine3d.apk';
 
 const steps = [
   {
@@ -50,7 +47,7 @@ export default function DownloadAppPage() {
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
               <a
-                href={APK_URL}
+                href={ANDROID_APK_URL}
                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-6 py-3.5 text-sm font-black text-white transition hover:bg-red-500"
               >
                 <Download className="h-5 w-5" />
@@ -69,7 +66,7 @@ export default function DownloadAppPage() {
             </p>
           </div>
 
-          <AndroidDownloadQr url={APK_URL} />
+          <AndroidDownloadQr url={ANDROID_APK_URL} />
         </div>
       </div>
 
