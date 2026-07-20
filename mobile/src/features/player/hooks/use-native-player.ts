@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { useVideoPlayer, type AudioTrack, type SubtitleTrack, type VideoContentFit } from 'expo-video';
 import type { Episode, Movie, VideoSource } from '@/domain/models';
 import { movieRepository } from '@/features/movies/data/http-movie-repository';
+import { movieKeys } from '@/features/movies/domain/movie-repository';
 import { useAppStore } from '@/state/app-store';
 import { checkpointRepository } from '../data/player-storage';
 import { playerApi } from '../data/player-api';
@@ -11,6 +13,7 @@ import { recordPerformance } from '@/core/performance';
 import { redactErrorMessage } from '@/core/reliability';
 
 export function useNativePlayer(movie: Movie, requestedEpisode?: number) {
+  const queryClient = useQueryClient();
   const authenticated = useAppStore((state) => Boolean(state.session.tokens.accessToken));
   const profileId = useAppStore((state) => state.session.activeProfile?.id);
   const dataSaver = useAppStore((state) => state.preferences.dataSaver);
@@ -62,8 +65,11 @@ export function useNativePlayer(movie: Movie, requestedEpisode?: number) {
     if (authenticated && (force || shouldSaveProgress(lastSavedAt.current, now))) {
       lastSavedAt.current = now;
       await playerApi.saveProgress(movie.id, episode.id, latestPosition, latestDuration).catch(() => undefined);
+      if (force) {
+        void queryClient.invalidateQueries({ queryKey: movieKeys.history() });
+      }
     }
-  }, [authenticated, episode, movie.id, player, profileKey]);
+  }, [authenticated, episode, movie.id, player, profileKey, queryClient]);
 
   useEffect(() => {
     const next = sources[0] ?? null;

@@ -3,12 +3,12 @@ import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-n
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link, useFocusEffect } from 'expo-router';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Play } from 'lucide-react-native';
 import { Button, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AsyncState, MovieRail, Screen } from '@/components/ui';
-import type { Banner } from '@/domain/models';
+import type { Banner, HomeFeed } from '@/domain/models';
 import { movieRepository } from '@/features/movies/data/http-movie-repository';
 import { movieKeys } from '@/features/movies/domain/movie-repository';
 import { useAppStore } from '@/state/app-store';
@@ -18,12 +18,14 @@ import { useResponsiveLayout } from '@/core/responsive';
 
 export function HomeScreen() {
   const { contentWidth } = useResponsiveLayout();
+  const queryClient = useQueryClient();
   const hydrated = useAppStore((state) => state.session.hydrated);
   const accessToken = useAppStore((state) => state.session.tokens.accessToken);
   const authenticated = hydrated && Boolean(accessToken);
   const query = useQuery({
     queryKey: movieKeys.home(),
-    queryFn: () => movieRepository.getHomeFeed({ forceNetwork: true }),
+    // Prefer SQLite/network cache on open; pull-to-refresh forces a fresh feed.
+    queryFn: () => movieRepository.getHomeFeed(),
   });
   const history = useQuery({
     queryKey: movieKeys.history(),
@@ -39,19 +41,27 @@ export function HomeScreen() {
     () => (feed?.movies ?? []).filter((movie) => movie.movieGenres?.some(({ genre }) => genre.slug === 'hoat-hinh')),
     [feed?.movies],
   );
+  const [refreshing, setRefreshing] = useState(false);
   const refresh = async () => {
-    await Promise.all([query.refetch(), ...(authenticated ? [history.refetch()] : [])]);
+    setRefreshing(true);
+    try {
+      const nextFeed = await movieRepository.getHomeFeed({ forceNetwork: true });
+      queryClient.setQueryData<HomeFeed>(movieKeys.home(), nextFeed);
+      if (authenticated) await history.refetch();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
+  // Login/session hydrate already invalidates history in AppProviders.
+  // On home focus, only refetch when React Query marks the cache stale
+  // (e.g. after watching a movie, or after staleTime).
   useFocusEffect(
     useCallback(() => {
-      if (authenticated) void history.refetch();
-    }, [authenticated, history.refetch]),
+      if (!authenticated) return;
+      void queryClient.refetchQueries({ queryKey: movieKeys.history(), type: 'active', stale: true });
+    }, [authenticated, queryClient]),
   );
-
-  useEffect(() => {
-    if (authenticated) void history.refetch();
-  }, [authenticated, accessToken, history.refetch]);
 
   return (
     <Screen testID="home-screen" edges={['left', 'right']}>
@@ -63,7 +73,7 @@ export function HomeScreen() {
       >
         <ScrollView
           refreshControl={
-            <RefreshControl refreshing={query.isRefetching} onRefresh={() => void refresh()} tintColor={colors.primary} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={colors.primary} />
           }
           contentContainerStyle={[styles.content, { width: contentWidth, alignSelf: 'center' }]}
         >

@@ -133,15 +133,21 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
 
   useEffect(() => {
     // Watch history must not force the public movie catalog to refetch after login.
-    if (user && accessToken) {
-      axios.get(`${API_URL}/user/history`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      }).then(res => {
-        setWatchHistory(res.data);
-      }).catch((e) => {
-        console.warn('Failed to fetch watch history.', e);
-      });
+    if (!user || !accessToken) {
+      if (!user) setWatchHistory([]);
+      return;
     }
+    const controller = new AbortController();
+    axios.get(`${API_URL}/user/history`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      signal: controller.signal,
+    }).then((res) => {
+      const rows = Array.isArray(res.data) ? res.data : [];
+      setWatchHistory(rows.filter((item: { completed?: boolean }) => !item.completed));
+    }).catch((e) => {
+      if (!controller.signal.aborted) console.warn('Failed to fetch watch history.', e);
+    });
+    return () => controller.abort();
   }, [user, accessToken, setWatchHistory]);
 
   useEffect(() => {

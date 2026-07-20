@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 const APK_URL =
   process.env.NEXT_PUBLIC_ANDROID_APK_URL?.trim() ||
-  'https://github.com/hvinh1608/cine3d/releases/download/apk-1.0.0/cine3d.apk';
+  'https://github.com/hvinh1608/cine3d/releases/download/apk-1.0.3/cine3d.apk';
 
 const steps = [
   {
