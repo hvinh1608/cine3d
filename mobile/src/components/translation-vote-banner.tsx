@@ -1,22 +1,64 @@
-import { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, PanResponder, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePathname, useRouter } from 'expo-router';
-import { Film, Play, X } from 'lucide-react-native';
+import { Film, GripHorizontal, Play, X } from 'lucide-react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAccessibilityPreferences } from '@/core/accessibility';
 import { colors } from '@/theme';
 
+const CARD_WIDTH = 142;
+const CARD_HEIGHT = 205;
+
 export function TranslationVoteBanner() {
   const pathname = usePathname();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { height } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const { reduceMotion } = useAccessibilityPreferences();
   const [visible, setVisible] = useState(false);
   const rotation = useRef(new Animated.Value(0)).current;
+  const drag = useRef(new Animated.ValueXY()).current;
+  const dragPosition = useRef({ x: 0, y: 0 });
   const isAuthPage = pathname === '/account/auth' || pathname.startsWith('/account/auth/');
+  const rightInset = Math.max(insets.right, 10);
+  const baseLeft = width - rightInset - CARD_WIDTH;
+  const baseTop = Math.max(insets.top + 64, height * 0.34);
+
+  const panResponder = useMemo(() => PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dx) > 5 || Math.abs(gesture.dy) > 5,
+    onPanResponderGrant: () => {
+      drag.stopAnimation();
+    },
+    onPanResponderMove: (_, gesture) => {
+      const minX = insets.left + 8 - baseLeft;
+      const maxX = width - insets.right - CARD_WIDTH - 8 - baseLeft;
+      const minY = insets.top + 36 - baseTop;
+      const maxY = height - insets.bottom - CARD_HEIGHT - 12 - baseTop;
+      const x = Math.min(maxX, Math.max(minX, dragPosition.current.x + gesture.dx));
+      const y = Math.min(maxY, Math.max(minY, dragPosition.current.y + gesture.dy));
+      drag.setValue({ x, y });
+    },
+    onPanResponderRelease: (_, gesture) => {
+      const minX = insets.left + 8 - baseLeft;
+      const maxX = width - insets.right - CARD_WIDTH - 8 - baseLeft;
+      const minY = insets.top + 36 - baseTop;
+      const maxY = height - insets.bottom - CARD_HEIGHT - 12 - baseTop;
+      dragPosition.current = {
+        x: Math.min(maxX, Math.max(minX, dragPosition.current.x + gesture.dx)),
+        y: Math.min(maxY, Math.max(minY, dragPosition.current.y + gesture.dy)),
+      };
+      drag.setValue(dragPosition.current);
+    },
+    onPanResponderTerminate: (_, gesture) => {
+      dragPosition.current = {
+        x: dragPosition.current.x + gesture.dx,
+        y: dragPosition.current.y + gesture.dy,
+      };
+      drag.setValue(dragPosition.current);
+    },
+  }), [baseLeft, baseTop, drag, height, insets.bottom, insets.left, insets.right, insets.top, width]);
 
   useEffect(() => {
     if (isAuthPage) return;
@@ -45,8 +87,15 @@ export function TranslationVoteBanner() {
   const rotate = rotation.interpolate({ inputRange: [-1, 1], outputRange: ['-4deg', '4deg'] });
   return (
     <Animated.View
-      pointerEvents="box-none"
-      style={[styles.overlay, { right: Math.max(insets.right, 10), top: Math.max(insets.top + 64, height * 0.34), transform: [{ rotate }] }]}
+      {...panResponder.panHandlers}
+      style={[
+        styles.overlay,
+        {
+          left: baseLeft,
+          top: baseTop,
+          transform: [{ translateX: drag.x }, { translateY: drag.y }, { rotate }],
+        },
+      ]}
     >
       <Pressable
         accessibilityRole="button"
@@ -60,6 +109,7 @@ export function TranslationVoteBanner() {
 
       <LinearGradient colors={['#FBBF24', '#F97316', '#D97706']} style={styles.frame}>
         <View style={styles.ticket}>
+          <GripHorizontal pointerEvents="none" size={15} color="rgba(161,161,170,0.55)" style={styles.dragHandle} />
           <View style={styles.sprockets} pointerEvents="none">
             {Array.from({ length: 8 }, (_, index) => <View key={index} style={styles.sprocket} />)}
           </View>
@@ -100,25 +150,26 @@ export function TranslationVoteBanner() {
 }
 
 const styles = StyleSheet.create({
-  overlay: { position: 'absolute', width: 158, zIndex: 1000, elevation: 16 },
-  close: { position: 'absolute', right: -8, top: -34, width: 48, height: 48, zIndex: 2, alignItems: 'center', justifyContent: 'center' },
-  frame: { padding: 2, borderRadius: 13, shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 10 } },
-  ticket: { overflow: 'hidden', borderRadius: 11, backgroundColor: '#09090F' },
-  sprockets: { position: 'absolute', zIndex: 2, left: 7, top: 10, bottom: 10, justifyContent: 'space-between' },
-  sprocket: { width: 7, height: 7, borderRadius: 2, backgroundColor: '#030307', borderWidth: 1, borderColor: 'rgba(245,158,11,0.28)' },
-  topStub: { alignItems: 'center', paddingTop: 17, paddingBottom: 14, paddingLeft: 18, paddingRight: 10 },
-  brand: { flexDirection: 'row', alignItems: 'center', gap: 5, marginBottom: 8 },
-  brandText: { color: '#D97706', fontSize: 9, lineHeight: 11, fontWeight: '900', letterSpacing: 1.4 },
-  eyebrow: { color: '#71717A', fontSize: 9, lineHeight: 12, fontWeight: '800', letterSpacing: 0.8 },
-  vietsub: { color: '#FBBF24', fontSize: 20, lineHeight: 24, fontWeight: '900' },
-  question: { color: '#E4E4E7', fontSize: 13, lineHeight: 17, fontWeight: '900', letterSpacing: 2 },
-  divider: { marginHorizontal: 14, borderTopWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(245,158,11,0.5)' },
-  bottomStub: { alignItems: 'center', gap: 11, paddingTop: 12, paddingBottom: 14, paddingLeft: 18, paddingRight: 10 },
+  overlay: { position: 'absolute', width: CARD_WIDTH, zIndex: 1000, elevation: 16 },
+  close: { position: 'absolute', right: -8, top: -31, width: 44, height: 44, zIndex: 3, alignItems: 'center', justifyContent: 'center' },
+  frame: { padding: 1.5, borderRadius: 12, shadowColor: '#000', shadowOpacity: 0.5, shadowRadius: 12, shadowOffset: { width: 0, height: 9 } },
+  ticket: { overflow: 'hidden', borderRadius: 10, backgroundColor: '#09090F' },
+  dragHandle: { position: 'absolute', right: 7, top: 5, zIndex: 2 },
+  sprockets: { position: 'absolute', zIndex: 2, left: 6, top: 9, bottom: 9, justifyContent: 'space-between' },
+  sprocket: { width: 6, height: 6, borderRadius: 2, backgroundColor: '#030307', borderWidth: 1, borderColor: 'rgba(245,158,11,0.28)' },
+  topStub: { alignItems: 'center', paddingTop: 14, paddingBottom: 11, paddingLeft: 16, paddingRight: 9 },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 6 },
+  brandText: { color: '#D97706', fontSize: 8, lineHeight: 10, fontWeight: '900', letterSpacing: 1.2 },
+  eyebrow: { color: '#71717A', fontSize: 8, lineHeight: 11, fontWeight: '800', letterSpacing: 0.7 },
+  vietsub: { color: '#FBBF24', fontSize: 18, lineHeight: 22, fontWeight: '900' },
+  question: { color: '#E4E4E7', fontSize: 12, lineHeight: 15, fontWeight: '900', letterSpacing: 1.7 },
+  divider: { marginHorizontal: 12, borderTopWidth: 1, borderStyle: 'dashed', borderColor: 'rgba(245,158,11,0.5)' },
+  bottomStub: { alignItems: 'center', gap: 9, paddingTop: 10, paddingBottom: 11, paddingLeft: 16, paddingRight: 9 },
   admitRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  admit: { color: '#A1A1AA', fontSize: 9, lineHeight: 11, fontWeight: '900', letterSpacing: 1.1 },
+  admit: { color: '#A1A1AA', fontSize: 8, lineHeight: 10, fontWeight: '900', letterSpacing: 1 },
   playReverse: { transform: [{ rotate: '180deg' }] },
-  voteButton: { width: '100%', minHeight: 40, overflow: 'hidden', borderRadius: 6 },
+  voteButton: { width: '100%', minHeight: 36, overflow: 'hidden', borderRadius: 6 },
   votePressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
   voteGradient: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  voteText: { color: '#18181B', fontSize: 11, lineHeight: 14, fontWeight: '900', letterSpacing: 0.6 },
+  voteText: { color: '#18181B', fontSize: 10, lineHeight: 13, fontWeight: '900', letterSpacing: 0.5 },
 });

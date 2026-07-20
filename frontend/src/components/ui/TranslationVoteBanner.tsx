@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { X, Film, Play } from 'lucide-react';
+import { X, Film, GripHorizontal, Play } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 
 export default function TranslationVoteBanner() {
@@ -10,10 +10,26 @@ export default function TranslationVoteBanner() {
   const pathname = usePathname();
   const { reduceMotion } = useStore();
   const [isVisible, setIsVisible] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+  const bannerRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef({ pointerX: 0, pointerY: 0, left: 0, top: 0 });
   const isAccountPage = pathname === '/account' || pathname.startsWith('/account/');
 
   useEffect(() => {
     if (isAccountPage) return;
+
+    const savedPosition = sessionStorage.getItem('cine3d-vote-banner-position');
+    if (savedPosition) {
+      try {
+        const parsed = JSON.parse(savedPosition) as { left?: unknown; top?: unknown };
+        if (typeof parsed.left === 'number' && typeof parsed.top === 'number') {
+          queueMicrotask(() => setPosition({ left: parsed.left as number, top: parsed.top as number }));
+        }
+      } catch {
+        sessionStorage.removeItem('cine3d-vote-banner-position');
+      }
+    }
 
     const isClosed = sessionStorage.getItem('cine3d-vote-banner-closed');
     if (!isClosed) {
@@ -23,6 +39,54 @@ export default function TranslationVoteBanner() {
       return () => clearTimeout(timer);
     }
   }, [isAccountPage]);
+
+  useEffect(() => {
+    const keepInsideViewport = () => {
+      const banner = bannerRef.current;
+      if (!banner) return;
+      const maxLeft = Math.max(8, window.innerWidth - banner.offsetWidth - 8);
+      const maxTop = Math.max(8, window.innerHeight - banner.offsetHeight - 8);
+      setPosition((current) => {
+        if (!current) return null;
+        const left = Math.min(maxLeft, Math.max(8, current.left));
+        const top = Math.min(maxTop, Math.max(8, current.top));
+        return left === current.left && top === current.top ? current : { left, top };
+      });
+    };
+    keepInsideViewport();
+    window.addEventListener('resize', keepInsideViewport);
+    return () => window.removeEventListener('resize', keepInsideViewport);
+  }, [isVisible]);
+
+  const handleDragStart = (event: React.PointerEvent<HTMLButtonElement>) => {
+    const banner = bannerRef.current;
+    if (!banner) return;
+    const rect = banner.getBoundingClientRect();
+    dragStartRef.current = { pointerX: event.clientX, pointerY: event.clientY, left: rect.left, top: rect.top };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setIsDragging(true);
+  };
+
+  const handleDragMove = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!isDragging || !bannerRef.current) return;
+    const { pointerX, pointerY, left, top } = dragStartRef.current;
+    const maxLeft = Math.max(8, window.innerWidth - bannerRef.current.offsetWidth - 8);
+    const maxTop = Math.max(8, window.innerHeight - bannerRef.current.offsetHeight - 8);
+    setPosition({
+      left: Math.min(maxLeft, Math.max(8, left + event.clientX - pointerX)),
+      top: Math.min(maxTop, Math.max(8, top + event.clientY - pointerY)),
+    });
+  };
+
+  const handleDragEnd = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!isDragging) return;
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    setIsDragging(false);
+    setPosition((current) => {
+      if (current) sessionStorage.setItem('cine3d-vote-banner-position', JSON.stringify(current));
+      return current;
+    });
+  };
 
   const handleClose = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -38,7 +102,9 @@ export default function TranslationVoteBanner() {
 
   return (
     <div
-      className={`fixed right-3 md:right-6 top-[42%] z-40 w-[128px] md:w-[148px] transition-all duration-700 ease-out select-none ${
+      ref={bannerRef}
+      style={position ? { left: position.left, top: position.top } : undefined}
+      className={`fixed ${position ? '' : 'right-3 md:right-6 top-[42%]'} z-40 w-[128px] md:w-[148px] select-none ${isDragging ? '' : 'transition-all duration-700 ease-out'} ${
         isVisible ? 'translate-x-0 opacity-100' : 'translate-x-96 opacity-0'
       }`}
     >
@@ -47,6 +113,18 @@ export default function TranslationVoteBanner() {
         style={{ transformOrigin: 'top center' }}
       >
         <div className="hanging-banner-card relative transition-[transform,filter] duration-[180ms] ease-out hover:scale-[1.06]">
+          <button
+            type="button"
+            aria-label="Kéo để di chuyển banner"
+            title="Kéo để di chuyển"
+            onPointerDown={handleDragStart}
+            onPointerMove={handleDragMove}
+            onPointerUp={handleDragEnd}
+            onPointerCancel={handleDragEnd}
+            className={`absolute -top-5 left-1/2 z-50 flex h-7 w-10 -translate-x-1/2 touch-none items-center justify-center rounded-full border border-amber-400/25 bg-[#0a0a0f]/95 text-amber-400 shadow-lg ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+          >
+            <GripHorizontal className="h-4 w-4" />
+          </button>
           <button
             onClick={handleClose}
             className="absolute -top-6 -right-3.5 z-50 flex h-[26px] w-[26px] items-center justify-center bg-transparent text-amber-400 drop-shadow-[0_0_10px_rgba(245,158,11,0.35)] transition-colors hover:text-white cursor-pointer"
