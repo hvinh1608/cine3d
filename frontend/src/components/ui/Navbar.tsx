@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
-import { ArrowRight, Search, SearchX, LogOut, ShieldAlert, Sparkles, Menu, X, Bell, Crown, History, Trash2, Home, User, Users, ChevronDown, CalendarDays, Clapperboard, MessageCircleQuestion } from 'lucide-react';
+import { ArrowRight, Search, SearchX, LogOut, ShieldAlert, Sparkles, Menu, X, Bell, Crown, History, Trash2, Home, User, Users, ChevronDown, CalendarDays, Clapperboard, MessageCircleQuestion, Smartphone } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 import type { Movie } from '../../types/movie';
@@ -454,6 +454,19 @@ export default function Navbar() {
             {renderSearchDropdown()}
           </form>
 
+          <Link
+            href="/download"
+            aria-label="Tải ứng dụng CINE3D"
+            title="Tải ứng dụng"
+            className={`grid h-9 w-9 place-items-center rounded-full border transition ${
+              isTabActive('/download')
+                ? 'border-amber-400/40 bg-amber-400/10 text-amber-300'
+                : 'border-white/10 bg-slate-950/40 text-slate-300 hover:border-amber-400/30 hover:bg-amber-400/10 hover:text-amber-300'
+            }`}
+          >
+            <Smartphone className="h-[18px] w-[18px]" />
+          </Link>
+
           {/* User Section */}
           {!hasHydrated || !authReady ? (
             <div className="h-9 w-28 animate-pulse rounded-full bg-white/5" />
@@ -547,6 +560,18 @@ export default function Navbar() {
 
         {/* MOBILE MENU TOGGLE */}
         <div className="ml-auto flex items-center space-x-2 xl:hidden">
+          <Link
+            href="/download"
+            aria-label="Tải ứng dụng CINE3D"
+            title="Tải ứng dụng"
+            className={`grid h-9 w-9 place-items-center rounded-lg border transition ${
+              isTabActive('/download')
+                ? 'border-amber-400/40 bg-amber-400/10 text-amber-300'
+                : 'border-white/10 text-slate-300 hover:text-amber-300'
+            }`}
+          >
+            <Smartphone className="h-5 w-5" />
+          </Link>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="text-slate-300 hover:text-white p-1.5 rounded-lg border border-white/10 cursor-pointer"
