@@ -7,6 +7,7 @@ import { Play, Star, Plus, Sparkles, ChevronLeft, ChevronRight, Check, X } from 
 import MovieCard3D from '../ui/MovieCard3D';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
+import { toggleFavorite } from '../../lib/user-library';
 import type { Banner, Movie } from '../../types/movie';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -24,7 +25,7 @@ export type HomeInitialData = {
 };
 
 export default function HomeClient({ initialData }: { initialData: HomeInitialData }) {
-  const { user, accessToken, hasHydrated, authReady, favorites, setFavorites, watchHistory, setWatchHistory, reduceMotion, showToast } = useStore();
+  const { user, accessToken, hasHydrated, authReady, favorites, watchHistory, setWatchHistory, reduceMotion, showToast } = useStore();
 
   const [banners, setBanners] = useState<Banner[]>(initialData.banners);
   const [trending, setTrending] = useState<Movie[]>(initialData.trending);
@@ -184,25 +185,8 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
     setParallaxOffset({ x, y });
   };
 
-  const handleToggleFavorite = async (movieId: string, movie?: Movie) => {
-    if (!user) {
-      showToast('Vui lòng đăng nhập để lưu phim yêu thích!', 'info');
-      return;
-    }
-    try {
-      const res = await axios.post(`${API_URL}/user/favorites/${movieId}`, {}, {
-        headers: { Authorization: `Bearer ${useStore.getState().accessToken}` }
-      });
-      const currentFavs = [...favorites];
-      if (res.data.favorited) {
-        if (movie) setFavorites([...currentFavs, movie]);
-      } else {
-        setFavorites(currentFavs.filter(f => f.id !== movieId));
-      }
-      showToast(res.data.favorited ? 'Đã thêm phim vào yêu thích.' : 'Đã xóa phim khỏi yêu thích.', 'success');
-    } catch {
-      showToast('Không thể cập nhật danh sách yêu thích.', 'error');
-    }
+  const handleToggleFavorite = (movieId: string, movie?: Movie) => {
+    void toggleFavorite(movieId, movie);
   };
 
   const handleRemoveHistory = async (historyId: string) => {

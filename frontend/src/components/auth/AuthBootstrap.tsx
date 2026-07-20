@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import api from '../../lib/api';
 import { useStore } from '../../hooks/useStore';
+import { loadFavorites } from '../../lib/user-library';
 
 /** Validate a persisted session and restore the latest profile on app startup. */
 export default function AuthBootstrap() {
@@ -13,6 +14,7 @@ export default function AuthBootstrap() {
   const setAuthReady = useStore((state) => state.setAuthReady);
   const logout = useStore((state) => state.logout);
   const setProfiles = useStore((state) => state.setProfiles);
+  const selectedProfileId = useStore((state) => state.selectedProfileId);
 
   useEffect(() => {
     if (!hasHydrated || authReady) return;
@@ -43,7 +45,12 @@ export default function AuthBootstrap() {
     return () => {
       active = false;
     };
-  }, [authReady, hasHydrated, logout, setAuthReady, setProfiles, setSession, user]);
+  }, [authReady, hasHydrated, logout, selectedProfileId, setAuthReady, setProfiles, setSession, user]);
+
+  useEffect(() => {
+    if (!authReady || !user) return;
+    void loadFavorites();
+  }, [authReady, selectedProfileId, user]);
 
   return null;
 }

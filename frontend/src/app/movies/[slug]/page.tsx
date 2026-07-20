@@ -8,6 +8,7 @@ import { Play, Star, Plus, Calendar, Clock, Globe, Film, Send, Trash2, Heart, Vi
 import { useStore } from '../../../hooks/useStore';
 import MovieCardLandscape from '../../../components/ui/MovieCardLandscape';
 import axios from '../../../lib/api';
+import { toggleFavorite } from '../../../lib/user-library';
 import type { Movie } from '../../../types/movie';
 import type { AxiosError } from 'axios';
 
@@ -40,7 +41,7 @@ export default function MovieDetail() {
   const params = useParams();
   const slug = params.slug as string;
 
-  const { user, favorites, setFavorites, accessToken, showToast } = useStore();
+  const { user, favorites, accessToken, showToast } = useStore();
   const [movie, setMovie] = useState<MovieDetailData | null>(null);
   const [comments, setComments] = useState<CommentItem[]>([]);
   const [relatedMovies, setRelatedMovies] = useState<Movie[]>([]);
@@ -172,27 +173,9 @@ export default function MovieDetail() {
     return () => { active = false; };
   }, [movie?.id, user]);
 
-  const handleToggleFavorite = async () => {
+  const handleToggleFavorite = () => {
     if (!movie) return;
-    if (!user) {
-      showToast('Vui lòng đăng nhập để thực hiện!', 'info');
-      return;
-    }
-
-    try {
-      const res = await axios.post(`${API_URL}/user/favorites/${movie.id}`, {}, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-      const currentFavs = [...favorites];
-      if (res.data.favorited) {
-        setFavorites([...currentFavs, movie]);
-      } else {
-        setFavorites(currentFavs.filter(f => f.id !== movie.id));
-      }
-      showToast(res.data.favorited ? 'Đã thêm phim vào yêu thích.' : 'Đã xóa phim khỏi yêu thích.', 'success');
-    } catch {
-      showToast('Không thể cập nhật danh sách yêu thích.', 'error');
-    }
+    void toggleFavorite(movie.id, movie);
   };
 
   const handleToggleFollow = async () => {
@@ -675,31 +658,7 @@ export default function MovieDetail() {
                   <div key={relatedMovie.id} className="w-[180px] sm:w-[220px] shrink-0">
                     <MovieCardLandscape
                       movie={relatedMovie}
-                      onToggleFavorite={async () => {
-                        if (!user) {
-                          showToast('Vui lòng đăng nhập để lưu phim yêu thích!', 'info');
-                          return;
-                        }
-                        try {
-                          const res = await axios.post(`${API_URL}/user/favorites/${relatedMovie.id}`, {}, {
-                            headers: { Authorization: `Bearer ${accessToken}` }
-                          });
-                          const currentFavs = [...favorites];
-                          if (res.data.favorited) {
-                            setFavorites([...currentFavs, relatedMovie]);
-                          } else {
-                            setFavorites(currentFavs.filter(f => f.id !== relatedMovie.id));
-                          }
-                          showToast(res.data.favorited ? 'Đã thêm phim vào yêu thích.' : 'Đã xóa phim khỏi yêu thích.', 'success');
-                        } catch {
-                          const isAlready = favorites.some(f => f.id === relatedMovie.id);
-                          if (isAlready) {
-                            setFavorites(favorites.filter(f => f.id !== relatedMovie.id));
-                          } else {
-                            setFavorites([...favorites, relatedMovie]);
-                          }
-                        }
-                      }}
+                      onToggleFavorite={() => void toggleFavorite(relatedMovie.id, relatedMovie)}
                       isFavorited={favorites.some((favorite) => favorite.id === relatedMovie.id)}
                     />
                   </div>

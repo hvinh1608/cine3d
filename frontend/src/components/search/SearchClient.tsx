@@ -17,6 +17,7 @@ import {
 import MovieCard3D from '../ui/MovieCard3D';
 import { useStore } from '../../hooks/useStore';
 import api from '../../lib/api';
+import { toggleFavorite } from '../../lib/user-library';
 import type { MetaItem, Movie } from '../../types/movie';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -77,7 +78,7 @@ function SearchPageRoute({ initialData }: { initialData: SearchInitialData }) {
 function SearchPageContent({ initialData }: { initialData: SearchInitialData }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { favorites, setFavorites, user, showToast } = useStore();
+  const { favorites, user, showToast } = useStore();
 
   const initialQuery = searchParams.get('q') || '';
   const [draftQuery, setDraftQuery] = useState(initialQuery);
@@ -253,23 +254,9 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
     window.scrollTo({ top: 100, behavior: 'smooth' });
   };
 
-  const handleToggleFavorite = async (movieId: string) => {
-    if (!user) {
-      showToast('Vui lòng đăng nhập để lưu phim yêu thích!', 'info');
-      return;
-    }
-    try {
-      const response = await api.post(`${API_URL}/user/favorites/${movieId}`);
-      if (response.data.favorited) {
-        const movie = movies.find((item) => item.id === movieId);
-        if (movie && !favoriteIds.has(movieId)) setFavorites([...favorites, movie]);
-      } else {
-        setFavorites(favorites.filter((movie) => movie.id !== movieId));
-      }
-      showToast(response.data.favorited ? 'Đã thêm phim vào yêu thích.' : 'Đã xóa phim khỏi yêu thích.', 'success');
-    } catch {
-      showToast('Không thể cập nhật danh sách yêu thích.', 'error');
-    }
+  const handleToggleFavorite = (movieId: string) => {
+    const movie = movies.find((item) => item.id === movieId);
+    void toggleFavorite(movieId, movie);
   };
 
   const resultStart = totalResults ? (currentPage - 1) * 24 + 1 : 0;
