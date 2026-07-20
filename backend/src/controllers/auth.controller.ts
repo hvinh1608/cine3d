@@ -142,12 +142,12 @@ function getSessionMetadata(req: AuthenticatedRequest) {
   };
 }
 
-function getRefreshTokenDuration(req: AuthenticatedRequest) {
+function getRefreshTokenDuration(req: AuthenticatedRequest): { jwt: jwt.SignOptions['expiresIn']; ms: number } {
   const days = isNativeClient(req)
     ? Number(process.env.NATIVE_REFRESH_TTL_DAYS || 30)
     : 7;
   return {
-    jwt: `${days}d`,
+    jwt: `${days}d` as jwt.SignOptions['expiresIn'],
     ms: days * 24 * 60 * 60 * 1000,
   };
 }
