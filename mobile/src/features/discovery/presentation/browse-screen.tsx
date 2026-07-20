@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { RefreshControl, StyleSheet, View } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Button, Text } from 'react-native-paper';
 import { EmptyState, MovieCard, MovieRailSkeleton, Screen } from '@/components/ui';
 import type { Movie } from '@/domain/models';
@@ -9,11 +9,14 @@ import { discoveryRepository } from '@/features/discovery/data/http-discovery-re
 import { discoveryKeys, type MovieQuery } from '@/features/discovery/domain/discovery-repository';
 import { useMovieGridLayout } from '@/core/responsive';
 import { colors, spacing } from '@/theme';
+import { PaginationControls } from '@/components/pagination-controls';
 
 type BrowseKind = 'genre' | 'country' | 'year';
 
 export function BrowseScreen({ kind, value }: { kind: BrowseKind; value: string | number | null }) {
   const { gridColumns, cardWidth } = useMovieGridLayout(spacing.md, spacing.sm);
+  const [page, setPage] = useState(1);
+  const listRef = useRef<FlashListRef<Movie>>(null);
   const query = useMemo<Omit<MovieQuery, 'page'>>(() => ({
     limit: 24,
     ...(kind === 'genre' && typeof value === 'string' ? { genre: value } : {}),
@@ -21,20 +24,20 @@ export function BrowseScreen({ kind, value }: { kind: BrowseKind; value: string 
     ...(kind === 'year' && typeof value === 'number' ? { year: value } : {}),
     sortBy: 'updatedAt',
   }), [kind, value]);
-  const movies = useInfiniteQuery({
-    queryKey: discoveryKeys.movies({ ...query, page: 1 }),
-    queryFn: ({ pageParam }) => discoveryRepository.getMovies({ ...query, page: pageParam }),
-    initialPageParam: 1,
+  const movies = useQuery({
+    queryKey: discoveryKeys.movies({ ...query, page }),
+    queryFn: ({ signal }) => discoveryRepository.getMovies({ ...query, page }, { signal }),
     enabled: value !== null,
-    getNextPageParam: (last) => last.page < last.totalPages ? last.page + 1 : undefined,
+    placeholderData: keepPreviousData,
   });
-  const data = movies.data?.pages.flatMap((page) => page.movies) ?? [];
+  const data = movies.data?.movies ?? [];
   const title = kind === 'genre' ? 'Thể loại' : kind === 'country' ? 'Quốc gia' : 'Năm phát hành';
   const displayValue = typeof value === 'string' ? value.replaceAll('-', ' ') : value;
 
   return (
     <Screen>
       <FlashList
+        ref={listRef}
         data={data}
         key={`grid-${gridColumns}`}
         numColumns={gridColumns}
@@ -51,10 +54,8 @@ export function BrowseScreen({ kind, value }: { kind: BrowseKind; value: string 
           : movies.error
             ? <View style={styles.error}><EmptyState title="Không thể tải danh mục" message={movies.error.message} /><Button onPress={() => void movies.refetch()}>Thử lại</Button></View>
             : <EmptyState title="Chưa có phim" message="Danh mục này hiện chưa có nội dung." />}
-        ListFooterComponent={movies.isFetchingNextPage ? <MovieRailSkeleton /> : <View style={styles.footer} />}
-        refreshControl={<RefreshControl refreshing={movies.isRefetching && !movies.isFetchingNextPage} onRefresh={() => void movies.refetch()} tintColor={colors.primary} />}
-        onEndReached={() => { if (movies.hasNextPage && !movies.isFetchingNextPage) void movies.fetchNextPage(); }}
-        onEndReachedThreshold={0.5}
+        ListFooterComponent={<PaginationControls page={movies.data?.page ?? page} totalPages={movies.data?.totalPages ?? 1} disabled={movies.isFetching} onPage={(nextPage) => { setPage(nextPage); listRef.current?.scrollToOffset({ offset: 0, animated: true }); }} />}
+        refreshControl={<RefreshControl refreshing={movies.isRefetching} onRefresh={() => void movies.refetch()} tintColor={colors.primary} />}
         contentContainerStyle={styles.content}
       />
     </Screen>
@@ -68,5 +69,4 @@ const styles = StyleSheet.create({
   title: { fontWeight: '900', textTransform: 'capitalize' },
   item: { flex: 1, alignItems: 'center', paddingBottom: spacing.md },
   error: { minHeight: 320 },
-  footer: { height: spacing.xl },
 });

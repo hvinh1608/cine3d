@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { FlashList, type FlashListRef } from '@shopify/flash-list';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Funnel, Grid2X2, List, Search, X } from 'lucide-react-native';
 import { Button, Chip, Divider, Modal, Portal, Searchbar, SegmentedButtons, Text } from 'react-native-paper';
 import { EmptyState, MovieCard, MovieRailSkeleton, Screen } from '@/components/ui';
@@ -16,6 +16,7 @@ import {
 } from '@/features/discovery/domain/discovery-repository';
 import { colors, radius, spacing } from '@/theme';
 import { useMovieGridLayout } from '@/core/responsive';
+import { PaginationControls } from '@/components/pagination-controls';
 
 const PAGE_SIZE = 24;
 type Filters = Pick<MovieQuery, 'genre' | 'country' | 'year' | 'type' | 'sortBy'>;
@@ -47,6 +48,8 @@ export function ExploreScreen() {
   const [filtersVisible, setFiltersVisible] = useState(false);
   const [layout, setLayout] = useState<'grid' | 'list'>('grid');
   const [recents, setRecents] = useState<string[]>([]);
+  const [page, setPage] = useState(1);
+  const listRef = useRef<FlashListRef<Movie>>(null);
 
   useEffect(() => { void cacheRepository.getRecentSearches().then(setRecents); }, []);
 
@@ -63,18 +66,18 @@ export function ExploreScreen() {
     ...(debouncedSearch ? { search: debouncedSearch } : {}),
     ...filters,
   }), [debouncedSearch, filters]);
-  const movies = useInfiniteQuery({
-    queryKey: discoveryKeys.movies({ ...baseQuery, page: 1 }),
-    queryFn: ({ pageParam, signal }) => discoveryRepository.getMovies(
-      { ...baseQuery, page: pageParam },
+  const movies = useQuery({
+    queryKey: discoveryKeys.movies({ ...baseQuery, page }),
+    queryFn: ({ signal }) => discoveryRepository.getMovies(
+      { ...baseQuery, page },
       { signal },
     ),
-    initialPageParam: 1,
-    getNextPageParam: (last) => last.page < last.totalPages ? last.page + 1 : undefined,
+    placeholderData: keepPreviousData,
   });
-  const results = useMemo(() => movies.data?.pages.flatMap((page) => page.movies) ?? [], [movies.data]);
-  const showingStale = movies.data?.pages.some((page) => page.stale) ?? false;
+  const results = movies.data?.movies ?? [];
+  const showingStale = movies.data?.stale ?? false;
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  useEffect(() => { queueMicrotask(() => setPage(1)); }, [baseQuery]);
   const suggestions = useMemo(() => {
     if (!search.trim()) return recents.map((value) => ({ label: value, value }));
     const needle = search.trim().toLocaleLowerCase('vi');
@@ -174,11 +177,11 @@ export function ExploreScreen() {
       ) : null}
       {activeFilterCount ? (
         <View style={styles.activeFilters}>
-          <Text style={styles.muted}>{activeFilterCount} bộ lọc đang bật · {results.length} kết quả</Text>
+          <Text style={styles.muted}>{activeFilterCount} bộ lọc đang bật · {movies.data?.total ?? results.length} kết quả</Text>
           <Button compact onPress={() => setFilters(emptyFilters)}>Xóa bộ lọc</Button>
         </View>
       ) : (
-        <Text style={styles.resultHint}>{movies.isPending ? 'Đang tải…' : `${results.length}${movies.hasNextPage ? '+' : ''} phim`}</Text>
+        <Text style={styles.resultHint}>{movies.isPending ? 'Đang tải…' : `${movies.data?.total ?? results.length} phim`}</Text>
       )}
       {showingStale ? <Text style={styles.offline}>Đang hiển thị nội dung đã lưu. Kéo xuống để thử kết nối lại.</Text> : null}
       {movies.isFetching && !movies.isPending ? <Text style={styles.sync}>Đang đồng bộ nội dung mới…</Text> : null}
@@ -188,6 +191,7 @@ export function ExploreScreen() {
   return (
     <Screen testID="search-screen" edges={['top', 'left', 'right']}>
       <FlashList
+        ref={listRef}
         key={`${layout}-${gridColumns}`}
         data={results}
         numColumns={layout === 'grid' ? gridColumns : 1}
@@ -199,10 +203,8 @@ export function ExploreScreen() {
           : movies.error
             ? <EmptyState title="Không thể tìm kiếm" message={`${movies.error.message}. Kiểm tra kết nối rồi thử lại.`} />
             : <EmptyState title="Không có kết quả" message="Thử từ khóa khác hoặc xóa bớt bộ lọc." />}
-        ListFooterComponent={movies.isFetchingNextPage ? <MovieRailSkeleton /> : <View style={styles.footer} />}
-        onEndReached={() => { if (movies.hasNextPage && !movies.isFetchingNextPage) void movies.fetchNextPage(); }}
-        onEndReachedThreshold={0.45}
-        refreshControl={<RefreshControl refreshing={movies.isRefetching && !movies.isFetchingNextPage} onRefresh={() => void refresh()} tintColor={colors.primary} />}
+        ListFooterComponent={<PaginationControls page={movies.data?.page ?? page} totalPages={movies.data?.totalPages ?? 1} disabled={movies.isFetching} onPage={(nextPage) => { setPage(nextPage); listRef.current?.scrollToOffset({ offset: 0, animated: true }); }} />}
+        refreshControl={<RefreshControl refreshing={movies.isRefetching} onRefresh={() => void refresh()} tintColor={colors.primary} />}
         contentContainerStyle={[styles.content, { width: contentWidth, alignSelf: 'center' }]}
       />
       <FilterModal
@@ -330,7 +332,6 @@ const styles = StyleSheet.create({
   offline: { color: colors.warning, padding: spacing.sm, borderRadius: radius.sm, backgroundColor: colors.surfaceRaised },
   gridItem: { flex: 1, alignItems: 'center', paddingBottom: spacing.md },
   listItem: { paddingHorizontal: spacing.md },
-  footer: { height: spacing.xl },
   modal: { margin: spacing.md, maxHeight: '92%', backgroundColor: colors.surface, borderRadius: radius.lg },
   modalContent: { padding: spacing.lg, gap: spacing.md },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
