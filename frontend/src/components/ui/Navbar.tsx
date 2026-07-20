@@ -468,8 +468,12 @@ export default function Navbar() {
           </Link>
 
           {/* User Section */}
-          {!hasHydrated || !authReady ? (
+          {!hasHydrated ? (
             <div className="h-9 w-28 animate-pulse rounded-full bg-white/5" />
+          ) : user && !authReady ? (
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 animate-pulse rounded-full bg-white/10" title="Đang khôi phục phiên đăng nhập" />
+            </div>
           ) : user ? (
             <div className="flex items-center gap-2.5">
               {/* Notifications Dropdown Bell */}
@@ -630,8 +634,10 @@ export default function Navbar() {
               <Crown className="mr-1 h-4 w-4" /> Nâng cấp VIP
             </Link>
 
-            {!hasHydrated || !authReady ? (
+            {!hasHydrated ? (
               <div className="mx-auto h-10 w-32 animate-pulse rounded-full bg-white/5" />
+            ) : user && !authReady ? (
+              <div className="mx-auto h-10 w-10 animate-pulse rounded-full bg-white/10" />
             ) : user ? (
               <>
                 <Link href="/account" onClick={() => setMobileMenuOpen(false)} className="hover:text-yellow-500 py-1 border-b border-white/5">Tài Khoản</Link>

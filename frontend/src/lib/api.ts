@@ -3,7 +3,31 @@ import { useStore } from '../hooks/useStore';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const api = axios.create({ baseURL: API_URL, timeout: 20_000, withCredentials: true });
+
 let refreshRequest: Promise<string> | null = null;
+
+export function isAuthFailure(error: unknown): boolean {
+  if (!axios.isAxiosError(error)) return false;
+  const status = error.response?.status;
+  return status === 401 || status === 403;
+}
+
+/** Single in-flight refresh so reload/StrictMode cannot rotate the cookie twice. */
+export async function refreshSession(): Promise<string> {
+  if (refreshRequest) return refreshRequest;
+
+  refreshRequest = axios
+    .post(`${API_URL}/auth/refresh`, {}, { withCredentials: true })
+    .then(({ data }) => {
+      useStore.getState().setSession(data.user, data.accessToken);
+      return data.accessToken as string;
+    })
+    .finally(() => {
+      refreshRequest = null;
+    });
+
+  return refreshRequest;
+}
 
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = useStore.getState().accessToken;
@@ -31,24 +55,16 @@ api.interceptors.response.use(
 
     original._retried = true;
     try {
-      refreshRequest ??= axios
-        .post(`${API_URL}/auth/refresh`, {}, { withCredentials: true })
-        .then(({ data }) => {
-          useStore.getState().setSession(data.user, data.accessToken);
-          return data.accessToken as string;
-        })
-        .finally(() => {
-          refreshRequest = null;
-        });
-
-      const accessToken = await refreshRequest;
+      const accessToken = await refreshSession();
       original.headers.Authorization = `Bearer ${accessToken}`;
       return api(original);
     } catch (refreshError) {
-      useStore.getState().logout();
+      if (isAuthFailure(refreshError)) {
+        useStore.getState().logout();
+      }
       return Promise.reject(refreshError);
     }
-  }
+  },
 );
 
 export default api;
