@@ -2,7 +2,7 @@
   "expo": {
     "name": "Cine3D",
     "slug": "cine3d",
-    "version": "1.0.0",
+    "version": "1.0.4",
     "orientation": "default",
     "scheme": "cine3d",
     "icon": "./assets/icon.png",
@@ -25,7 +25,7 @@
     },
     "android": {
       "package": "vn.cine3d.app",
-      "versionCode": 1,
+      "versionCode": 4,
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.POST_NOTIFICATIONS",

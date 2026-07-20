@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
+import { useLocalSearchParams } from 'expo-router';
 import { Button, Card, SegmentedButtons, Text, TextInput } from 'react-native-paper';
 import { accountApi, type Feedback } from '@/features/account/data/account-api';
 import { colors, spacing } from '@/theme';
@@ -10,8 +11,11 @@ const categories = [
   { value: 'VIP_SUPPORT', label: 'VIP' }, { value: 'COPYRIGHT', label: 'Bản quyền' },
 ];
 export default function FeedbackRoute() {
+  const params = useLocalSearchParams<{ category?: string }>();
   const [items, setItems] = useState<Feedback[]>([]);
-  const [category, setCategory] = useState('GENERAL');
+  const [category, setCategory] = useState(
+    categories.some((item) => item.value === params.category) ? params.category! : 'GENERAL',
+  );
   const [subject, setSubject] = useState('');
   const [content, setContent] = useState('');
   const [message, setMessage] = useState('');

@@ -22,6 +22,7 @@ import { sanitizeDeepLink, shouldRetryRequest } from '@/core/reliability';
 import { markColdStartReady, flushPerformanceEvents } from '@/core/performance';
 import { colors, spacing } from '@/theme';
 import { DevPerformanceOverlay } from '@/components/dev-performance-overlay';
+import { TranslationVoteBanner } from '@/components/translation-vote-banner';
 
 export function AppProviders({ children }: PropsWithChildren) {
   const [queryClient] = useState(() => new QueryClient({
@@ -88,7 +89,14 @@ export function AppProviders({ children }: PropsWithChildren) {
           <QueryClientProvider client={queryClient}>
             <ErrorBoundary>
               <ToastHost>
-                <VersionGate><WatchRoomProvider><AppLock>{children}</AppLock></WatchRoomProvider></VersionGate>
+                <VersionGate>
+                  <WatchRoomProvider>
+                    <AppLock>
+                      {children}
+                      <TranslationVoteBanner />
+                    </AppLock>
+                  </WatchRoomProvider>
+                </VersionGate>
                 <DevPerformanceOverlay />
               </ToastHost>
             </ErrorBoundary>
