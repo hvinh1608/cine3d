@@ -19,9 +19,9 @@ export default function RootLayout() {
         <Stack.Screen name="movie/[slug]" options={{ title: 'Chi tiết phim' }} />
         <Stack.Screen name="movies/[slug]" options={{ title: 'Chi tiết phim' }} />
         <Stack.Screen name="search" options={{ title: 'Tìm kiếm', headerShown: false }} />
-        <Stack.Screen name="the-loai/[slug]" options={{ title: 'Thể loại', headerShown: false }} />
-        <Stack.Screen name="quoc-gia/[slug]" options={{ title: 'Quốc gia', headerShown: false }} />
-        <Stack.Screen name="nam/[year]" options={{ title: 'Năm phát hành', headerShown: false }} />
+        <Stack.Screen name="the-loai/[slug]" options={{ title: 'Thể loại' }} />
+        <Stack.Screen name="quoc-gia/[slug]" options={{ title: 'Quốc gia' }} />
+        <Stack.Screen name="nam/[year]" options={{ title: 'Năm phát hành' }} />
         <Stack.Screen name="schedule" options={{ title: 'Lịch phát hành', headerShown: false }} />
         <Stack.Screen name="actors/[slug]" options={{ title: 'Diễn viên', headerShown: false }} />
         <Stack.Screen name="directors/[slug]" options={{ title: 'Đạo diễn', headerShown: false }} />
