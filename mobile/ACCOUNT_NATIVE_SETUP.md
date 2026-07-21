@@ -15,7 +15,7 @@ eas build --profile development --platform android
 
 - `EXPO_PUBLIC_API_URL`: API root ending in `/api`.
 - `EXPO_PUBLIC_GOOGLE_CLIENT_ID`: Web OAuth client ID used to request the Google ID token. Add this same ID to backend `GOOGLE_CLIENT_IDS`.
-- Create a separate Android OAuth client with package `vn.cine3d.app` and every signing SHA-1 used for debug, EAS, and Play App Signing. The debug SHA-1 on this workstation is `31:73:BC:DB:32:C4:2B:A4:D7:1E:87:9E:EF:E3:68:C2:3B:37:29:51`.
+- Create a separate Android OAuth client with package `vn.cine3d.app` and every signing SHA-1 used for debug, EAS, and Play App Signing. Sideload APKs are signed with `android/app/debug.keystore` — SHA-1 `5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25`. Also register any other keystores you use (e.g. `~/.android/debug.keystore`).
 - Google login uses the native Android account picker through `@react-native-google-signin/google-signin`; it does not use a browser redirect. Facebook login is not exposed in the Android app.
 - `EXPO_PUBLIC_APP_ATTESTATION_TOKEN`: must match backend `MOBILE_APP_ATTESTATION_TOKEN`. This current static contract is extractable from an app bundle and must be replaced by Play Integrity/App Attest before it is treated as a security boundary.
 
