@@ -14,7 +14,7 @@ function canFallbackToSource(src: ImageProps['src']): src is string {
   }
 }
 
-/** Use Cloudinary first, then retry movie artwork directly from its source CDN. */
+/** Retry supported movie artwork directly when an optimized CDN request fails. */
 export default function ResilientImage({ src, onError, unoptimized, ...props }: ImageProps) {
   const [failedSource, setFailedSource] = useState<string | null>(null);
   const source = typeof src === 'string' ? src : null;

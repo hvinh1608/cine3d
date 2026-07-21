@@ -1,7 +1,9 @@
 'use client';
 
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || 'hnlripqh';
-const CLOUDINARY_FETCH_HOSTS = new Set(['phimimg.com', 'img.phimapi.com']);
+// phimimg.com rejects some Cloudinary Fetch requests (notably /public/images/Post),
+// so load that already-CDN-backed host directly and reserve Cloudinary for phimapi.
+const CLOUDINARY_FETCH_HOSTS = new Set(['img.phimapi.com']);
 
 type ImageLoaderProps = {
   src: string;
