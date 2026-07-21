@@ -49,6 +49,9 @@ export function AppProviders({ children }: PropsWithChildren) {
       } catch {
         /* keep cached user when offline; interceptor handles expired sessions */
       }
+      // Load user-specific rails only after tokens are refreshed on cold start.
+      void queryClient.invalidateQueries({ queryKey: movieKeys.history() });
+      void queryClient.invalidateQueries({ queryKey: discoveryKeys.history() });
     });
     void cacheRepository.pruneStale();
     const networkSubscription = NetInfo.addEventListener((state) => {
@@ -89,7 +92,8 @@ export function AppProviders({ children }: PropsWithChildren) {
         void cacheRepository.clearAll();
         void checkpointRepository.clearAll();
       }
-      if (hydrated && nextToken && (!previousToken || !previousHydrated)) {
+      // Fresh login while the app is already running (not initial hydrate).
+      if (hydrated && nextToken && !previousToken && previousHydrated) {
         void queryClient.invalidateQueries({ queryKey: movieKeys.history() });
         void queryClient.invalidateQueries({ queryKey: discoveryKeys.history() });
       }

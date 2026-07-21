@@ -31,6 +31,7 @@ export function HomeScreen() {
     queryKey: movieKeys.history(),
     queryFn: () => movieRepository.getHistory(),
     enabled: authenticated,
+    refetchOnMount: 'always',
   });
   const feed = query.data;
   const continueWatching = useMemo(
@@ -53,12 +54,20 @@ export function HomeScreen() {
     }
   };
 
-  // Login/session hydrate already invalidates history in AppProviders.
-  // On home focus, only refetch when React Query marks the cache stale
-  // (e.g. after watching a movie, or after staleTime).
+  useEffect(() => {
+    if (!authenticated) return;
+    void history.refetch();
+  }, [authenticated, history.refetch]);
+
+  // On home focus, refetch empty history immediately; otherwise only when stale.
   useFocusEffect(
     useCallback(() => {
       if (!authenticated) return;
+      const cached = queryClient.getQueryData<Awaited<ReturnType<typeof movieRepository.getHistory>>>(movieKeys.history());
+      if (!cached?.length) {
+        void queryClient.refetchQueries({ queryKey: movieKeys.history(), type: 'active' });
+        return;
+      }
       void queryClient.refetchQueries({ queryKey: movieKeys.history(), type: 'active', stale: true });
     }, [authenticated, queryClient]),
   );
