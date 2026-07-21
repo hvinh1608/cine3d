@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import Image from '@/components/ui/ResilientImage';
-import { Play, Star, Plus, Sparkles, ChevronLeft, ChevronRight, Check, X } from 'lucide-react';
+import { Play, Star, Plus, Sparkles, ChevronLeft, ChevronRight, Check, X, Heart, CircleAlert } from 'lucide-react';
 import MovieCard3D from '../ui/MovieCard3D';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
@@ -617,7 +617,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
 
       {/* ROW: ANIME SHOWCASE SECTION (KHO TÀNG ANIME MỚI NHẤT) */}
       {animeList.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 md:px-8 w-full mt-14 mb-16">
+        <section className="mx-auto mb-24 mt-14 w-full max-w-[1500px] px-3 sm:px-4 md:px-8">
           <div className="flex items-center space-x-2 mb-5">
             <div className="w-1 h-5 bg-yellow-500 rounded-full" />
             <h2 className="text-lg md:text-xl font-black uppercase tracking-wider text-white flex items-center">
@@ -637,109 +637,111 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
             const activeAnime = animeList[activeAnimeIndex];
             if (!activeAnime) return null;
             return (
-              <div className="relative w-full rounded-3xl bg-slate-900/40 border border-white/5 flex flex-col md:flex-row md:h-[400px] shadow-2xl transition-all duration-500">
+              <div className="relative min-h-[510px] w-full rounded-[28px] border border-white/[0.08] bg-[#171923] shadow-[0_30px_90px_rgba(0,0,0,0.42)] transition-all duration-500 md:h-[520px] md:min-h-0 lg:h-[570px]">
 
                 {/* Left content panel */}
-                <div className="relative z-10 w-full md:w-[45%] p-6 md:p-10 md:pb-28 xl:pb-36 flex flex-col justify-center space-y-3.5 bg-gradient-to-r from-[#0d0f1a] via-[#0d0f1a]/95 to-transparent text-left">
+                <div className="relative z-10 flex min-h-[510px] w-full flex-col justify-center space-y-4 px-6 pb-36 pt-9 text-left sm:px-9 md:h-full md:min-h-0 md:w-[52%] md:px-11 md:pb-40 md:pt-10 lg:w-[48%] lg:px-14">
                   <div>
-                    <h3 className="text-2xl md:text-3xl font-black text-white leading-tight drop-shadow-md">
+                    <h3 className="text-3xl font-black leading-tight text-white drop-shadow-[0_3px_16px_rgba(0,0,0,0.8)] md:text-4xl">
                       {activeAnime.title}
                     </h3>
                     {activeAnime.englishTitle && (
-                      <p className="text-slate-400 text-sm font-semibold mt-1">
+                      <p className="mt-1.5 text-sm font-medium text-amber-300 md:text-base">
                         {activeAnime.englishTitle}
                       </p>
                     )}
                   </div>
 
                   {/* Metadata Row */}
-                  <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-200">
-                    <span className="bg-yellow-500 text-black px-1.5 py-0.5 rounded text-[10px] font-black">
+                  <div className="flex flex-wrap items-center gap-2.5 text-xs font-semibold text-slate-100">
+                    <span className="rounded-md border border-yellow-400 bg-black/35 px-2.5 py-1.5 text-[11px] font-black text-white">
                       IMDb {activeAnime.ratingAvg?.toFixed(1) || '8.0'}
                     </span>
-                    <span className="bg-white/10 px-2 py-0.5 rounded text-[10px] border border-white/5 font-bold">
+                    <span className="rounded-md bg-white px-2.5 py-1.5 text-[11px] font-black text-black">
                       T16
                     </span>
-                    <span className="bg-white/10 px-2 py-0.5 rounded text-[10px] border border-white/5 font-bold">
+                    <span className="rounded-md border border-white/50 bg-black/20 px-2.5 py-1.5 text-[11px] font-bold backdrop-blur-sm">
                       {activeAnime.releaseYear}
                     </span>
-                    <span className="bg-white/10 px-2 py-0.5 rounded text-[10px] border border-white/5 font-bold">
+                    <span className="rounded-md border border-white/50 bg-black/20 px-2.5 py-1.5 text-[11px] font-bold backdrop-blur-sm">
                       {activeAnime.isSeries ? 'Phần 1' : 'Movie'}
                     </span>
-                    <span className="bg-white/10 px-2 py-0.5 rounded text-[10px] border border-white/5 font-bold">
+                    <span className="rounded-md border border-white/50 bg-black/20 px-2.5 py-1.5 text-[11px] font-bold backdrop-blur-sm">
                       {activeAnime.isSeries ? `Tập ${activeAnime.episodeCount}` : 'Full'}
                     </span>
                   </div>
 
                   {/* Genre tag */}
                   <div>
-                    <span className="bg-white/5 text-slate-400 border border-white/10 px-3 py-1 rounded-full text-[11px] font-bold">
+                    <span className="rounded-lg bg-white/10 px-3 py-1.5 text-[11px] font-bold text-slate-200 backdrop-blur-sm">
                       Hoạt hình
                     </span>
                   </div>
 
                   {/* Description */}
-                  <p className="text-slate-300 text-xs md:text-sm line-clamp-3 md:line-clamp-4 leading-relaxed">
+                  <p className="line-clamp-3 max-w-xl text-sm leading-7 text-slate-200 drop-shadow-md md:line-clamp-4 md:text-base">
                     {activeAnime.description || 'Thông tin chi tiết về bộ phim hoạt hình hấp dẫn đang được cập nhật.'}
                   </p>
 
                   {/* Buttons */}
-                  <div className="flex items-center space-x-3 pt-2">
+                  <div className="flex items-center gap-5 pt-3">
                     {/* Play circular yellow */}
                     <Link
                       href={`/movies/${activeAnime.slug}`}
-                      className="flex items-center justify-center bg-yellow-500 text-black w-12 h-12 rounded-full transition-all shadow-lg hover:shadow-yellow-500/20 active:scale-95"
+                      className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-amber-100 to-amber-400 text-[#171923] shadow-[0_12px_35px_rgba(251,191,36,0.28)] transition hover:scale-105 hover:brightness-110 active:scale-95 md:h-20 md:w-20"
                     >
-                      <Play className="w-5 h-5 fill-current ml-0.5" />
+                      <Play className="ml-1 h-7 w-7 fill-current md:h-8 md:w-8" />
                     </Link>
 
                     {/* Heart button */}
                     <button
                       onClick={() => handleToggleFavorite(activeAnime.id, activeAnime)}
-                      className="flex items-center justify-center w-12 h-12 rounded-full border border-white/10 bg-slate-950/40 hover:bg-white/10 text-white transition-all active:scale-90 shadow"
+                      className="grid h-14 w-16 place-items-center rounded-l-full border border-white/10 bg-black/20 text-white shadow-lg backdrop-blur-md transition hover:bg-white/10 active:scale-90"
                     >
                       {favoriteIdSet.has(activeAnime.id) ? (
-                        <Check className="w-5 h-5 text-green-400" />
+                        <Check className="h-6 w-6 text-emerald-400" />
                       ) : (
-                        <Plus className="w-5 h-5" />
+                        <Heart className="h-6 w-6 fill-white" />
                       )}
                     </button>
 
                     {/* Info/Alert button */}
                     <Link
                       href={`/movies/${activeAnime.slug}`}
-                      className="flex items-center justify-center w-12 h-12 rounded-full border border-white/10 bg-slate-950/40 hover:bg-white/10 text-slate-300 hover:text-white transition-all shadow"
+                      className="-ml-5 grid h-14 w-16 place-items-center rounded-r-full border border-l-0 border-white/10 bg-black/20 text-white shadow-lg backdrop-blur-md transition hover:bg-white/10"
                     >
-                      <Sparkles className="w-5 h-5" />
+                      <CircleAlert className="h-6 w-6 fill-white text-[#171923]" />
                     </Link>
                   </div>
                 </div>
 
                 {/* Right backdrop layer */}
-                <div className="relative w-full md:w-[65%] h-[200px] md:h-full overflow-hidden rounded-b-3xl md:rounded-b-none md:rounded-r-3xl">
+                <div className="absolute inset-0 overflow-hidden rounded-[28px]">
                   <Image
                     src={activeAnime.backdropUrl || activeAnime.posterUrl}
                     alt={activeAnime.title}
                     fill
-                    sizes="(max-width: 768px) 100vw, 800px"
-                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 1500px"
+                    className="object-cover object-center transition-opacity duration-500 md:object-[65%_center]"
                   />
                   {/* Fades to blend image with left panel */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-[#0d0f1a] via-[#0d0f1a]/30 to-transparent hidden md:block" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#0d0f1a] via-transparent to-transparent md:hidden" />
+                  <div className="absolute inset-0 bg-black/15" />
+                  <div className="absolute inset-0 bg-gradient-to-r from-[#171923] via-[#171923]/90 to-[#171923]/5 md:via-[42%] md:to-[78%]" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#171923] via-transparent to-black/20" />
+                  <div className="absolute inset-0 opacity-[0.12] [background-image:radial-gradient(rgba(255,255,255,0.55)_0.7px,transparent_0.7px)] [background-size:4px_4px]" />
                 </div>
 
                 {/* Overlaid Bottom list of posters sitting at the bottom edge (-bottom-10) */}
-                <div ref={animeRowRef} className="movie-row absolute -bottom-10 left-0 right-0 mx-auto w-fit max-w-[95%] z-20 flex justify-start gap-2 overflow-x-auto scroll-smooth px-4 py-1.5 md:translate-x-6 md:gap-3 no-scrollbar">
+                <div ref={animeRowRef} className="movie-row absolute -bottom-14 left-[5%] right-[2%] z-20 flex justify-start gap-3 overflow-x-auto scroll-smooth px-2 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:gap-4">
                   {animeList.map((anime, idx) => (
                     <button
                       key={anime.id}
                       onClick={() => setActiveAnimeIndex(idx)}
                       title={anime.title}
-                      className={`group relative h-[72px] w-[48px] shrink-0 overflow-hidden rounded-xl border-2 bg-slate-900 shadow-lg transition duration-300 hover:-translate-y-1 md:h-[86px] md:w-[58px] xl:h-[100px] xl:w-[68px] ${
+                      className={`group relative aspect-[2/3] h-[92px] shrink-0 overflow-hidden rounded-xl border-[3px] bg-slate-900 shadow-[0_12px_28px_rgba(0,0,0,0.5)] transition duration-300 hover:-translate-y-1 md:h-[112px] lg:h-[128px] ${
                         activeAnimeIndex === idx
-                          ? 'border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.4)] scale-103'
-                          : 'border-white/10 opacity-75'
+                          ? '-translate-y-1 border-white opacity-100 shadow-[0_0_0_2px_rgba(251,191,36,0.9),0_16px_35px_rgba(0,0,0,0.65)]'
+                          : 'border-[#252833] opacity-90 hover:border-white/60 hover:opacity-100'
                       }`}
                     >
                       <Image
@@ -749,9 +751,6 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
                         sizes="80px"
                         className="object-cover transition-transform duration-500 group-hover:scale-110"
                       />
-                      <div className="absolute inset-x-0 bottom-0 truncate bg-black/60 px-1.5 py-1 text-left text-[9px] font-bold text-white">
-                        {anime.title}
-                      </div>
                     </button>
                   ))}
                 </div>
