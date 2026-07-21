@@ -283,7 +283,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
   ];
 
   return (
-    <div className="flex-1 w-full pb-20 flex flex-col text-slate-100 bg-transparent">
+    <div className="-mt-20 flex w-full flex-1 flex-col bg-transparent pb-20 text-slate-100">
       {loadError && (
         <div className="max-w-7xl mx-auto px-4 md:px-8 w-full mt-6">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-950/30 px-4 py-3 text-sm text-amber-200">
