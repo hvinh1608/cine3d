@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import Image from '@/components/ui/ResilientImage';
 import { Info, Users, Share2, LightbulbOff, PictureInPicture2, Crown, Wifi, Flag, Star, ListVideo, Search } from 'lucide-react';
 import type { Episode, Movie, VideoSource } from '../../types/movie';
 

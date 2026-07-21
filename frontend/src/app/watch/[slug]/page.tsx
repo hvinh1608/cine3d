@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, Suspense, useCallback } from 'react';
 import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
+import Image from '@/components/ui/ResilientImage';
 import dynamic from 'next/dynamic';
 import { Play, Pause, Volume2, VolumeX, Maximize, Maximize2, RotateCcw, ChevronRight, ChevronLeft, ListVideo, LightbulbOff, ArrowLeft, Subtitles, Gauge, Tv, Settings, Lock, Crown, Download, Users } from 'lucide-react';
 import { useStore } from '../../../hooks/useStore';

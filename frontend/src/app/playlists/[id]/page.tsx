@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import Image from 'next/image';
+import Image from '@/components/ui/ResilientImage';
 import Link from 'next/link';
 import { ArrowLeft, ListVideo, Play } from 'lucide-react';
 import api from '../../../lib/api';

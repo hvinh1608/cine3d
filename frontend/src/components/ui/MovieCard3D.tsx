@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import Image from '@/components/ui/ResilientImage';
 import { Play, Star, Plus, Check } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import type { Movie } from '../../types/movie';

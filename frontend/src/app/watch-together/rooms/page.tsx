@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import Image from 'next/image';
+import Image from '@/components/ui/ResilientImage';
 import Link from 'next/link';
 import { CirclePlus, Clock3, Film, LockKeyhole, Radio, Search, SlidersHorizontal, Users } from 'lucide-react';
 import { io } from 'socket.io-client';

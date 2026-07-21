@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import Image from '@/components/ui/ResilientImage';
 import { Play, Star, Plus, Sparkles, ChevronLeft, ChevronRight, Check, X } from 'lucide-react';
 import MovieCard3D from '../ui/MovieCard3D';
 import { useStore } from '../../hooks/useStore';

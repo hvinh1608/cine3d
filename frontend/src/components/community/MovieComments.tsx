@@ -1,6 +1,6 @@
 'use client';
 
-import Image from 'next/image';
+import Image from '@/components/ui/ResilientImage';
 import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
 import { Clock3, Crown, Eye, Flag, Heart, MessageCircle, Pin, Send, Trash2 } from 'lucide-react';

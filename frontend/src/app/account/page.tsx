@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import Image from '@/components/ui/ResilientImage';
 import { useRouter } from 'next/navigation';
 import type { AxiosError } from 'axios';
 import { User, Lock, Mail, Heart, History, Play, Bookmark, Trash2, LogOut, Check, Save, Crown, Upload, SlidersHorizontal, Trophy, Clock3, Flame } from 'lucide-react';

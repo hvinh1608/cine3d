@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
+import Image from '@/components/ui/ResilientImage';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { ArrowRight, Search, SearchX, LogOut, ShieldAlert, Sparkles, Menu, X, Bell, Crown, History, Trash2, Home, User, Users, ChevronDown, CalendarDays, Clapperboard, MessageCircleQuestion, Smartphone } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';

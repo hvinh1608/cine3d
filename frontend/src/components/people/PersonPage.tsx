@@ -1,6 +1,6 @@
 'use client';
 
-import Image from 'next/image';
+import Image from '@/components/ui/ResilientImage';
 import Link from 'next/link';
 import { BellPlus, BellRing } from 'lucide-react';
 import { useEffect, useState } from 'react';

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
+import Image from '@/components/ui/ResilientImage';
 import { Play, Star, Plus, Calendar, Clock, Globe, Film, Send, Trash2, Heart, Video, X, Crown, BellRing, ListPlus } from 'lucide-react';
 import { useStore } from '../../../hooks/useStore';
 import MovieCardLandscape from '../../../components/ui/MovieCardLandscape';

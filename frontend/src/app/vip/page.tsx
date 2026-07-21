@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { AxiosError } from 'axios';
 import Link from 'next/link';
-import Image from 'next/image';
+import Image from '@/components/ui/ResilientImage';
 import Script from 'next/script';
 import { createPortal } from 'react-dom';
 import { BadgeCheck, Check, Clock3, Copy, Crown, Download, MonitorPlay, ReceiptText, ShieldCheck, Sparkles, X, Zap } from 'lucide-react';

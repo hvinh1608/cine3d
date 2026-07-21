@@ -1,6 +1,6 @@
 'use client';
 
-import Image from 'next/image';
+import Image from '@/components/ui/ResilientImage';
 import Link from 'next/link';
 import { Download, Flag, HelpCircle, Mail, ScanLine, ShieldCheck, Smartphone } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import Image from 'next/image';
+import Image from '@/components/ui/ResilientImage';
 import { BellRing, Check, Copy, ListPlus, LockKeyhole, MonitorSmartphone, Pencil, Plus, Trash2, UserRound, UsersRound, X } from 'lucide-react';
 import api from '../../lib/api';
 import { useStore, type ViewerProfile } from '../../hooks/useStore';
