@@ -20,7 +20,7 @@ export default function cloudinaryLoader({ src, width, quality }: ImageLoaderPro
     const source = new URL(src);
     if (
       source.hostname === 'phimimg.com'
-      && source.pathname === '/public/images/Post/1/invincible-nguon-goc-atom-eve.jpg'
+      && source.pathname.includes('/invincible-nguon-goc-atom-eve')
     ) {
       return '/invincible-atom-eve-poster.jpg';
     }
