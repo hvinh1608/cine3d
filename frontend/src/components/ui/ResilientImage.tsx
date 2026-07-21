@@ -19,11 +19,14 @@ export default function ResilientImage({ src, onError, unoptimized, ...props }: 
   const [failedSource, setFailedSource] = useState<string | null>(null);
   const source = typeof src === 'string' ? src : null;
   const useSourceFallback = source !== null && failedSource === source;
+  const resolvedSource = useSourceFallback
+    ? `/api/image-proxy?url=${encodeURIComponent(source)}`
+    : src;
 
   return (
     <NextImage
       {...props}
-      src={src}
+      src={resolvedSource}
       unoptimized={unoptimized || useSourceFallback}
       onError={(event) => {
         onError?.(event);
