@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import Image from '@/components/ui/ResilientImage';
-import { Play, Star, Plus, Check } from 'lucide-react';
+import { CircleAlert, Heart, Play, Star, Plus, Check } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import type { Movie } from '../../types/movie';
 
@@ -20,8 +21,42 @@ export default function MovieCard3D({ movie, onToggleFavorite, isFavorited = fal
   const [rotateY, setRotateY] = useState(0);
   const [glarePos, setGlarePos] = useState({ x: 50, y: 50 });
   const [hovered, setHovered] = useState(false);
+  const [previewAnchor, setPreviewAnchor] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  const openTimerRef = useRef<number | null>(null);
+  const closeTimerRef = useRef<number | null>(null);
   
   const cardRef = useRef<HTMLDivElement>(null);
+
+  const clearPreviewTimers = () => {
+    if (openTimerRef.current !== null) window.clearTimeout(openTimerRef.current);
+    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
+    openTimerRef.current = null;
+    closeTimerRef.current = null;
+  };
+
+  const keepPreviewOpen = () => {
+    if (closeTimerRef.current !== null) window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = null;
+  };
+
+  const schedulePreviewClose = () => {
+    if (openTimerRef.current !== null) window.clearTimeout(openTimerRef.current);
+    openTimerRef.current = null;
+    closeTimerRef.current = window.setTimeout(() => setPreviewAnchor(null), 180);
+  };
+
+  useEffect(() => {
+    if (!previewAnchor) return;
+    const closePreview = () => setPreviewAnchor(null);
+    window.addEventListener('scroll', closePreview, true);
+    window.addEventListener('resize', closePreview);
+    return () => {
+      window.removeEventListener('scroll', closePreview, true);
+      window.removeEventListener('resize', closePreview);
+    };
+  }, [previewAnchor]);
+
+  useEffect(() => () => clearPreviewTimers(), []);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (reduceMotion || !cardRef.current) return;
@@ -50,12 +85,19 @@ export default function MovieCard3D({ movie, onToggleFavorite, isFavorited = fal
 
   const handleMouseEnter = () => {
     setHovered(true);
+    keepPreviewOpen();
+    if (reduceMotion || !window.matchMedia('(hover: hover) and (pointer: fine) and (min-width: 1024px)').matches) return;
+    openTimerRef.current = window.setTimeout(() => {
+      const rect = cardRef.current?.getBoundingClientRect();
+      if (rect) setPreviewAnchor({ left: rect.left, top: rect.top, width: rect.width, height: rect.height });
+    }, 550);
   };
 
   const handleMouseLeave = () => {
     setHovered(false);
     setRotateX(0);
     setRotateY(0);
+    schedulePreviewClose();
   };
 
   // Card transform styles
@@ -179,6 +221,85 @@ export default function MovieCard3D({ movie, onToggleFavorite, isFavorited = fal
           </div>
         </div>
       </div>
+
+      {previewAnchor && createPortal(
+        <MovieHoverPreview
+          movie={movie}
+          anchor={previewAnchor}
+          isFavorited={isFavorited}
+          onToggleFavorite={onToggleFavorite}
+          onMouseEnter={keepPreviewOpen}
+          onMouseLeave={schedulePreviewClose}
+        />,
+        document.body,
+      )}
     </div>
+  );
+}
+
+function MovieHoverPreview({
+  movie,
+  anchor,
+  isFavorited,
+  onToggleFavorite,
+  onMouseEnter,
+  onMouseLeave,
+}: {
+  movie: Movie;
+  anchor: { left: number; top: number; width: number; height: number };
+  isFavorited: boolean;
+  onToggleFavorite?: Props['onToggleFavorite'];
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+}) {
+  const width = Math.min(576, window.innerWidth - 24);
+  const estimatedHeight = Math.min(570, window.innerHeight - 24);
+  const left = Math.min(Math.max(12, anchor.left + anchor.width / 2 - width / 2), window.innerWidth - width - 12);
+  const top = Math.min(Math.max(12, anchor.top + anchor.height / 2 - estimatedHeight / 2), window.innerHeight - estimatedHeight - 12);
+  const genres = movie.movieGenres?.slice(0, 3).map(({ genre }) => genre.name) || [];
+
+  return (
+    <article
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      style={{ left, top, width }}
+      className="fixed z-[100] hidden max-h-[calc(100vh-24px)] overflow-hidden rounded-2xl border border-white/10 bg-[#2a2d3d] text-left text-white opacity-100 shadow-[0_28px_90px_rgba(0,0,0,0.7)] transition duration-200 starting:scale-95 starting:opacity-0 lg:block"
+    >
+      <Link href={`/movies/${movie.slug}`} className="relative block aspect-[16/9] w-full overflow-hidden bg-slate-900">
+        <Image src={movie.backdropUrl || movie.posterUrl} alt={movie.title} fill sizes="576px" className="object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#2a2d3d] via-transparent to-black/10" />
+      </Link>
+
+      <div className="-mt-12 relative z-10 space-y-4 px-8 pb-7 pt-4">
+        <div>
+          <h3 className="text-2xl font-black leading-tight drop-shadow-lg">{movie.title}</h3>
+          {movie.englishTitle && <p className="mt-1 text-base font-medium text-amber-300">{movie.englishTitle}</p>}
+        </div>
+
+        <div className="grid grid-cols-[1fr_auto_auto] gap-3">
+          <Link href={`/movies/${movie.slug}`} className="flex h-14 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-200 to-amber-400 px-5 text-base font-black text-[#171923] transition hover:brightness-110">
+            <Play className="h-5 w-5 fill-current" /> Xem ngay
+          </Link>
+          {onToggleFavorite && (
+            <button type="button" onClick={() => onToggleFavorite(movie.id, movie)} className="flex h-14 items-center gap-2 rounded-xl border border-white/40 px-5 font-bold transition hover:bg-white/10">
+              {isFavorited ? <Check className="h-5 w-5 text-emerald-400" /> : <Heart className="h-5 w-5 fill-white" />} ThÃ­ch
+            </button>
+          )}
+          <Link href={`/movies/${movie.slug}`} className="flex h-14 items-center gap-2 rounded-xl border border-white/40 px-5 font-bold transition hover:bg-white/10">
+            <CircleAlert className="h-5 w-5 fill-white text-[#2a2d3d]" /> Chi tiáº¿t
+          </Link>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+          <span className="rounded-md border border-yellow-400 px-2 py-1 text-xs"><b className="text-yellow-300">IMDb</b> {movie.ratingAvg?.toFixed(1) || '8.0'}</span>
+          <span className="rounded-md bg-white px-2.5 py-1 text-black">T16</span>
+          <span className="rounded-md bg-white/10 px-2.5 py-1">{movie.releaseYear}</span>
+          <span className="rounded-md bg-white/10 px-2.5 py-1">{movie.isSeries ? 'Pháº§n 1' : 'Movie'}</span>
+          <span className="rounded-md bg-white/10 px-2.5 py-1">{movie.isSeries ? `Táº­p ${movie.episodeCount}` : 'Full'}</span>
+        </div>
+
+        {genres.length > 0 && <p className="flex flex-wrap gap-2 text-sm text-slate-200">{genres.map((genre, index) => <React.Fragment key={genre}>{index > 0 && <span className="text-slate-500">â€¢</span>}<span>{genre}</span></React.Fragment>)}</p>}
+      </div>
+    </article>
   );
 }
