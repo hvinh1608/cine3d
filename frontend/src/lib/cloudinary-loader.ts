@@ -18,6 +18,12 @@ type ImageLoaderProps = {
 export default function cloudinaryLoader({ src, width, quality }: ImageLoaderProps): string {
   try {
     const source = new URL(src);
+    if (
+      source.hostname === 'phimimg.com'
+      && source.pathname === '/public/images/Post/1/invincible-nguon-goc-atom-eve.jpg'
+    ) {
+      return '/invincible-atom-eve-poster.jpg';
+    }
     if (CLOUDINARY_FETCH_HOSTS.has(source.hostname)) {
       const transformations = [
         'f_auto',
