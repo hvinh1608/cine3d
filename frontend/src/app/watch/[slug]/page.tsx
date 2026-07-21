@@ -788,28 +788,28 @@ function WatchPageContent() {
   }
 
   return (
-    <div className={`flex-1 w-full pb-20 transition-all duration-700 ${lightsOff ? 'bg-black/95 z-40' : 'bg-transparent'}`}>
+    <div className={`flex-1 w-full pb-20 transition-all duration-700 ${lightsOff ? 'bg-black/95 z-40' : 'bg-[#191a22]'}`}>
       <style>{`video::cue { color: ${subtitleStyle.color}; font-size: ${subtitleStyle.fontSize}%; background: rgba(0, 0, 0, ${subtitleStyle.background / 100}); text-shadow: 0 2px 4px #000; }`}</style>
       
       {/* Return to Info Bar */}
-      <div className="max-w-7xl mx-auto px-4 md:px-8 pt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs md:text-sm font-semibold text-slate-400">
+      <div className="mx-auto flex max-w-[1500px] flex-col justify-between gap-3 px-4 pt-6 text-xs font-semibold text-slate-400 md:px-8 md:text-sm sm:flex-row sm:items-center">
         <Link href={`/movies/${movie.slug}`} className="flex items-center hover:text-white transition-colors">
           <ArrowLeft className="w-4 h-4 mr-1.5" /> Trở lại chi tiết phim
         </Link>
         <span className="text-slate-300 text-left sm:text-right truncate max-w-full">
           Đang xem: <span className="text-white font-bold">{movie.title}</span> {activeEpisode.title && ` - ${activeEpisode.title}`}
         </span>
-        <Link href={`/watch-together?slug=${encodeURIComponent(movie.slug)}&ep=${activeEpisode.episodeOrder}`} className="inline-flex items-center gap-1.5 rounded-full border border-red-500/40 px-3 py-1.5 text-xs font-bold text-red-300 hover:bg-red-500/10">
+        <Link href={`/watch-together?slug=${encodeURIComponent(movie.slug)}&ep=${activeEpisode.episodeOrder}`} className="inline-flex items-center gap-1.5 rounded-full border border-amber-300/40 bg-amber-300/10 px-4 py-2 text-xs font-bold text-amber-200 hover:bg-amber-300 hover:text-slate-950">
           <Users className="h-3.5 w-3.5" /> Xem chung
         </Link>
       </div>
 
-      <div className={`max-w-[1500px] mx-auto px-4 md:px-8 mt-6 grid grid-cols-1 ${theaterMode ? 'lg:grid-cols-1' : 'lg:grid-cols-4'} gap-6`}>
+      <div className={`mx-auto mt-5 grid max-w-[1500px] grid-cols-1 gap-6 px-4 md:px-8 ${theaterMode ? 'lg:grid-cols-1' : 'lg:grid-cols-[minmax(0,1fr)_350px]'}`}>
         
         {/* PLAYER AREA */}
-        <div className={theaterMode ? 'lg:col-span-1' : 'lg:col-span-3'}>
+        <div className="min-w-0">
           <div
-            className="relative w-full aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-white/5 shadow-2xl flex flex-col group focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            className="group relative flex aspect-video w-full flex-col overflow-hidden rounded-[24px] border border-white/10 bg-black shadow-[0_28px_80px_rgba(0,0,0,.55)] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#191a22]"
             ref={playerContainerRef}
             tabIndex={0}
             role="region"

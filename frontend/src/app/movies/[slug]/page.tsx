@@ -442,27 +442,28 @@ export default function MovieDetail() {
   const isFavorited = favoriteIds.includes(movie.id);
 
   return (
-    <div className="flex-1 w-full pb-20 relative select-none">
+    <div className="relative flex-1 w-full overflow-hidden bg-[#191a22] pb-24 select-none">
       
       {/* Blurred Backdrop Background */}
-      <div className="absolute top-0 left-0 w-full h-[60vh] -z-10 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-[#020205]/10 via-[#020205]/70 to-[#020205]" />
+      <div className="absolute left-0 top-0 -z-10 h-[78vh] w-full overflow-hidden">
+        <div className="absolute inset-0 z-10 bg-[linear-gradient(90deg,#191a22_0%,rgba(25,26,34,.72)_45%,rgba(25,26,34,.3)_100%)]" />
+        <div className="absolute inset-0 z-10 bg-gradient-to-b from-[#191a22]/10 via-[#191a22]/55 to-[#191a22]" />
         <Image
           src={movie.backdropUrl}
           alt={movie.title}
           fill
           priority
           sizes="100vw"
-          className="object-cover blur-md scale-105 opacity-40"
+          className="object-cover scale-[1.02] opacity-65"
         />
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 md:px-8 pt-10 flex flex-col lg:flex-row gap-10">
+      <div className="mx-auto flex max-w-[1500px] flex-col gap-8 px-4 pt-10 md:px-8 lg:flex-row lg:gap-12 lg:pt-16">
         
         {/* LEFT COLUMN: Floating 3D Poster */}
-        <div className="w-full lg:w-1/3 flex flex-col items-center">
+        <div className="flex w-full flex-col items-center lg:w-[340px] lg:shrink-0">
           <div
-            className="w-[280px] md:w-[320px] aspect-[2/3] rounded-2xl overflow-hidden shadow-[0_15px_35px_rgba(0,0,0,0.8)] border border-white/10 relative transition-transform duration-500 hover:scale-[1.03] group"
+            className="group relative aspect-[2/3] w-[280px] overflow-hidden rounded-[26px] border border-white/15 shadow-[0_24px_70px_rgba(0,0,0,.65)] transition-transform duration-500 hover:-translate-y-1 md:w-[320px]"
             style={{ transformStyle: 'preserve-3d', perspective: '1000px' }}
           >
             <Image src={movie.posterUrl} alt={movie.title} fill priority sizes="(max-width: 768px) 280px, 320px" className="object-cover" />
@@ -482,7 +483,7 @@ export default function MovieDetail() {
             <div className="flex space-x-3 w-full">
               <Link
                 href={`/watch/${movie.slug}`}
-                className="flex-grow flex items-center justify-center bg-red-600 text-white font-black py-3 rounded-full hover:bg-red-700 transition-all active:scale-95 shadow-[0_0_15px_rgba(220,38,38,0.3)] text-sm"
+                className="flex flex-grow items-center justify-center rounded-xl bg-gradient-to-r from-amber-300 to-yellow-400 py-3 font-black text-slate-950 shadow-[0_12px_30px_rgba(250,204,21,.18)] transition-all hover:brightness-105 active:scale-95 text-sm"
               >
                 <Play className="w-4 h-4 fill-current mr-2" /> Xem Phim
               </Link>
@@ -552,9 +553,9 @@ export default function MovieDetail() {
         <div className="flex-1 min-w-0 flex flex-col space-y-8">
           
           {/* Main Info Glass Panel */}
-          <div className="glass-panel p-6 md:p-8 rounded-3xl space-y-6 text-left shadow-2xl">
+          <div className="space-y-6 rounded-[28px] border border-white/10 bg-[#252832]/95 p-6 text-left shadow-[0_24px_70px_rgba(0,0,0,.28)] backdrop-blur-xl md:p-9">
             <div className="space-y-2">
-              <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white flex flex-wrap items-center gap-3">
+              <h1 className="flex flex-wrap items-center gap-3 text-3xl font-black tracking-[-0.035em] text-white md:text-5xl lg:text-6xl">
                 {movie.title}
                 {movie.isVip && (
                   <span className="bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black text-xs px-2.5 py-1 rounded-full uppercase tracking-widest shadow-[0_0_15px_rgba(245,158,11,0.4)]">
@@ -627,16 +628,16 @@ export default function MovieDetail() {
           </div>
 
           {/* Episode Selector Panel */}
-          <div className="glass-panel p-6 rounded-3xl text-left shadow-2xl">
+          <div className="rounded-[26px] border border-white/10 bg-[#252832] p-6 text-left shadow-xl">
             <h3 className="text-lg font-black tracking-wide uppercase mb-4 flex items-center">
-              <Film className="w-5 h-5 text-red-500 mr-2" /> Chọn Tập Phim
+              <Film className="mr-2 h-5 w-5 text-amber-300" /> Chọn Tập Phim
             </h3>
             <div className="flex flex-wrap gap-2.5">
               {movie.episodes?.map((episode) => (
                 <Link
                   key={episode.id}
                   href={`/watch/${movie.slug}?ep=${episode.episodeOrder}`}
-                  className="bg-slate-900/60 border border-white/10 hover:border-red-500 hover:bg-red-600 hover:text-white px-5 py-2.5 rounded-lg text-xs md:text-sm font-bold transition-all text-center min-w-[70px] active:scale-95"
+                  className="min-w-[70px] rounded-xl border border-white/10 bg-[#30333e] px-5 py-2.5 text-center text-xs font-bold transition-all hover:border-amber-300/60 hover:bg-amber-300 hover:text-slate-950 active:scale-95 md:text-sm"
                 >
                   {episode.title}
                 </Link>
@@ -646,7 +647,7 @@ export default function MovieDetail() {
 
           {/* Related Movies Carousel */}
           {relatedMovies.length > 0 && (
-            <div className="glass-panel p-6 rounded-3xl text-left shadow-2xl space-y-4">
+            <div className="space-y-4 rounded-[26px] border border-white/10 bg-[#252832] p-6 text-left shadow-xl">
               <div className="flex items-center space-x-2">
                 <div className="w-1 h-5 bg-yellow-500 rounded-full" />
                 <h3 className="text-lg font-black tracking-wide uppercase flex items-center text-white">
@@ -668,7 +669,7 @@ export default function MovieDetail() {
           )}
 
           {/* Comment & Interactive Reviews Segment */}
-          <div className="glass-panel p-6 rounded-3xl text-left shadow-2xl space-y-6">
+          <div className="space-y-6 rounded-[26px] border border-white/10 bg-[#252832] p-6 text-left shadow-xl">
             <h3 className="text-lg font-black tracking-wide uppercase flex items-center">
               Bình Luận ({comments.length})
             </h3>

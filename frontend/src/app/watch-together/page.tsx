@@ -301,13 +301,13 @@ export default function WatchTogetherPage() {
   };
 
   if (!user) {
-    return <main className="mx-auto flex min-h-[70vh] max-w-lg items-center px-4 py-12"><div className="glass-panel w-full rounded-3xl p-8 text-center"><Users className="mx-auto h-12 w-12 text-red-400" /><h1 className="mt-4 text-2xl font-black">Đăng nhập để xem chung</h1><p className="mt-2 text-sm text-slate-400">Phòng xem chung, trò chuyện và đồng bộ video chỉ dành cho thành viên.</p><Link href="/account" className="mt-6 block rounded-xl bg-red-600 py-3 text-sm font-black text-white">Đăng nhập / Đăng ký</Link></div></main>;
+    return <main className="mx-auto flex min-h-[70vh] max-w-lg items-center px-4 py-12"><div className="w-full rounded-[28px] border border-white/10 bg-[#252832] p-8 text-center shadow-2xl"><Users className="mx-auto h-12 w-12 text-amber-300" /><h1 className="mt-4 text-2xl font-black">Đăng nhập để xem chung</h1><p className="mt-2 text-sm text-slate-400">Phòng xem chung, trò chuyện và đồng bộ video chỉ dành cho thành viên.</p><Link href="/account" className="mt-6 block rounded-xl bg-amber-300 py-3 text-sm font-black text-slate-950">Đăng nhập / Đăng ký</Link></div></main>;
   }
 
   if (!started) {
     return <main className="mx-auto flex min-h-[70vh] max-w-xl items-center px-4 py-12">
-      <div className="glass-panel w-full space-y-5 rounded-3xl p-7 text-center">
-        <Users className="mx-auto h-12 w-12 text-red-400" />
+      <div className="w-full space-y-5 rounded-[28px] border border-white/10 bg-[#252832] p-7 text-center shadow-2xl">
+        <Users className="mx-auto h-12 w-12 text-amber-300" />
         <h1 className="text-2xl font-black text-white">Xem phim cùng nhau</h1>
         <p className="text-sm text-slate-400">Tạo phòng rồi gửi đường dẫn cho bạn bè để cùng xem.</p>
         <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Tên hiển thị" maxLength={30} className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white" />
@@ -320,7 +320,7 @@ export default function WatchTogetherPage() {
         </>}
         {!slug && <p className="text-xs text-amber-300">Hãy mở tính năng này từ trang xem phim.</p>}
         {error && <p className="text-sm text-red-400">{error}</p>}
-        <button disabled={!slug || (!initialRoomId && privateRoom && password.length < 4)} onClick={() => { setError(''); setStarted(true); }} className="w-full rounded-xl bg-red-600 py-3 font-bold text-white disabled:opacity-50">
+        <button disabled={!slug || (!initialRoomId && privateRoom && password.length < 4)} onClick={() => { setError(''); setStarted(true); }} className="w-full rounded-xl bg-amber-300 py-3 font-black text-slate-950 disabled:opacity-50">
           {initialRoomId ? 'Tham gia lại phòng' : 'Tạo phòng xem chung'}
         </button>
         <Link href={slug ? `/watch/${slug}?ep=${episode}` : '/'} className="block text-sm text-slate-400 hover:text-white"><ArrowLeft className="mr-1 inline h-4 w-4" /> Quay lại</Link>
@@ -328,22 +328,22 @@ export default function WatchTogetherPage() {
     </main>;
   }
 
-  return <main className="mx-auto max-w-7xl space-y-5 px-4 py-6 text-white md:px-8">
+  return <main className="mx-auto max-w-[1500px] space-y-5 px-4 py-6 text-white md:px-8">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <Link onClick={() => socketRef.current?.emit('room:leave')} href={movie ? `/watch/${movie.slug}?ep=${roomEpisode}` : '/'} className="text-sm text-slate-400 hover:text-white"><ArrowLeft className="mr-1 inline h-4 w-4" /> Thoát phòng</Link>
       <span className={`rounded-full px-3 py-1 text-xs ${connected ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'}`}>{connected ? 'Đã kết nối' : 'Đang kết nối lại...'}</span>
     </div>
 
-    <div className="flex flex-wrap items-end justify-between gap-3">
-      <div><h1 className="text-2xl font-black">{movie?.title || 'Phòng xem chung'}</h1><p className="text-sm text-slate-400">Mã phòng: <b className="text-red-300">{roomId}</b></p></div>
+    <div className="flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-white/10 bg-[#252832] p-4 md:p-5">
+      <div><h1 className="text-2xl font-black">{movie?.title || 'Phòng xem chung'}</h1><p className="text-sm text-slate-400">Mã phòng: <b className="text-amber-300">{roomId}</b></p></div>
       <div className="flex gap-2">
         <button onClick={copyInvite} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-white/5"><Copy className="h-3.5 w-3.5" /> Sao chép link</button>
         {isHost && <button onClick={closeRoom} className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/10"><XCircle className="h-3.5 w-3.5" /> Đóng phòng</button>}
       </div>
     </div>
 
-    <div className="grid gap-5 lg:grid-cols-[1fr_320px]">
-      <section className="relative overflow-hidden rounded-2xl border border-white/10 bg-black shadow-2xl">
+    <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <section className="relative overflow-hidden rounded-[24px] border border-white/10 bg-black shadow-[0_28px_80px_rgba(0,0,0,.55)]">
         <video ref={videoRef} controls={isHost} muted={!isHost && !soundEnabled} playsInline preload="auto" className="aspect-video w-full" onLoadedMetadata={() => { if (!isHost) applyGuestPlayback(state); }} onCanPlay={() => { if (!isHost) applyGuestPlayback(state); }} onError={() => setPlayerError('Không thể tải nguồn video.')} onPlay={() => isHost && control('play')} onPause={() => isHost && control('pause')} onSeeked={() => isHost && control('seek')} />
         {playerError && <div className="absolute left-1/2 top-4 -translate-x-1/2 rounded-lg bg-red-950/90 px-4 py-2 text-xs text-red-200">{playerError}</div>}
         {!isHost && (!soundEnabled || playbackBlocked || !state.playing) && <button onClick={() => { const video = videoRef.current; setSoundEnabled(true); setPlaybackBlocked(false); if (video) { video.muted = false; if (state.playing) void video.play().catch(() => setPlaybackBlocked(true)); } }} className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-red-600 px-4 py-2 text-xs font-bold shadow-lg">
@@ -357,7 +357,7 @@ export default function WatchTogetherPage() {
         </div>
       </section>
 
-      <aside className="glass-panel space-y-4 rounded-2xl p-4">
+      <aside className="space-y-4 rounded-[24px] border border-white/10 bg-[#252832] p-5 shadow-xl">
         {isHost && movie?.episodes && movie.episodes.length > 1 && <label className="block"><span className="mb-2 flex items-center gap-2 text-sm font-bold"><ListVideo className="h-4 w-4 text-purple-400" /> Tập đang chiếu</span><select value={roomEpisode} onChange={(event) => changeEpisode(Number(event.target.value))} className="w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-xs outline-none">{movie.episodes.map((item) => <option key={item.id} value={item.episodeOrder}>{item.title}</option>)}</select></label>}
         <div><h2 className="flex items-center gap-2 font-bold"><Users className="h-4 w-4 text-red-400" /> Đang xem ({users.length})</h2><div className="mt-2 space-y-1 text-sm text-slate-300">{users.map((item) => <div key={item.id} className="flex items-center justify-between gap-2 rounded-lg px-1 py-0.5"><span>• {item.name}{item.id === hostId ? ' (chủ phòng)' : ''}</span>{isHost && item.id !== socketId && <button onClick={() => kickUser(item)} title="Mời khỏi phòng" className="text-slate-600 hover:text-red-400"><UserMinus className="h-3.5 w-3.5" /></button>}</div>)}</div></div>
         <div><h2 className="flex items-center gap-2 font-bold"><MessageCircle className="h-4 w-4 text-red-400" /> Chat</h2><div className="mt-2 h-48 space-y-2 overflow-y-auto rounded-xl bg-black/20 p-2 text-xs">{messages.map((item, index) => <p key={`${item.name}-${index}`}><b className="text-red-300">{item.name}:</b> {item.message}</p>)}</div><form onSubmit={submitMessage} className="mt-2 flex gap-2"><input value={message} onChange={(event) => setMessage(event.target.value)} maxLength={300} placeholder="Nhắn tin..." className="min-w-0 flex-1 rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-xs" /><button className="rounded-lg bg-red-600 px-3" aria-label="Gửi tin nhắn"><Send className="h-4 w-4" /></button></form></div>
