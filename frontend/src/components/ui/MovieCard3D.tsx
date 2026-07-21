@@ -123,7 +123,7 @@ export default function MovieCard3D({ movie, onToggleFavorite, isFavorited = fal
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       style={cardStyle}
-      className="relative aspect-[2/3] w-full rounded-2xl overflow-hidden cursor-pointer bg-slate-900 border border-white/10 shadow-2xl transition-shadow duration-500 hover:shadow-[0_0_25px_rgba(157,0,255,0.4)] group"
+      className="group relative aspect-[2/3] w-full cursor-pointer overflow-hidden rounded-2xl border-[3px] border-white/10 bg-slate-900 shadow-2xl transition-[border-color,box-shadow] duration-300 hover:border-amber-300 hover:shadow-[0_0_0_1px_rgba(252,211,77,.3),0_0_24px_rgba(245,158,11,.28)]"
     >
       {/* Glare effect */}
       {hovered && !reduceMotion && (
