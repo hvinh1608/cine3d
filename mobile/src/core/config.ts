@@ -1,5 +1,5 @@
 const DEFAULT_API_URL = 'https://api.cine3d.id.vn/api';
-const DEFAULT_GOOGLE_CLIENT_ID = '351178371430-1bum195duljbh950btqqvk8c2tamjcb6.apps.googleusercontent.com';
+const DEFAULT_GOOGLE_CLIENT_ID = '104598107149-gsaf243g0bf77dm5c3m3tbfaa0ni1caj.apps.googleusercontent.com';
 
 function normalizeUrl(value: string): string {
   return value.trim().replace(/\/+$/, '');
