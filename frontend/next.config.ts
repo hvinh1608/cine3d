@@ -37,11 +37,10 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
-    // Movie catalogs generate far more variants than Vercel's image quota can
-    // sustainably serve. Images are already cached by the allow-listed backend
-    // proxy, so bypass /_next/image and load both local assets and proxy URLs
-    // directly instead of letting a quota failure blank the entire catalog.
-    unoptimized: true,
+    // Use Cloudinary directly as the responsive image CDN. This bypasses
+    // Vercel's exhausted /_next/image quota while retaining width-aware srcsets.
+    loader: 'custom',
+    loaderFile: './src/lib/cloudinary-loader.ts',
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
