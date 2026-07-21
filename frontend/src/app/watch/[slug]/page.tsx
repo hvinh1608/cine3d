@@ -113,6 +113,7 @@ function WatchPageContent() {
   const timelineFramesRef = useRef(new Map<number, string>());
   const lastCapturedFrameRef = useRef(-1);
   const settingsWasOpenRef = useRef(false);
+  const pendingSourceResumeRef = useRef<{ episodeId: string; time: number; shouldPlay: boolean } | null>(null);
 
   useEffect(() => {
     try {
@@ -280,15 +281,31 @@ function WatchPageContent() {
     });
   }, [movie, activeEpOrder]);
 
+  const changePlaybackSource = useCallback((source: VideoSource) => {
+    if (source.id === activeSource?.id) return;
+    const video = videoRef.current;
+    if (video && activeEpisode) {
+      pendingSourceResumeRef.current = {
+        episodeId: activeEpisode.id,
+        time: video.currentTime,
+        shouldPlay: !video.paused && !video.ended,
+      };
+    }
+    setActiveSource(source);
+  }, [activeEpisode, activeSource?.id]);
+
   // Load Video source HLS / MP4
   useEffect(() => {
     if (!videoRef.current || !activeSource) return;
 
     const video = videoRef.current;
 
-    // Every episode has its own timeline; never carry the previous episode's time over.
-    video.currentTime = 0;
-    setCurrentTime(0);
+    const isServerSwitch = pendingSourceResumeRef.current?.episodeId === activeEpisode?.id;
+    // Every episode has its own timeline; only a server switch carries time over.
+    if (!isServerSwitch) {
+      video.currentTime = 0;
+      setCurrentTime(0);
+    }
 
     // Clear previous Hls instance
     if (hlsRef.current) {
@@ -337,6 +354,11 @@ function WatchPageContent() {
           if (fallback) {
             showToast(`Server ${activeSource.server} lỗi, đang chuyển sang ${fallback.server}.`, 'info');
             void axios.post('/analytics/events', { name: 'server_fallback', path: window.location.pathname, movieId: movie?.id, metadata: { from: activeSource.server, to: fallback.server, details: data.details } }).catch(() => undefined);
+            pendingSourceResumeRef.current = {
+              episodeId: activeEpisode?.id || '',
+              time: video.currentTime,
+              shouldPlay: !video.paused && !video.ended,
+            };
             setActiveSource(fallback);
           }
         });
@@ -354,7 +376,7 @@ function WatchPageContent() {
 
     // Auto-resume from watch history if logged in
     const fetchHistoryAndResume = async () => {
-      if (user && accessToken && movie) {
+      if (!isServerSwitch && user && accessToken && movie) {
         try {
           const res = await axios.get(`${API_URL}/user/history`, {
             headers: { Authorization: `Bearer ${accessToken}` }
@@ -579,7 +601,20 @@ function WatchPageContent() {
 
   const handleLoadedMetadata = () => {
     if (!videoRef.current) return;
-    setDuration(videoRef.current.duration);
+    const video = videoRef.current;
+    setDuration(video.duration);
+    const pendingResume = pendingSourceResumeRef.current;
+    if (pendingResume && pendingResume.episodeId === activeEpisode?.id) {
+      const safeTime = Number.isFinite(video.duration)
+        ? Math.min(pendingResume.time, Math.max(0, video.duration - 0.25))
+        : pendingResume.time;
+      video.currentTime = safeTime;
+      setCurrentTime(safeTime);
+      pendingSourceResumeRef.current = null;
+      if (pendingResume.shouldPlay) {
+        void video.play().catch(() => setPlaying(false));
+      }
+    }
   };
 
   const handleVideoPlay = () => {
@@ -1101,7 +1136,7 @@ function WatchPageContent() {
                               <button
                                 key={source.id}
                                 onClick={() => {
-                                  setActiveSource(source);
+                                  changePlaybackSource(source);
                                   setShowSettings(false);
                                   setSettingsTab('main');
                                 }}
@@ -1379,7 +1414,7 @@ function WatchPageContent() {
             activeEpisode={activeEpisode}
             activeSource={activeSource}
             user={user}
-            onSourceChange={setActiveSource}
+            onSourceChange={changePlaybackSource}
           />
         )}
       </div>
