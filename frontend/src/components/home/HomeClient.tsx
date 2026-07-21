@@ -138,16 +138,11 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
     const catalogEmpty = initialData.movies.length === 0
       && initialData.trending.length === 0
       && initialData.proposed.length === 0;
-    if (!catalogEmpty) return;
+    // Only auto-retry when SSR returned nothing useful (or a hard load error).
+    if (!catalogEmpty && !initialData.loadError) return;
     catalogRetryStarted.current = true;
     setReloadKey(1);
-  }, [initialData.movies.length, initialData.proposed.length, initialData.trending.length]);
-
-  useEffect(() => {
-    if (catalogRetryStarted.current || allMovies.length > 0) return;
-    catalogRetryStarted.current = true;
-    setReloadKey((key) => (key === 0 ? 1 : key + 1));
-  }, [allMovies.length]);
+  }, [initialData.loadError, initialData.movies.length, initialData.proposed.length, initialData.trending.length]);
 
   useEffect(() => {
     // Watch history must not force the public movie catalog to refetch after login.
@@ -190,7 +185,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
         }
       });
     return () => controller.abort();
-  }, [accessToken, authReady, hasHydrated, user, watchHistory.length]);
+  }, [authReady, hasHydrated, user]);
 
   // Parallax backdrop tracking
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {

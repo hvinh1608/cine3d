@@ -197,15 +197,11 @@ function WatchPageContent() {
     });
   }, [playing, triggerControls]);
 
-  // Fetch Movie details
+  // Fetch Movie details (do not refetch when accessToken rotates after refresh).
   useEffect(() => {
     const fetchMovie = async () => {
       try {
-        const headers: Record<string, string> = {};
-        if (accessToken) {
-          headers.Authorization = `Bearer ${accessToken}`;
-        }
-        const res = await axios.get(`${API_URL}/movies/${slug}`, { headers });
+        const res = await axios.get(`${API_URL}/movies/${slug}`);
         setMovie(res.data as PlaybackMovie);
       } catch (error) {
         console.warn('Failed to load movie for playback.', error);
@@ -218,7 +214,7 @@ function WatchPageContent() {
     if (slug) {
       fetchMovie();
     }
-  }, [slug, accessToken]);
+  }, [slug]);
 
   // Selecting another episode must not refetch and resync the entire movie.
   useEffect(() => {

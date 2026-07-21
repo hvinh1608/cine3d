@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { RefreshControl, StyleSheet, View } from 'react-native';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
@@ -17,6 +17,7 @@ export function BrowseScreen({ kind, value }: { kind: BrowseKind; value: string 
   const { gridColumns, cardWidth } = useMovieGridLayout(spacing.md, spacing.sm);
   const [page, setPage] = useState(1);
   const listRef = useRef<FlashListRef<Movie>>(null);
+  const forceNetworkRef = useRef(false);
   const query = useMemo<Omit<MovieQuery, 'page'>>(() => ({
     limit: 24,
     ...(kind === 'genre' && typeof value === 'string' ? { genre: value } : {}),
@@ -26,10 +27,21 @@ export function BrowseScreen({ kind, value }: { kind: BrowseKind; value: string 
   }), [kind, value]);
   const movies = useQuery({
     queryKey: discoveryKeys.movies({ ...query, page }),
-    queryFn: ({ signal }) => discoveryRepository.getMovies({ ...query, page }, { signal }),
+    queryFn: ({ signal }) => discoveryRepository.getMovies(
+      { ...query, page },
+      { signal, forceNetwork: forceNetworkRef.current },
+    ),
     enabled: value !== null,
     placeholderData: keepPreviousData,
   });
+  const refresh = useCallback(async () => {
+    forceNetworkRef.current = true;
+    try {
+      await movies.refetch();
+    } finally {
+      forceNetworkRef.current = false;
+    }
+  }, [movies]);
   const data = movies.data?.movies ?? [];
   const title = kind === 'genre' ? 'Thể loại' : kind === 'country' ? 'Quốc gia' : 'Năm phát hành';
   const displayValue = typeof value === 'string' ? value.replaceAll('-', ' ') : value;
@@ -52,10 +64,10 @@ export function BrowseScreen({ kind, value }: { kind: BrowseKind; value: string 
         ListEmptyComponent={movies.isPending
           ? <MovieRailSkeleton />
           : movies.error
-            ? <View style={styles.error}><EmptyState title="Không thể tải danh mục" message={movies.error.message} /><Button onPress={() => void movies.refetch()}>Thử lại</Button></View>
+            ? <View style={styles.error}><EmptyState title="Không thể tải danh mục" message={movies.error.message} /><Button onPress={() => void refresh()}>Thử lại</Button></View>
             : <EmptyState title="Chưa có phim" message="Danh mục này hiện chưa có nội dung." />}
         ListFooterComponent={<PaginationControls page={movies.data?.page ?? page} totalPages={movies.data?.totalPages ?? 1} disabled={movies.isFetching} onPage={(nextPage) => { setPage(nextPage); listRef.current?.scrollToOffset({ offset: 0, animated: true }); }} />}
-        refreshControl={<RefreshControl refreshing={movies.isRefetching} onRefresh={() => void movies.refetch()} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={movies.isRefetching} onRefresh={() => void refresh()} tintColor={colors.primary} />}
         contentContainerStyle={styles.content}
       />
     </Screen>

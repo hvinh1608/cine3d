@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { AuthTokens } from '@/data/auth/token-storage';
 import { tokenStorage } from '@/data/auth/token-storage';
+import { bumpSessionEpoch } from '@/data/auth/session-epoch';
 import type { Profile, User } from '@/domain/models';
 import { defaultPreferences, settingsStorage, type AppPreferences } from '@/features/account/data/settings-storage';
 
@@ -71,6 +72,7 @@ export const useAppStore = create<AppStore>((set) => ({
     await settingsStorage.save(next);
   },
   logout: async () => {
+    bumpSessionEpoch();
     try {
       await tokenStorage.clear();
     } finally {

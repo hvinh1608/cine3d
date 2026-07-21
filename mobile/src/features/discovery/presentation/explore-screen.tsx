@@ -53,13 +53,14 @@ export function ExploreScreen() {
 
   useEffect(() => { void cacheRepository.getRecentSearches().then(setRecents); }, []);
 
+  const forceNetworkRef = useRef(false);
   const genres = useQuery({
     queryKey: discoveryKeys.metadata('genres'),
-    queryFn: () => discoveryRepository.getGenres(),
+    queryFn: () => discoveryRepository.getGenres({ forceNetwork: forceNetworkRef.current }),
   });
   const countries = useQuery({
     queryKey: discoveryKeys.metadata('countries'),
-    queryFn: () => discoveryRepository.getCountries(),
+    queryFn: () => discoveryRepository.getCountries({ forceNetwork: forceNetworkRef.current }),
   });
   const baseQuery = useMemo<Omit<MovieQuery, 'page'>>(() => ({
     limit: PAGE_SIZE,
@@ -70,7 +71,7 @@ export function ExploreScreen() {
     queryKey: discoveryKeys.movies({ ...baseQuery, page }),
     queryFn: ({ signal }) => discoveryRepository.getMovies(
       { ...baseQuery, page },
-      { signal },
+      { signal, forceNetwork: forceNetworkRef.current },
     ),
     placeholderData: keepPreviousData,
   });
@@ -93,11 +94,12 @@ export function ExploreScreen() {
     setRecents(await cacheRepository.getRecentSearches());
   }, [search]);
   const refresh = useCallback(async () => {
-    await Promise.all([
-      movies.refetch(),
-      genres.refetch(),
-      countries.refetch(),
-    ]);
+    forceNetworkRef.current = true;
+    try {
+      await Promise.all([movies.refetch(), genres.refetch(), countries.refetch()]);
+    } finally {
+      forceNetworkRef.current = false;
+    }
   }, [countries, genres, movies]);
   const renderMovie = useCallback(({ item }: { item: Movie }) => (
     layout === 'grid' ? (

@@ -386,6 +386,7 @@ export const getHome = async (_req: Request, res: Response) => {
       ? newestMovies
       : (trendingMovies.length > 0 ? trendingMovies : proposed.items.map((item) => mapListItem(item, proposed.cdn)));
 
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300');
     return res.json({
       banners: bannerMovies.slice(0, 8).map((movie, index) => ({
         id: `kk-banner-${movie.slug}`,
@@ -414,6 +415,7 @@ export const getHome = async (_req: Request, res: Response) => {
       partial: failures.length > 0,
     });
   } catch (error: any) {
+    res.setHeader('Cache-Control', 'no-store');
     const status = error instanceof KkphimError ? error.status : 500;
     return internalError(res, 'Error retrieving home movies.', error, status);
   }

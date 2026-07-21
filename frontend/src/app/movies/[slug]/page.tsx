@@ -119,11 +119,9 @@ export default function MovieDetail() {
           setRelatedMovies([]);
         }
 
-        // Comments API expects movie UUID
+        // Comments API expects movie UUID (auth header comes from api interceptor when present).
         try {
-          const commentsRes = await axios.get(`${API_URL}/movies/${movieRes.data.id}/comments`, {
-            headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
-          });
+          const commentsRes = await axios.get(`${API_URL}/movies/${movieRes.data.id}/comments`);
           setComments(commentsRes.data);
         } catch {
           setComments([]);
@@ -131,18 +129,6 @@ export default function MovieDetail() {
 
         // Increment view count
         axios.post(`${API_URL}/movies/${movieRes.data.id}/view`).catch(() => {});
-
-        // Fetch user rating if logged in
-        if (user && accessToken) {
-          try {
-            const ratingRes = await axios.get(`${API_URL}/movies/${movieRes.data.id}/ratings/me`, {
-              headers: { Authorization: `Bearer ${accessToken}` }
-            });
-            setUserRating(ratingRes.data.score);
-          } catch {
-            setUserRating(null);
-          }
-        }
       } catch (error) {
         console.warn('Failed to load movie detail.', error);
         setMovie(null);
@@ -157,7 +143,21 @@ export default function MovieDetail() {
     if (slug) {
       fetchMovieData();
     }
-  }, [slug, user, accessToken]);
+  }, [slug]);
+
+  useEffect(() => {
+    if (!movie?.id || !user) {
+      setUserRating(null);
+      return;
+    }
+    let active = true;
+    axios.get(`${API_URL}/movies/${movie.id}/ratings/me`).then((ratingRes) => {
+      if (active) setUserRating(ratingRes.data.score);
+    }).catch(() => {
+      if (active) setUserRating(null);
+    });
+    return () => { active = false; };
+  }, [movie?.id, user]);
 
   useEffect(() => {
     if (!user || !movie?.id) return;

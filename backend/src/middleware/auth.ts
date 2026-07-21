@@ -54,7 +54,11 @@ export const authenticateToken = async (
   try {
     decoded = decodeAccessToken(token);
   } catch {
-    return res.status(403).json({ message: 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.' });
+    // 401 so mobile/web interceptors refresh instead of treating this as forbidden.
+    return res.status(401).json({
+      message: 'Phiên đăng nhập không hợp lệ hoặc đã hết hạn.',
+      code: 'TOKEN_EXPIRED',
+    });
   }
 
   try {

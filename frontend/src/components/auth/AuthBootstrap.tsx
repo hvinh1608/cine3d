@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import api, { isAuthFailure, refreshSession } from '../../lib/api';
+import api, { isAuthFailure, logoutOnce, refreshSession } from '../../lib/api';
 import { useStore } from '../../hooks/useStore';
 import { loadFavorites } from '../../lib/user-library';
 
@@ -24,7 +24,6 @@ export default function AuthBootstrap() {
   const authReady = useStore((state) => state.authReady);
   const user = useStore((state) => state.user);
   const setAuthReady = useStore((state) => state.setAuthReady);
-  const logout = useStore((state) => state.logout);
   const selectedProfileId = useStore((state) => state.selectedProfileId);
   const skipProfileFavoriteReload = useRef(true);
 
@@ -38,14 +37,20 @@ export default function AuthBootstrap() {
     bootstrapFlight ??= (async () => {
       try {
         await restoreSession();
+        const { accessToken, user: nextUser } = useStore.getState();
+        // Persisted user without a restored token is not a usable session.
+        if (nextUser && !accessToken) await logoutOnce();
       } catch (error) {
-        if (isAuthFailure(error)) logout();
+        // Auth failures clear the session; network blips keep the user shell
+        // only when a later request can still refresh the cookie.
+        if (isAuthFailure(error)) await logoutOnce();
+        else if (!useStore.getState().accessToken) await logoutOnce();
       } finally {
         useStore.getState().setAuthReady(true);
         bootstrapFlight = null;
       }
     })();
-  }, [authReady, hasHydrated, logout, setAuthReady, user]);
+  }, [authReady, hasHydrated, setAuthReady, user]);
 
   useEffect(() => {
     if (!authReady || !user) return;

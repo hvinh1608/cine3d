@@ -42,7 +42,7 @@ export function AppProviders({ children }: PropsWithChildren) {
   useEffect(() => {
     void useAppStore.getState().hydrateSession().then(async () => {
       if (!useAppStore.getState().session.tokens.refreshToken) return;
-      await syncSessionOnResume();
+      await syncSessionOnResume(true);
       try {
         useAppStore.getState().setUser(await accountApi.me());
       } catch {
@@ -58,6 +58,7 @@ export function AppProviders({ children }: PropsWithChildren) {
       focusManager.setFocused(status === 'active');
       if (status === 'active') {
         void flushPerformanceEvents();
+        // Throttled resume sync — avoids rotating refresh tokens on every app switch.
         void syncSessionOnResume().then(async () => {
           if (!useAppStore.getState().session.tokens.refreshToken) return;
           try {

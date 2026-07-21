@@ -154,9 +154,13 @@ export const useStore = create<AppState>()(persist((set, get) => ({
     user: state.user,
     reduceMotion: state.reduceMotion,
     selectedProfileId: state.selectedProfileId,
+    // Persist IDs only as a fast UI hint; AuthBootstrap reloads the truth from API.
     favoriteIds: state.favoriteIds,
   }),
   onRehydrateStorage: () => (state) => {
+    if (!state?.user) {
+      useStore.setState({ favorites: [], favoriteIds: [] });
+    }
     state?.setHasHydrated(true);
     if (!state?.user) state?.setAuthReady(true);
   },

@@ -1,6 +1,7 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { config } from '@/core/config';
 import { ApiError, type ApiErrorPayload, type User } from '@/domain/models';
+import { bumpSessionEpoch, getSessionEpoch } from '@/data/auth/session-epoch';
 import { tokenStorage } from '@/data/auth/token-storage';
 import { useAppStore } from '@/state/app-store';
 import { redactErrorMessage } from '@/core/reliability';
@@ -35,9 +36,12 @@ export const apiClient = axios.create({
 });
 
 let refreshFlight: Promise<string> | null = null;
+let lastResumeSyncAt = 0;
+const RESUME_SYNC_MIN_INTERVAL_MS = 10 * 60_000;
 
 async function refreshAccessToken(): Promise<string> {
   if (refreshFlight) return refreshFlight;
+  const epoch = getSessionEpoch();
   refreshFlight = (async () => {
     const stored = await tokenStorage.getTokens();
     if (!stored.refreshToken) throw new ApiError('Session expired', 401, 'SESSION_EXPIRED');
@@ -55,9 +59,17 @@ async function refreshAccessToken(): Promise<string> {
       },
     );
     if (!data.accessToken) throw new ApiError('Invalid refresh response', 401, 'SESSION_EXPIRED');
+    if (epoch !== getSessionEpoch()) throw new ApiError('Session superseded', 401, 'SESSION_EXPIRED');
 
     const nextRefreshToken = data.refreshToken ?? stored.refreshToken;
+    // Abort before writing storage if the user logged out mid-flight.
+    if (epoch !== getSessionEpoch()) throw new ApiError('Session superseded', 401, 'SESSION_EXPIRED');
     await tokenStorage.saveTokens({ accessToken: data.accessToken, refreshToken: nextRefreshToken });
+    if (epoch !== getSessionEpoch()) {
+      await tokenStorage.clear().catch(() => undefined);
+      throw new ApiError('Session superseded', 401, 'SESSION_EXPIRED');
+    }
+
     useAppStore.setState((state) => ({
       session: {
         ...state.session,
@@ -72,9 +84,12 @@ async function refreshAccessToken(): Promise<string> {
   return refreshFlight;
 }
 
-export async function syncSessionOnResume(): Promise<void> {
+export async function syncSessionOnResume(force = false): Promise<void> {
   const refreshToken = useAppStore.getState().session.tokens.refreshToken;
   if (!refreshToken) return;
+  const now = Date.now();
+  if (!force && now - lastResumeSyncAt < RESUME_SYNC_MIN_INTERVAL_MS) return;
+  lastResumeSyncAt = now;
   try {
     await refreshAccessToken();
   } catch (error) {
@@ -100,7 +115,11 @@ apiClient.interceptors.response.use(
   async (error: AxiosError<ApiErrorPayload>) => {
     const request = error.config as RetriableRequest | undefined;
     const isAuthEndpoint = request?.url?.includes('/auth/login') || request?.url?.includes('/auth/refresh');
-    if (error.response?.status === 401 && request && !request._authRetried && !isAuthEndpoint) {
+    const status = error.response?.status;
+    const code = error.response?.data?.code;
+    const shouldRefresh = status === 401
+      || (status === 403 && (code === 'TOKEN_EXPIRED' || code === 'SESSION_EXPIRED'));
+    if (shouldRefresh && request && !request._authRetried && !isAuthEndpoint) {
       request._authRetried = true;
       try {
         request.headers.Authorization = `Bearer ${await refreshAccessToken()}`;

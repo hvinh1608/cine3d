@@ -1,4 +1,4 @@
-const DEFAULT_API_URL = 'https://cine3d.id.vn/api';
+const DEFAULT_API_URL = 'https://api.cine3d.id.vn/api';
 const DEFAULT_GOOGLE_CLIENT_ID = '351178371430-1bum195duljbh950btqqvk8c2tamjcb6.apps.googleusercontent.com';
 
 function normalizeUrl(value: string): string {
@@ -16,7 +16,7 @@ export const config = Object.freeze({
     .filter(Boolean),
   requestTimeoutMs: 15_000,
   queryStaleTimeMs: 5 * 60_000,
-  queryGcTimeMs: 24 * 60 * 60_000,
+  queryGcTimeMs: 45 * 60_000,
 });
 
 export { DEFAULT_API_URL, DEFAULT_GOOGLE_CLIENT_ID, normalizeUrl };
