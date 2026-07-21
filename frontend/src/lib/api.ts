@@ -1,5 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { useStore } from '../hooks/useStore';
+import { rewriteImageUrls } from './image-url';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const api = axios.create({ baseURL: API_URL, timeout: 20_000, withCredentials: true });
@@ -75,7 +76,7 @@ api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
 });
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => { response.data = rewriteImageUrls(response.data); return response; },
   async (error: AxiosError<{ code?: string }>) => {
     const original = error.config as (InternalAxiosRequestConfig & { _authRetried?: boolean }) | undefined;
     const status = error.response?.status;

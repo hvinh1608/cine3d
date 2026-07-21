@@ -5,13 +5,19 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
-import { Play, Pause, Volume2, VolumeX, Maximize, RotateCcw, ChevronRight, ChevronLeft, ListVideo, Server, LightbulbOff, ArrowLeft, Subtitles, Gauge, Tv, Settings, Maximize2, Lock, Crown, Download, Users, Share2, Info, Star, PictureInPicture2, Search, Flag, Wifi } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, Maximize2, RotateCcw, ChevronRight, ChevronLeft, ListVideo, LightbulbOff, ArrowLeft, Subtitles, Gauge, Tv, Settings, Lock, Crown, Download, Users } from 'lucide-react';
 import { useStore } from '../../../hooks/useStore';
 import axios from '../../../lib/api';
 import type { Episode, Movie, VideoSource } from '../../../types/movie';
 
 const MovieComments = dynamic(() => import('../../../components/community/MovieComments'), {
   loading: () => <div className="mt-8 h-48 animate-pulse rounded-3xl bg-white/5" />,
+});
+const WatchMovieInfo = dynamic(() => import('../../../components/watch/WatchMovieInfo'), {
+  loading: () => <div className="mt-3 h-64 animate-pulse rounded-2xl bg-white/5" />,
+});
+const WatchSidebar = dynamic(() => import('../../../components/watch/WatchSidebar'), {
+  loading: () => <div className="h-48 animate-pulse rounded-2xl bg-white/5" />,
 });
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
@@ -78,8 +84,6 @@ function WatchPageContent() {
   const [subtitleStyle, setSubtitleStyle] = useState({ fontSize: 100, color: '#ffffff', background: 65, offset: 0, position: 85 });
   const [preferencesReady, setPreferencesReady] = useState(false);
   const [dataSaver, setDataSaver] = useState(false);
-  const [episodeQuery, setEpisodeQuery] = useState('');
-  const [selectedSeason, setSelectedSeason] = useState(1);
   const [timelinePreview, setTimelinePreview] = useState<TimelinePreview>({ visible: false, time: 0, position: 0, image: null });
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -223,7 +227,6 @@ function WatchPageContent() {
     queueMicrotask(() => {
       setActiveEpisode(episode);
       setActiveSource(episode?.videoSources?.[0] || null);
-      setSelectedSeason(episode?.seasonNumber || 1);
     });
   }, [movie, activeEpOrder]);
 
@@ -714,12 +717,6 @@ function WatchPageContent() {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  const seasonNumbers = Array.from(new Set((movie?.episodes || []).map((episode) => episode.seasonNumber || 1))).sort((a, b) => a - b);
-  const visibleEpisodes = (movie?.episodes || []).filter((episode) => {
-    const matchesSeason = (episode.seasonNumber || 1) === selectedSeason;
-    const query = episodeQuery.trim().toLocaleLowerCase('vi');
-    return matchesSeason && (!query || episode.title.toLocaleLowerCase('vi').includes(query) || String(episode.episodeOrder) === query);
-  });
 
   if (!movie || !activeEpisode) {
     return (
@@ -1270,85 +1267,30 @@ function WatchPageContent() {
             )}
           </div>
 
-          {/* Quick actions under the player */}
-          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-white/5 bg-slate-950/70 p-2.5 text-[11px] font-bold text-slate-400 shadow-lg backdrop-blur">
-            <Link href={`/movies/${movie.slug}`} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-white/5 hover:text-white"><Info className="h-3.5 w-3.5" /> Thông tin phim</Link>
-            <Link href={`/watch-together?slug=${encodeURIComponent(movie.slug)}&ep=${activeEpisode.episodeOrder}`} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-white/5 hover:text-red-300"><Users className="h-3.5 w-3.5" /> Xem chung</Link>
-            <button type="button" onClick={() => { void navigator.clipboard.writeText(window.location.href); showToast('Đã sao chép liên kết xem phim.', 'success'); }} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-white/5 hover:text-white"><Share2 className="h-3.5 w-3.5" /> Chia sẻ</button>
-            <button type="button" onClick={() => setLightsOff((current) => !current)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-white/5 ${lightsOff ? 'text-red-400' : 'hover:text-white'}`}><LightbulbOff className="h-3.5 w-3.5" /> Tắt đèn</button>
-            <button type="button" onClick={() => void handlePictureInPicture()} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-white/5 ${user?.isVip ? 'text-amber-300 hover:text-amber-200' : 'hover:text-white'}`}><PictureInPicture2 className="h-3.5 w-3.5" /> Cửa sổ nổi <Crown className="h-3 w-3 text-amber-400" /></button>
-            <button type="button" onClick={() => setDataSaver((current) => !current)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-white/5 ${dataSaver ? 'text-emerald-300' : 'hover:text-white'}`}><Wifi className="h-3.5 w-3.5" /> Tiết kiệm data {dataSaver ? 'Bật' : 'Tắt'}</button>
-            <button type="button" onClick={() => void reportPlayback()} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 transition hover:bg-red-500/10 hover:text-red-300"><Flag className="h-3.5 w-3.5" /> Báo lỗi</button>
-            <div className="ml-auto hidden items-center gap-2 px-2 text-slate-600 sm:flex"><span>← → tua 10 giây</span><span>•</span><span>Nhấp đúp để tua</span></div>
-          </div>
-
-          {/* Movie summary inspired by a cinema detail panel */}
-          <section className="mt-4 overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-br from-slate-900/95 to-slate-950/95 p-4 shadow-xl md:p-5">
-            <div className="flex gap-4 md:gap-5">
-              <Image src={movie.posterUrl} alt={movie.title} width={112} height={160} className="h-32 w-[88px] shrink-0 rounded-xl object-cover shadow-2xl md:h-40 md:w-28" />
-              <div className="min-w-0 flex-1 text-left">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div><p className="text-[10px] font-black uppercase tracking-[0.2em] text-red-400">Bạn đang xem</p><h1 className="mt-1 text-xl font-black text-white md:text-2xl">{movie.title}</h1>{movie.englishTitle && <p className="mt-0.5 text-xs text-slate-500">{movie.englishTitle}</p>}</div>
-                  <div className="flex items-center gap-1 rounded-lg border border-amber-400/20 bg-amber-400/10 px-2.5 py-1.5 text-xs font-black text-amber-300"><Star className="h-3.5 w-3.5 fill-current" /> {Number(movie.ratingAvg || 0).toFixed(1)}</div>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-1.5 text-[10px] font-bold"><span className="rounded-md bg-red-600 px-2 py-1 text-white">{movie.quality || 'HD'}</span><span className="rounded-md bg-white/5 px-2 py-1 text-slate-300">{movie.releaseYear}</span><span className="rounded-md bg-white/5 px-2 py-1 text-slate-300">{movie.isSeries ? `${movie.episodeCount} tập` : `${movie.duration || 0} phút`}</span>{movie.movieGenres?.slice(0, 3).map((item) => <span key={item.genre.slug} className="rounded-md bg-white/5 px-2 py-1 text-slate-400">{item.genre.name}</span>)}</div>
-                <p className="mt-3 line-clamp-3 text-xs leading-5 text-slate-400 md:text-sm md:leading-6">{movie.description || 'Thông tin nội dung đang được cập nhật.'}</p>
-              </div>
-            </div>
-          </section>
-
-          {/* Episode grid on the main reading flow */}
-          {movie.episodes.length > 1 && (
-            <section className="mt-4 rounded-2xl border border-white/5 bg-slate-950/70 p-4 text-left shadow-xl md:p-5">
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3"><h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-wider text-white"><ListVideo className="h-4 w-4 text-amber-400" /> Danh sách tập</h2><label className="flex items-center gap-2 rounded-lg border border-white/5 bg-slate-900 px-3 py-2"><Search className="h-3.5 w-3.5 text-slate-600" /><input value={episodeQuery} onChange={(event) => setEpisodeQuery(event.target.value)} placeholder="Tìm số tập..." className="w-24 bg-transparent text-xs text-white outline-none placeholder:text-slate-600" /></label></div>
-              {seasonNumbers.length > 1 && <div className="mb-3 flex flex-wrap gap-2">{seasonNumbers.map((season) => <button key={season} type="button" onClick={() => setSelectedSeason(season)} className={`rounded-lg px-3 py-1.5 text-[10px] font-black ${selectedSeason === season ? 'bg-purple-500 text-white' : 'bg-white/5 text-slate-500 hover:text-white'}`}>Phần {season}</button>)}</div>}
-              <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 md:grid-cols-8 xl:grid-cols-10">{visibleEpisodes.map((episode) => <Link key={episode.id} href={`/watch/${movie.slug}?ep=${episode.episodeOrder}`} className={`rounded-lg border px-2 py-2.5 text-center text-[11px] font-bold transition ${activeEpOrder === episode.episodeOrder ? 'border-amber-400 bg-amber-400 text-slate-950 shadow-[0_0_18px_rgba(251,191,36,0.15)]' : 'border-white/5 bg-slate-900 text-slate-400 hover:border-white/15 hover:bg-slate-800 hover:text-white'}`}>{episode.title}</Link>)}</div>
-              {!visibleEpisodes.length && <p className="py-6 text-center text-xs text-slate-600">Không tìm thấy tập phù hợp.</p>}
-            </section>
-          )}
+          <WatchMovieInfo
+            movie={movie}
+            activeEpisode={activeEpisode}
+            activeEpOrder={activeEpOrder}
+            user={user}
+            lightsOff={lightsOff}
+            dataSaver={dataSaver}
+            onToggleLights={() => setLightsOff((current) => !current)}
+            onToggleDataSaver={() => setDataSaver((current) => !current)}
+            onPictureInPicture={() => void handlePictureInPicture()}
+            onReportPlayback={() => void reportPlayback()}
+            onCopyLink={() => { void navigator.clipboard.writeText(window.location.href); showToast('Đã sao chép liên kết xem phim.', 'success'); }}
+          />
         </div>
 
         {/* SIDE BAR: EPISODES & SERVER SELECT */}
         {!theaterMode && (
-          <div className="lg:col-span-1 flex flex-col space-y-6 text-left">
-            
-            {/* Server Select */}
-            <div className="glass-panel p-4 md:p-5 rounded-2xl space-y-3">
-              <h4 className="text-sm font-black uppercase tracking-wider text-slate-300 flex items-center">
-                <Server className="w-4.5 h-4.5 text-cyan-400 mr-2" /> Chọn Server Phát
-              </h4>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-2">
-                {movie.requiresVip ? (
-                  <p className="text-amber-400 text-xs font-bold py-2">Nguồn phát bị khóa (Yêu cầu VIP)</p>
-                ) : (
-                  activeEpisode.videoSources?.map((source) => (
-                    <button
-                      key={source.id}
-                      onClick={() => setActiveSource(source)}
-                      className={`w-full py-2.5 px-4 text-xs font-bold rounded-lg border text-left transition-all cursor-pointer ${
-                        activeSource?.id === source.id
-                          ? 'bg-cyan-500/10 border-cyan-500 text-cyan-400'
-                          : 'bg-slate-900 border-white/5 text-slate-400 hover:bg-white/5'
-                      }`}
-                    >
-                      <span className="flex items-center justify-between gap-2">
-                        <span>{source.server} ({source.quality})</span>
-                        {source.isPremium && <span className="inline-flex items-center gap-1 rounded bg-amber-400/15 px-1.5 py-0.5 text-[8px] uppercase text-amber-300"><Crown className="h-2.5 w-2.5" /> VIP</span>}
-                      </span>
-                    </button>
-                  )) || <p className="text-slate-500 text-xs">Đang tải server...</p>
-                )}
-                {!movie.requiresVip && (activeEpisode.premiumSourcesLocked || 0) > 0 && !user?.isVip && (
-                  <Link href="/vip" className="col-span-full flex items-center justify-center gap-2 rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2.5 text-xs font-bold text-amber-300 hover:bg-amber-400/10">
-                    <Lock className="h-3.5 w-3.5" /> Mở khóa {activeEpisode.premiumSourcesLocked} nguồn Premium/4K
-                  </Link>
-                )}
-              </div>
-            </div>
-
-            {!!movie.movieActors?.length && <div className="glass-panel rounded-2xl p-4 md:p-5"><h4 className="mb-4 text-sm font-black uppercase tracking-wider text-slate-300">Diễn viên</h4><div className="grid grid-cols-3 gap-4">{movie.movieActors.slice(0, 9).map(({ actor }) => <div key={actor.name} className="min-w-0 text-center"><div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-gradient-to-br from-slate-700 to-slate-900 text-sm font-black text-slate-300">{actor.name.slice(0, 1).toUpperCase()}</div><p className="mt-1.5 truncate text-[9px] font-semibold text-slate-500">{actor.name}</p></div>)}</div></div>}
-
-          </div>
+          <WatchSidebar
+            movie={movie}
+            activeEpisode={activeEpisode}
+            activeSource={activeSource}
+            user={user}
+            onSourceChange={setActiveSource}
+          />
         )}
       </div>
       <div className="mx-auto max-w-[1500px] px-4 md:px-8"><MovieComments movieId={movie.id} currentTime={currentTime} onSeek={(seconds) => { if (videoRef.current) videoRef.current.currentTime = seconds; }} /></div>

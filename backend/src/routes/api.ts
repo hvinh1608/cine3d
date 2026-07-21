@@ -128,6 +128,7 @@ import {
   updateFcmPreferences,
 } from '../controllers/native.controller';
 import { handleGooglePlayRtdn, verifyGooglePlayPurchase } from '../controllers/billing.controller';
+import { imageProxy } from '../controllers/image-proxy.controller';
 
 const router = Router();
 
@@ -288,6 +289,9 @@ router.get('/directors/:slug', async (req: Request, res: Response) => {
 });
 router.get('/people/:kind/:id/follow', authenticateToken as any, getPeopleFollowStatus as any);
 router.post('/people/:kind/:id/follow', authenticateToken as any, togglePeopleFollow as any);
+
+// --- Image Proxy ---
+router.get('/image-proxy', rateLimit(60 * 1000, 120), imageProxy as any);
 
 // --- Admin Routes ---
 router.get('/admin/stats', authenticateToken as any, requireAdmin as any, getStats);

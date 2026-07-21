@@ -39,3 +39,9 @@ Thumbs.db
 # Gemini metadata
 .gemini/
 .agents/
+
+# Secrets & credentials
+**/env/
+*.credential*.json
+*-firebase-adminsdk-*.json
+*-adminsdk-*.json

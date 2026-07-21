@@ -1,5 +1,6 @@
 import HomeClient, { type HomeInitialData } from '../components/home/HomeClient';
 import { getSiteUrl } from '../lib/site';
+import { rewriteImageUrls } from '../lib/image-url';
 
 const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
@@ -63,6 +64,6 @@ export default async function HomePage() {
   };
   return <>
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
-    <HomeClient initialData={await loadHomeData()} />
+    <HomeClient initialData={rewriteImageUrls(await loadHomeData())} />
   </>;
 }
