@@ -442,10 +442,10 @@ export default function MovieDetail() {
   const isFavorited = favoriteIds.includes(movie.id);
 
   return (
-    <div className="relative flex-1 w-full overflow-hidden bg-[#191a22] pb-24 select-none">
+    <div className="relative isolate flex-1 w-full overflow-hidden bg-[#191a22] pb-24 select-none">
       
       {/* Blurred Backdrop Background */}
-      <div className="absolute left-0 top-0 -z-10 h-[78vh] w-full overflow-hidden">
+      <div className="absolute left-0 top-0 z-0 h-[78vh] w-full overflow-hidden">
         <div className="absolute inset-0 z-10 bg-[linear-gradient(90deg,#191a22_0%,rgba(25,26,34,.72)_45%,rgba(25,26,34,.3)_100%)]" />
         <div className="absolute inset-0 z-10 bg-gradient-to-b from-[#191a22]/10 via-[#191a22]/55 to-[#191a22]" />
         <Image
@@ -458,7 +458,7 @@ export default function MovieDetail() {
         />
       </div>
 
-      <div className="mx-auto flex max-w-[1500px] flex-col gap-8 px-4 pt-10 md:px-8 lg:flex-row lg:gap-12 lg:pt-16">
+      <div className="relative z-10 mx-auto flex max-w-[1500px] flex-col gap-8 px-4 pt-10 md:px-8 lg:flex-row lg:gap-12 lg:pt-16">
         
         {/* LEFT COLUMN: Floating 3D Poster */}
         <div className="flex w-full flex-col items-center lg:w-[340px] lg:shrink-0">
