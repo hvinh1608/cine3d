@@ -41,6 +41,19 @@ export default function WatchPage() {
   );
 }
 
+const MAX_TIMELINE_PREVIEW_FRAMES = 36;
+
+function getTimelinePreviewInterval(duration: number): number {
+  if (duration > 5400) return 30;
+  if (duration > 2400) return 20;
+  return 15;
+}
+
+function getTimelinePreviewBucket(time: number, duration: number): number {
+  const interval = getTimelinePreviewInterval(duration);
+  return Math.round(time / interval) * interval;
+}
+
 function WatchPageContent() {
   const params = useParams();
   const searchParams = useSearchParams();
@@ -85,9 +98,12 @@ function WatchPageContent() {
   const [preferencesReady, setPreferencesReady] = useState(false);
   const [dataSaver, setDataSaver] = useState(false);
   const [timelinePreview, setTimelinePreview] = useState<TimelinePreview>({ visible: false, time: 0, position: 0, image: null });
+  const [richTimelinePreviewEnabled, setRichTimelinePreviewEnabled] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
+  const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  const settingsPanelRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<import('hls.js').default | null>(null);
   const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const playTrackedEpisodeRef = useRef<string | null>(null);
@@ -96,6 +112,7 @@ function WatchPageContent() {
   const originalCueTimesRef = useRef(new WeakMap<TextTrackCue, { start: number; end: number }>());
   const timelineFramesRef = useRef(new Map<number, string>());
   const lastCapturedFrameRef = useRef(-1);
+  const settingsWasOpenRef = useRef(false);
 
   useEffect(() => {
     try {
@@ -126,6 +143,14 @@ function WatchPageContent() {
     const shouldSave = Boolean(connection?.saveData || connection?.effectiveType?.includes('2g'));
     queueMicrotask(() => setDataSaver(shouldSave));
   }, []);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(min-width: 768px)');
+    const update = () => setRichTimelinePreviewEnabled(mediaQuery.matches && !dataSaver && !reduceMotion);
+    update();
+    mediaQuery.addEventListener('change', update);
+    return () => mediaQuery.removeEventListener('change', update);
+  }, [dataSaver, reduceMotion]);
 
   useEffect(() => {
     if (!preferencesReady) return;
@@ -163,6 +188,31 @@ function WatchPageContent() {
     lastCapturedFrameRef.current = -1;
     queueMicrotask(() => setTimelinePreview({ visible: false, time: 0, position: 0, image: null }));
   }, [activeEpisode?.id]);
+
+  useEffect(() => {
+    if (showControls && showSettings) {
+      settingsWasOpenRef.current = true;
+      settingsPanelRef.current?.focus();
+      return;
+    }
+    if (settingsWasOpenRef.current) {
+      settingsWasOpenRef.current = false;
+      settingsButtonRef.current?.focus();
+    }
+  }, [showControls, showSettings]);
+
+  // Close settings with Escape (accessibility polish).
+  useEffect(() => {
+    if (!showControls || !showSettings) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      setShowSettings(false);
+      setSettingsTab('main');
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [showControls, showSettings]);
 
   // Helper to trigger controls visibility and reset auto-hide timer
   const triggerControls = useCallback(() => {
@@ -502,9 +552,12 @@ function WatchPageContent() {
     const video = videoRef.current;
     setCurrentTime(video.currentTime);
 
+    if (!richTimelinePreviewEnabled) return;
+
     // Keep lightweight local snapshots for timeline previews. Cross-origin
     // sources may disallow canvas reads; playback still works in that case.
-    const bucket = Math.floor(video.currentTime / 10) * 10;
+    const interval = getTimelinePreviewInterval(duration || video.duration || 0);
+    const bucket = Math.floor(video.currentTime / interval) * interval;
     if (bucket === lastCapturedFrameRef.current || video.readyState < 2 || !video.videoWidth) return;
     lastCapturedFrameRef.current = bucket;
     try {
@@ -515,7 +568,7 @@ function WatchPageContent() {
       if (!context) return;
       context.drawImage(video, 0, 0, canvas.width, canvas.height);
       timelineFramesRef.current.set(bucket, canvas.toDataURL('image/jpeg', 0.62));
-      if (timelineFramesRef.current.size > 180) {
+      if (timelineFramesRef.current.size > MAX_TIMELINE_PREVIEW_FRAMES) {
         const oldest = timelineFramesRef.current.keys().next().value;
         if (oldest !== undefined) timelineFramesRef.current.delete(oldest);
       }
@@ -577,7 +630,7 @@ function WatchPageContent() {
     const bounds = event.currentTarget.getBoundingClientRect();
     const ratio = Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
     const time = ratio * duration;
-    const bucket = Math.round(time / 10) * 10;
+    const bucket = getTimelinePreviewBucket(time, duration);
     setTimelinePreview({
       visible: true,
       time,
@@ -637,6 +690,12 @@ function WatchPageContent() {
       const target = event.target as HTMLElement | null;
       if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
       if (!videoRef.current || !activeSource) return;
+      const activeElement = document.activeElement as HTMLElement | null;
+      const playerActive = Boolean(
+        playerContainerRef.current?.contains(activeElement) ||
+        document.fullscreenElement === playerContainerRef.current
+      );
+      if (!playerActive) return;
       if (event.key === 'ArrowLeft' || event.key === 'ArrowRight' || event.code === 'Space' || ['f', 'm', 'p'].includes(event.key.toLowerCase())) event.preventDefault();
       if (event.key === 'ArrowLeft') skipBackward();
       else if (event.key === 'ArrowRight') skipForward();
@@ -749,7 +808,13 @@ function WatchPageContent() {
         
         {/* PLAYER AREA */}
         <div className={theaterMode ? 'lg:col-span-1' : 'lg:col-span-3'}>
-          <div className="relative w-full aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-white/5 shadow-2xl flex flex-col group" ref={playerContainerRef}>
+          <div
+            className="relative w-full aspect-video rounded-2xl overflow-hidden bg-slate-950 border border-white/5 shadow-2xl flex flex-col group focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
+            ref={playerContainerRef}
+            tabIndex={0}
+            role="region"
+            aria-label={`Trình phát phim ${movie.title}`}
+          >
             
             {/* Dynamic Real-time Ambilight glow behind the player */}
             {playing && (
@@ -847,7 +912,7 @@ function WatchPageContent() {
                 )}
 
                 {/* Tap gesture overlay */}
-                <div onClick={handleOverlayClick} className="absolute inset-0 z-10 cursor-pointer" />
+                <div onClick={(event) => { playerContainerRef.current?.focus(); handleOverlayClick(event); }} className="absolute inset-0 z-10 cursor-pointer" />
 
                 {/* Double Tap Ripple/Indicator Feedback */}
                 {doubleTapFeedback === 'backward' && (
@@ -876,6 +941,8 @@ function WatchPageContent() {
                   <div className="absolute inset-0 flex items-center justify-center space-x-6 pointer-events-none z-20">
                     <button 
                       onClick={skipBackward} 
+                      type="button"
+                      aria-label="Tua lùi 10 giây"
                       className="p-3 rounded-full bg-black/60 text-white hover:bg-black/80 transition-all pointer-events-auto hover:scale-110 active:scale-95 flex items-center justify-center cursor-pointer border border-white/5"
                       title="-10 giây"
                     >
@@ -883,12 +950,16 @@ function WatchPageContent() {
                     </button>
                     <button 
                       onClick={togglePlay} 
+                      type="button"
+                      aria-label={playing ? 'Tạm dừng video' : 'Phát video'}
                       className="p-4 rounded-full bg-red-600/90 text-white hover:bg-red-700 transition-all pointer-events-auto hover:scale-110 active:scale-95 flex items-center justify-center shadow-lg cursor-pointer border border-white/10"
                     >
                       {playing ? <Pause className="w-8 h-8 fill-current" /> : <Play className="w-8 h-8 fill-current ml-1" />}
                     </button>
                     <button 
                       onClick={skipForward} 
+                      type="button"
+                      aria-label="Tua tới 10 giây"
                       className="p-3 rounded-full bg-black/60 text-white hover:bg-black/80 transition-all pointer-events-auto hover:scale-110 active:scale-95 flex items-center justify-center cursor-pointer border border-white/5"
                       title="+10 giây"
                     >
@@ -899,7 +970,15 @@ function WatchPageContent() {
 
                 {/* Unified Settings Panel Menu */}
                 {showControls && showSettings && (
-                  <div className="fixed sm:absolute bottom-20 sm:bottom-16 right-2 sm:right-4 w-[calc(100vw-1rem)] sm:w-72 max-h-[70vh] overflow-y-auto bg-slate-950/95 border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-3 flex flex-col z-[60] text-sm animate-fade-in">
+                  <div
+                    ref={settingsPanelRef}
+                    id="watch-player-settings"
+                    className="fixed sm:absolute bottom-20 sm:bottom-16 right-2 sm:right-4 w-[calc(100vw-1rem)] sm:w-72 max-h-[70vh] overflow-y-auto bg-slate-950/95 border border-white/10 backdrop-blur-xl rounded-2xl shadow-2xl p-3 flex flex-col z-[60] text-sm animate-fade-in focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-500/60"
+                    role="dialog"
+                    aria-modal="false"
+                    aria-label="Cài đặt trình phát"
+                    tabIndex={-1}
+                  >
                     
                     {/* Tab: Main Menu */}
                     {settingsTab === 'main' && (
@@ -1137,7 +1216,7 @@ function WatchPageContent() {
                 {/* Custom Control Overlay */}
                 <div className={`absolute bottom-0 left-0 w-full px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-black/90 via-black/40 to-transparent flex flex-col space-y-3 z-30 transition-opacity duration-300 ${
                   showControls ? 'opacity-100' : 'opacity-0 pointer-events-none'
-                }`}>
+                }`} aria-hidden={!showControls}>
                   
                   {/* Progress Slider */}
                   <div
@@ -1169,6 +1248,7 @@ function WatchPageContent() {
                       max={duration || 100}
                       value={currentTime}
                       onChange={handleProgressChange}
+                      aria-label="Tua video"
                       className="flex-grow accent-red-600 h-1.5 bg-slate-700/60 rounded-full cursor-pointer hover:scale-y-125 transition-transform"
                     />
                     <span className="text-[10px] md:text-xs font-semibold text-slate-300">{formatTime(duration)}</span>
@@ -1208,14 +1288,20 @@ function WatchPageContent() {
                     <div className="flex items-center space-x-3.5">
                       {/* Settings gear button toggling showSettings */}
                       <button
+                          ref={settingsButtonRef}
                         onClick={() => {
                           setShowSettings(!showSettings);
                           setSettingsTab('main');
                           triggerControls();
                         }}
+                        type="button"
                         className={`p-1.5 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${
                           showSettings ? 'text-yellow-500' : 'text-slate-300 hover:text-white'
                         }`}
+                        aria-label="Mở cài đặt trình phát"
+                        aria-haspopup="dialog"
+                        aria-expanded={showSettings}
+                        aria-controls="watch-player-settings"
                         title="Cài đặt"
                       >
                         <Settings className={`w-4.5 h-4.5 ${showSettings ? 'animate-spin' : ''}`} />
@@ -1223,7 +1309,9 @@ function WatchPageContent() {
 
                       <button
                         onClick={() => setLightsOff(!lightsOff)}
+                        type="button"
                         className={`transition-colors cursor-pointer ${lightsOff ? 'text-red-500' : 'text-slate-300 hover:text-white'}`}
+                        aria-label={lightsOff ? 'Bật đèn nền trang xem' : 'Tắt đèn nền trang xem'}
                         title="Chế độ rạp chiếu (Tắt đèn)"
                       >
                         <LightbulbOff className="w-4.5 h-4.5" />
@@ -1241,13 +1329,15 @@ function WatchPageContent() {
 
                       <button
                         onClick={handleCast}
+                        type="button"
                         className="text-slate-300 hover:text-white transition-colors cursor-pointer"
+                        aria-label="Truyền video lên TV"
                         title="Truyền lên TV (Cast)"
                       >
                         <Tv className="w-4.5 h-4.5" />
                       </button>
 
-                      <button onClick={handleFullscreen} className="text-slate-300 hover:text-white transition-colors cursor-pointer" title="Toàn màn hình">
+                      <button onClick={handleFullscreen} type="button" className="text-slate-300 hover:text-white transition-colors cursor-pointer" aria-label="Chuyển toàn màn hình" title="Toàn màn hình">
                         <Maximize className="w-4.5 h-4.5" />
                       </button>
                       {user?.isVip && activeSource?.type === 'mp4' && (
