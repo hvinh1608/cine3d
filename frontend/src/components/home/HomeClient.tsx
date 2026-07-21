@@ -321,7 +321,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
             />
             {/* Visual shadows/gradients */}
             <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/40 to-transparent" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#06060c] via-transparent to-black/30" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#191a22] via-transparent to-black/30" />
           </div>
 
           {/* Details Overlay */}

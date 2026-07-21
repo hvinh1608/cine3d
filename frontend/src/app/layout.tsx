@@ -46,7 +46,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://api.cine3d.id.vn" crossOrigin="anonymous" />
         <link rel="dns-prefetch" href="https://phimimg.com" />
       </head>
-      <body className="min-h-full flex flex-col bg-[#020205] text-slate-100 relative">
+      <body className="relative flex min-h-full flex-col bg-[#191a22] text-slate-100">
         <CinemaSplash />
         <AuthBootstrap />
         <PwaBootstrap />

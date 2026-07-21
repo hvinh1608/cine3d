@@ -114,10 +114,10 @@ function NeonGlowLights() {
 
 export default function CinemaBackground() {
   return (
-    <div className="fixed inset-0 -z-10 hidden h-screen w-screen overflow-hidden bg-black pointer-events-none lg:block">
+    <div className="pointer-events-none fixed inset-0 -z-10 hidden h-screen w-screen overflow-hidden bg-[#191a22] lg:block">
       {/* Background radial gradient layers */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,_var(--tw-gradient-stops))] from-blue-900/10 via-black to-black opacity-80" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-rose-950/10 via-black to-black opacity-80" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom_left,_var(--tw-gradient-stops))] from-blue-900/15 via-[#191a22] to-[#111219] opacity-80" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-amber-950/10 via-transparent to-transparent opacity-80" />
 
       <Canvas
         camera={{ position: [0, 0, 5], fov: 60 }}

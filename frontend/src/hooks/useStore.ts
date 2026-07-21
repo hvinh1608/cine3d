@@ -161,13 +161,15 @@ export const useStore = create<AppState>()(persist((set, get) => ({
     if (error) {
       console.warn('Failed to restore auth state from storage.', error);
     }
-    if (!state?.user) {
-      useStore.setState({ favorites: [], favoriteIds: [] });
+    // This callback may run synchronously while `useStore` itself is still being
+    // initialized, so only use the hydrated state's actions here. Referencing
+    // `useStore` directly would hit its temporal dead zone in production builds.
+    if (!state) return;
+    if (!state.user) {
+      state.setFavorites([]);
     }
     // Always mark hydration complete, even when storage is empty or corrupt.
-    useStore.setState({
-      hasHydrated: true,
-      ...(!state?.user ? { authReady: true } : {}),
-    });
+    state.setHasHydrated(true);
+    if (!state.user) state.setAuthReady(true);
   },
 }));

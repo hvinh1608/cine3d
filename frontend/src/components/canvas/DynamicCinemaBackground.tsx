@@ -7,7 +7,7 @@ import { useStore } from '../../hooks/useStore';
 
 const CinemaBackground = dynamic(() => import('./CinemaBackground'), {
   ssr: false,
-  loading: () => <div className="fixed inset-0 -z-10 bg-black" />,
+  loading: () => <div className="fixed inset-0 -z-10 bg-[#191a22]" />,
 });
 
 export default function DynamicCinemaBackground() {
@@ -40,7 +40,7 @@ export default function DynamicCinemaBackground() {
   );
 
   if (reduceMotion || !canRender3D || !pageVisible || staticBackgroundRoute) {
-    return <div className="fixed inset-0 -z-10 bg-gradient-to-tr from-black via-slate-950 to-neutral-900" />;
+    return <div className="fixed inset-0 -z-10 bg-gradient-to-tr from-[#111219] via-[#191a22] to-[#272934]" />;
   }
   return <CinemaBackground />;
 }
