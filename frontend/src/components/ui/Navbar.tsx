@@ -27,6 +27,7 @@ export default function Navbar() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { user, logout, hasHydrated, authReady, accessToken } = useStore();
+  const authUiReady = hasHydrated || authReady;
 
   const isTabActive = (path: string) => {
     if (path === '/') return pathname === '/';
@@ -468,7 +469,7 @@ export default function Navbar() {
           </Link>
 
           {/* User Section */}
-          {!hasHydrated ? (
+          {!authUiReady ? (
             <div className="h-9 w-28 animate-pulse rounded-full bg-white/5" />
           ) : user ? (
             <div className="flex items-center gap-2.5">
@@ -630,7 +631,7 @@ export default function Navbar() {
               <Crown className="mr-1 h-4 w-4" /> Nâng cấp VIP
             </Link>
 
-            {!hasHydrated ? (
+            {!authUiReady ? (
               <div className="mx-auto h-10 w-32 animate-pulse rounded-full bg-white/5" />
             ) : user ? (
               <>

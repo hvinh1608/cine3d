@@ -157,11 +157,17 @@ export const useStore = create<AppState>()(persist((set, get) => ({
     // Persist IDs only as a fast UI hint; AuthBootstrap reloads the truth from API.
     favoriteIds: state.favoriteIds,
   }),
-  onRehydrateStorage: () => (state) => {
+  onRehydrateStorage: () => (state, error) => {
+    if (error) {
+      console.warn('Failed to restore auth state from storage.', error);
+    }
     if (!state?.user) {
       useStore.setState({ favorites: [], favoriteIds: [] });
     }
-    state?.setHasHydrated(true);
-    if (!state?.user) state?.setAuthReady(true);
+    // Always mark hydration complete, even when storage is empty or corrupt.
+    useStore.setState({
+      hasHydrated: true,
+      ...(!state?.user ? { authReady: true } : {}),
+    });
   },
 }));

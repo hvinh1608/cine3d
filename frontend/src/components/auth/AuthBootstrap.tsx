@@ -28,6 +28,21 @@ export default function AuthBootstrap() {
   const skipProfileFavoriteReload = useRef(true);
 
   useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const current = useStore.getState();
+      if (!current.hasHydrated) {
+        useStore.setState({
+          hasHydrated: true,
+          authReady: current.user ? current.authReady : true,
+        });
+      } else if (current.user && !current.authReady && !bootstrapFlight) {
+        setAuthReady(true);
+      }
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [setAuthReady]);
+
+  useEffect(() => {
     if (!hasHydrated || authReady) return;
     if (!user) {
       setAuthReady(true);
