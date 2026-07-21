@@ -37,12 +37,11 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
-    // The query value is dynamic, but the backend proxy only permits the
-    // allow-listed phimimg.com hosts. Next 16 requires an explicit local
-    // pattern before <Image> can optimize a local URL with a query string.
-    localPatterns: [
-      { pathname: '/api/image-proxy' },
-    ],
+    // Movie catalogs generate far more variants than Vercel's image quota can
+    // sustainably serve. Images are already cached by the allow-listed backend
+    // proxy, so bypass /_next/image and load both local assets and proxy URLs
+    // directly instead of letting a quota failure blank the entire catalog.
+    unoptimized: true,
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
