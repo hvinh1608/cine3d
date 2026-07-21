@@ -2,7 +2,7 @@
   "expo": {
     "name": "Cine3D",
     "slug": "cine3d",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "orientation": "default",
     "scheme": "cine3d",
     "icon": "./assets/icon.png",
@@ -25,7 +25,7 @@
     },
     "android": {
       "package": "vn.cine3d.app",
-      "versionCode": 4,
+      "versionCode": 5,
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.POST_NOTIFICATIONS",
@@ -130,7 +130,7 @@
       [
         "expo-secure-store",
         {
-          "configureAndroidBackup": true,
+          "configureAndroidBackup": false,
           "faceIDPermission": "Use Face ID to protect your Cine3D account."
         }
       ],

@@ -1,6 +1,7 @@
-import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
+import type { SQLiteDatabase } from 'expo-sqlite';
 import { normalizeRecentSearches } from '@/data/cache/recent-searches';
 import { selectCacheEvictions } from '@/data/cache/cache-policy';
+import { cine3dDatabase } from '@/data/sqlite/database';
 
 const SCHEMA_VERSION = 2;
 const DEFAULT_MAX_BYTES = 20 * 1024 * 1024;
@@ -26,10 +27,8 @@ export class SQLiteCacheRepository {
 
   private async database(): Promise<SQLiteDatabase> {
     if (!this.databasePromise) {
-      this.databasePromise = openDatabaseAsync('cine3d.db').then(async (database) => {
+      this.databasePromise = cine3dDatabase().then(async (database) => {
         await database.execAsync(`
-          PRAGMA journal_mode = WAL;
-          PRAGMA foreign_keys = ON;
           CREATE TABLE IF NOT EXISTS schema_migrations (
             version INTEGER PRIMARY KEY NOT NULL,
             applied_at INTEGER NOT NULL

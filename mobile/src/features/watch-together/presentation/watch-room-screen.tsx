@@ -208,7 +208,10 @@ function RoomExperience({
   const episode = useMemo(() => resolveEpisode(movie, room.episode), [movie, room.episode]);
   const source = useMemo(() => chooseSource(episode), [episode]);
   const { show } = useToast();
-  const profileKey = useAppStore((state) => state.session.activeProfile?.id ?? 'account');
+  const profileKey = useAppStore((state) => {
+    const userId = state.session.user?.id;
+    return userId ? `${userId}:${state.session.activeProfile?.id ?? 'account'}` : 'guest';
+  });
   const authenticated = useAppStore((state) => Boolean(state.session.tokens.accessToken));
   const [position, setPosition] = useState(0);
   const [duration, setDuration] = useState(0);

@@ -34,11 +34,11 @@ export function HomeScreen() {
   });
   const feed = query.data;
   const continueWatching = useMemo(
-    () => (history.data ?? []).filter((entry) => !entry.completed && entry.movie).map((entry) => entry.movie!),
+    () => (history.data ?? []).filter((entry) => !entry.completed && entry.movie).map((entry) => entry.movie!).slice(0, 12),
     [history.data],
   );
   const anime = useMemo(
-    () => (feed?.movies ?? []).filter((movie) => movie.movieGenres?.some(({ genre }) => genre.slug === 'hoat-hinh')),
+    () => (feed?.movies ?? []).filter((movie) => movie.movieGenres?.some(({ genre }) => genre.slug === 'hoat-hinh')).slice(0, 12),
     [feed?.movies],
   );
   const [refreshing, setRefreshing] = useState(false);
@@ -81,13 +81,13 @@ export function HomeScreen() {
           <CategoryChips />
           {feed?.partial ? <Text style={styles.notice}>Một số danh mục đang tạm thời chưa khả dụng.</Text> : null}
           <MovieRail title="Tiếp tục xem" movies={continueWatching} />
-          <MovieRail title="Đề xuất cho bạn" movies={feed?.proposed ?? []} />
-          <MovieRail title="Thịnh hành" movies={feed?.trending ?? []} />
-          <MovieRail title="Mới cập nhật" movies={feed?.movies ?? []} />
+          <MovieRail title="Đề xuất cho bạn" movies={(feed?.proposed ?? []).slice(0, 12)} />
+          <MovieRail title="Thịnh hành" movies={(feed?.trending ?? []).slice(0, 12)} />
+          <MovieRail title="Mới cập nhật" movies={(feed?.movies ?? []).slice(0, 12)} />
           <MovieRail title="Hoạt hình & Anime" movies={anime} />
-          <MovieRail title="Phim Hàn Quốc" movies={feed?.countries.korea ?? []} />
-          <MovieRail title="Phim Trung Quốc" movies={feed?.countries.china ?? []} />
-          <MovieRail title="Phim Việt Nam" movies={feed?.countries.vietnam ?? []} />
+          <MovieRail title="Phim Hàn Quốc" movies={(feed?.countries.korea ?? []).slice(0, 12)} />
+          <MovieRail title="Phim Trung Quốc" movies={(feed?.countries.china ?? []).slice(0, 12)} />
+          <MovieRail title="Phim Việt Nam" movies={(feed?.countries.vietnam ?? []).slice(0, 12)} />
         </ScrollView>
       </AsyncState>
     </Screen>

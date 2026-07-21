@@ -24,6 +24,7 @@ import { markColdStartReady, flushPerformanceEvents } from '@/core/performance';
 import { colors, spacing } from '@/theme';
 import { DevPerformanceOverlay } from '@/components/dev-performance-overlay';
 import { TranslationVoteBanner } from '@/components/translation-vote-banner';
+import { checkpointRepository } from '@/features/player/data/player-storage';
 
 export function AppProviders({ children }: PropsWithChildren) {
   const [queryClient] = useState(() => new QueryClient({
@@ -86,6 +87,7 @@ export function AppProviders({ children }: PropsWithChildren) {
       if (previousToken && !nextToken) {
         queryClient.clear();
         void cacheRepository.clearAll();
+        void checkpointRepository.clearAll();
       }
       if (hydrated && nextToken && (!previousToken || !previousHydrated)) {
         void queryClient.invalidateQueries({ queryKey: movieKeys.history() });

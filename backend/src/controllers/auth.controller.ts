@@ -664,28 +664,16 @@ export const refresh = async (req: AuthenticatedRequest, res: Response) => {
       role: storedToken.user.role.name,
     };
 
-    const refreshDuration = getRefreshTokenDuration(req);
     const accessToken = jwt.sign(payload, JWT_ACCESS_SECRET!, { expiresIn: '15m' });
-    const newRefreshToken = jwt.sign(
-      { ...payload, jti: crypto.randomUUID() },
-      JWT_REFRESH_SECRET!,
-      { expiresIn: refreshDuration.jwt }
-    );
-    const expiresAt = new Date(Date.now() + refreshDuration.ms);
+    // Keep the refresh token stable until its expiry. Rotating on every refresh
+    // makes concurrent tabs/app-resume requests race: the losing request sees
+    // a deleted token and logs the user out. Access tokens remain short-lived.
+    await prisma.refreshToken.update({
+      where: { id: storedToken.id },
+      data: { lastUsedAt: new Date() },
+    });
 
-    await prisma.$transaction([
-      prisma.refreshToken.delete({ where: { id: storedToken.id } }),
-      prisma.refreshToken.create({
-        data: {
-          token: hashToken(newRefreshToken),
-          userId: storedToken.user.id,
-          expiresAt,
-          ...getSessionMetadata(req),
-        },
-      }),
-    ]);
-
-    if (!isNativeClient(req)) res.cookie(REFRESH_COOKIE, newRefreshToken, cookieOptions);
+    if (!isNativeClient(req)) res.cookie(REFRESH_COOKIE, refreshToken, cookieOptions);
     return res.json(sessionResponse(req, {
       accessToken,
       user: {
@@ -697,7 +685,7 @@ export const refresh = async (req: AuthenticatedRequest, res: Response) => {
         isVip: hasVipAccess(storedToken.user),
         vipExpiresAt: storedToken.user.vipExpiresAt,
       },
-    }, newRefreshToken));
+    }, refreshToken));
   } catch (error: any) {
     return internalError(res, 'Máy chủ đang gặp sự cố. Vui lòng thử lại sau.', error);
   }

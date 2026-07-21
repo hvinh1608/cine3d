@@ -48,7 +48,8 @@ export function useNativePlayer(movie: Movie, requestedEpisode?: number) {
       : { preferredForwardBufferDuration: 30, minBufferForPlayback: 2 };
   });
 
-  const profileKey = profileId ?? 'account';
+  const userId = useAppStore((state) => state.session.user?.id);
+  const profileKey = userId ? `${userId}:${profileId ?? 'account'}` : 'guest';
   const saveProgress = useCallback(async (force = false) => {
     const latestPosition = player.currentTime;
     const latestDuration = player.duration;

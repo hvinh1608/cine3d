@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Button, Text, TextInput } from 'react-native-paper';
+import { Button, Text } from 'react-native-paper';
+import { PasswordInput } from '@/components/password-input';
 import { accountApi } from '@/features/account/data/account-api';
 import { useAppStore } from '@/state/app-store';
 import { colors, spacing } from '@/theme';
@@ -96,9 +97,8 @@ export default function LegalDocumentRoute() {
         <View style={styles.deleteBox}>
           {user ? (
             <>
-              <TextInput
+              <PasswordInput
                 mode="outlined"
-                secureTextEntry
                 value={password}
                 onChangeText={setPassword}
                 label="Mật khẩu (bắt buộc với tài khoản email/password)"

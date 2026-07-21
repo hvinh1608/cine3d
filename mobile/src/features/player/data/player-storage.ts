@@ -1,8 +1,8 @@
 import { Directory, DownloadTask, File, Paths, type DownloadPauseState } from 'expo-file-system';
-import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 import type { DownloadStatus } from '@/features/player/domain/player-utils';
 import { playerApi } from './player-api';
 import { redactErrorMessage } from '@/core/reliability';
+import { cine3dDatabase } from '@/data/sqlite/database';
 
 const MAX_DOWNLOAD_BYTES = 2 * 1024 * 1024 * 1024;
 
@@ -31,27 +31,22 @@ export interface DownloadRecord {
   updatedAt: number;
 }
 
-let dbPromise: Promise<SQLiteDatabase> | null = null;
 async function database() {
-  if (!dbPromise) {
-    dbPromise = openDatabaseAsync('cine3d.db').then(async (db) => {
-      await db.execAsync(`
-        CREATE TABLE IF NOT EXISTS playback_checkpoints (
-          profile_key TEXT NOT NULL, movie_id TEXT NOT NULL, episode_id TEXT NOT NULL,
-          position REAL NOT NULL, duration REAL NOT NULL, updated_at INTEGER NOT NULL,
-          PRIMARY KEY(profile_key, movie_id)
-        );
-        CREATE TABLE IF NOT EXISTS player_downloads (
-          id TEXT PRIMARY KEY NOT NULL, movie_id TEXT NOT NULL, episode_id TEXT NOT NULL,
-          source_id TEXT NOT NULL, title TEXT NOT NULL, quality TEXT NOT NULL,
-          local_uri TEXT NOT NULL, status TEXT NOT NULL, bytes_written INTEGER NOT NULL DEFAULT 0,
-          total_bytes INTEGER NOT NULL DEFAULT 0, pause_state TEXT, error TEXT, updated_at INTEGER NOT NULL
-        );
-      `);
-      return db;
-    });
-  }
-  return dbPromise;
+  const db = await cine3dDatabase();
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS playback_checkpoints (
+      profile_key TEXT NOT NULL, movie_id TEXT NOT NULL, episode_id TEXT NOT NULL,
+      position REAL NOT NULL, duration REAL NOT NULL, updated_at INTEGER NOT NULL,
+      PRIMARY KEY(profile_key, movie_id)
+    );
+    CREATE TABLE IF NOT EXISTS player_downloads (
+      id TEXT PRIMARY KEY NOT NULL, movie_id TEXT NOT NULL, episode_id TEXT NOT NULL,
+      source_id TEXT NOT NULL, title TEXT NOT NULL, quality TEXT NOT NULL,
+      local_uri TEXT NOT NULL, status TEXT NOT NULL, bytes_written INTEGER NOT NULL DEFAULT 0,
+      total_bytes INTEGER NOT NULL DEFAULT 0, pause_state TEXT, error TEXT, updated_at INTEGER NOT NULL
+    );
+  `);
+  return db;
 }
 
 export const checkpointRepository = {
@@ -77,6 +72,10 @@ export const checkpointRepository = {
        position=excluded.position, duration=excluded.duration, updated_at=excluded.updated_at`,
       value.profileKey, value.movieId, value.episodeId, value.position, value.duration, value.updatedAt,
     );
+  },
+  async clearAll() {
+    const db = await database();
+    await db.runAsync('DELETE FROM playback_checkpoints');
   },
 };
 
