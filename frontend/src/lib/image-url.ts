@@ -1,12 +1,13 @@
 const PROXIED_HOSTS = ['phimimg.com', 'img.phimapi.com'];
+const USE_IMAGE_PROXY = process.env.NEXT_PUBLIC_USE_IMAGE_PROXY === 'true';
 
 /**
- * Rewrite phimimg.com image URLs to go through the backend image proxy,
- * enabling Next.js image optimization (WebP/AVIF conversion and resizing).
- * Non-phimimg URLs are returned unchanged.
+ * Prefer the source CDN because it is already backed by Cloudflare and avoids
+ * an extra Vercel -> Render -> source round trip. The allow-listed backend
+ * proxy remains available as an environment-controlled hotlink fallback.
  */
 export function proxyImageUrl(src: string): string {
-  if (!src) return src;
+  if (!src || !USE_IMAGE_PROXY) return src;
   try {
     const url = new URL(src);
     if (PROXIED_HOSTS.includes(url.hostname)) {
