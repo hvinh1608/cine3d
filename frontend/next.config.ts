@@ -37,6 +37,12 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
+    // The query value is dynamic, but the backend proxy only permits the
+    // allow-listed phimimg.com hosts. Next 16 requires an explicit local
+    // pattern before <Image> can optimize a local URL with a query string.
+    localPatterns: [
+      { pathname: '/api/image-proxy' },
+    ],
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
