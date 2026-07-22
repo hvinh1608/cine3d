@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from '@/components/ui/ResilientImage';
-import { Check, ChevronLeft, ChevronRight, CircleAlert, Info, Play, Plus, Star } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, CircleAlert, Info, Play, Plus, Star, X } from 'lucide-react';
 import { useStore } from '@/hooks/useStore';
 import { toggleFavorite } from '@/lib/user-library';
+import api from '@/lib/api';
 import MovieCard3D from '@/components/ui/MovieCard3D';
 import CommunityHub from '@/components/home/CommunityHub';
 import type { Banner, Movie } from '@/types/movie';
@@ -74,8 +75,28 @@ function MovieRow({ title, movies, href = '/search', favoriteIds, accent = 'text
   </section>;
 }
 
+type WatchHistoryItem = ReturnType<typeof useStore.getState>['watchHistory'][number];
+
+function ContinueWatching({ history, onRemove }: { history: WatchHistoryItem[]; onRemove: (id: string) => void }) {
+  return <section className="relative z-10 mx-auto mt-8 w-full max-w-[1440px] px-4 md:px-8">
+    <div className="mb-5 flex items-center gap-3"><span className="h-6 w-1 rounded-full bg-gradient-to-b from-red-500 to-amber-300" /><h2 className="text-xl font-black text-white md:text-2xl">Tiếp tục xem</h2></div>
+    <div className="movie-row flex gap-4 overflow-x-auto pb-3 md:gap-5">{history.slice(0, 8).map((item) => {
+      const progress = item.duration > 0 ? Math.min(100, Math.round((item.watchedTime / item.duration) * 100)) : 0;
+      const episode = item.movie.episodes?.find((entry) => entry.id === item.episodeId);
+      const watchUrl = `/watch/${item.movie.slug}${episode ? `?ep=${episode.episodeOrder}` : ''}`;
+      return <article key={item.id} className="group relative aspect-video w-[260px] shrink-0 overflow-hidden rounded-xl border border-white/[.07] bg-slate-900 shadow-lg sm:w-[310px]">
+        <Link href={watchUrl} aria-label={`Tiếp tục xem ${item.movie.title}`} className="absolute inset-0 z-10" />
+        <Image src={item.movie.backdropUrl || item.movie.posterUrl} alt={item.movie.title} fill sizes="310px" className="object-cover transition duration-500 group-hover:scale-105" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+        <button type="button" onClick={() => onRemove(item.id)} aria-label={`Xóa ${item.movie.title} khỏi tiếp tục xem`} className="absolute right-2 top-2 z-20 grid h-8 w-8 place-items-center rounded-full bg-black/70 text-slate-300 transition hover:bg-red-600 hover:text-white md:opacity-0 md:group-hover:opacity-100"><X className="h-4 w-4" /></button>
+        <div className="absolute inset-x-0 bottom-0 z-10 p-3"><b className="block truncate text-sm text-white">{item.movie.title}</b><p className="mt-1 text-[10px] text-slate-400">{episode?.title || 'Tiếp tục từ vị trí đã xem'} · {progress}%</p><div className="mt-2 h-1 overflow-hidden rounded-full bg-white/20"><span className="block h-full rounded-full bg-amber-300" style={{ width: `${progress}%` }} /></div></div>
+      </article>;
+    })}</div>
+  </section>;
+}
+
 export default function HomeClient({ initialData }: { initialData: HomeInitialData }) {
-  const { favoriteIds } = useStore();
+  const { favoriteIds, user, watchHistory, setWatchHistory, selectedProfileId, showToast } = useStore();
   const favorites = useMemo(() => new Set(favoriteIds), [favoriteIds]);
   const [heroIndex, setHeroIndex] = useState(0);
   const fallback = initialData.movies[0] || initialData.proposed[0] || initialData.trending[0];
@@ -87,6 +108,26 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
     const timer = window.setInterval(() => setHeroIndex((index) => (index + 1) % heroes.length), 8000);
     return () => window.clearInterval(timer);
   }, [heroes.length]);
+
+  useEffect(() => {
+    if (!user) return;
+    const controller = new AbortController();
+    api.get('/user/history', { signal: controller.signal }).then(({ data }) => {
+      const rows = Array.isArray(data) ? data as WatchHistoryItem[] : [];
+      setWatchHistory(rows.filter((item) => item.watchedTime > 0 && (item.duration <= 0 || item.watchedTime / item.duration < 0.95)));
+    }).catch(() => undefined);
+    return () => controller.abort();
+  }, [selectedProfileId, setWatchHistory, user]);
+
+  const removeHistory = async (historyId: string) => {
+    setWatchHistory(watchHistory.filter((item) => item.id !== historyId));
+    try {
+      await api.delete(`/user/history/${historyId}`);
+      showToast('Đã xóa khỏi danh sách tiếp tục xem.', 'success');
+    } catch {
+      showToast('Không thể xóa lịch sử xem lúc này.', 'error');
+    }
+  };
 
   return <main className="-mt-20 min-h-screen bg-[#171820] pb-20 text-white">
     {active && <section className="relative min-h-[650px] overflow-hidden md:min-h-[760px]">
@@ -107,6 +148,8 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
     </section>}
 
     {initialData.loadError && <div className="mx-auto max-w-[1440px] px-4 md:px-8"><p className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm text-amber-200">{initialData.loadError}</p></div>}
+
+    {user && watchHistory.length > 0 && <ContinueWatching history={watchHistory} onRemove={(id) => void removeHistory(id)} />}
 
     <section className="relative z-10 mx-auto mt-2 w-full max-w-[1440px] px-4 pt-5 md:px-8"><h2 className="mb-5 text-xl font-black text-amber-300 md:text-2xl">Bạn đang quan tâm gì?</h2><div className="movie-row flex gap-3 overflow-x-auto pb-3">{topics.map(([title, subtitle, gradient, slug]) => <Link key={title} href={`/the-loai/${slug}`} className={`relative h-28 w-48 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br ${gradient} p-5 shadow-lg transition hover:-translate-y-1 sm:w-56`}><b className="block text-xl">{title}</b><span className="mt-1 block text-xs text-white/65">{subtitle}</span><ChevronRight className="absolute bottom-4 right-4 h-5 w-5 text-white/70" /><span className="absolute -bottom-12 -right-8 h-28 w-28 rounded-full bg-white/10" /></Link>)}</div></section>
 
