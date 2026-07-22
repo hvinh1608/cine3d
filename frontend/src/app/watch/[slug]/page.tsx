@@ -5,7 +5,7 @@ import { useParams, useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from '@/components/ui/ResilientImage';
 import dynamic from 'next/dynamic';
-import { Play, Pause, Volume2, VolumeX, Maximize, Maximize2, RotateCcw, ChevronRight, ChevronLeft, ListVideo, LightbulbOff, ArrowLeft, Subtitles, Gauge, Tv, Settings, Lock, Crown, Download, Users } from 'lucide-react';
+import { Play, Pause, Volume2, VolumeX, Maximize, Maximize2, RotateCcw, ChevronRight, ChevronLeft, ListVideo, LightbulbOff, ArrowLeft, Subtitles, Gauge, Tv, Settings, Lock, Download, Users } from 'lucide-react';
 import { useStore } from '../../../hooks/useStore';
 import axios from '../../../lib/api';
 import type { Episode, Movie, VideoSource } from '../../../types/movie';
@@ -827,7 +827,7 @@ function WatchPageContent() {
       <style>{`video::cue { color: ${subtitleStyle.color}; font-size: ${subtitleStyle.fontSize}%; background: rgba(0, 0, 0, ${subtitleStyle.background / 100}); text-shadow: 0 2px 4px #000; }`}</style>
       
       {/* Return to Info Bar */}
-      <div className="mx-auto flex max-w-[1500px] flex-col justify-between gap-3 px-4 pt-6 text-xs font-semibold text-slate-400 md:px-8 md:text-sm sm:flex-row sm:items-center">
+      <div className="mx-auto flex max-w-[1440px] flex-col justify-between gap-3 px-4 pb-1 pt-8 text-xs font-semibold text-slate-400 md:px-8 md:text-sm sm:flex-row sm:items-center">
         <Link href={`/movies/${movie.slug}`} className="flex items-center hover:text-white transition-colors">
           <ArrowLeft className="w-4 h-4 mr-1.5" /> Trở lại chi tiết phim
         </Link>
@@ -839,12 +839,12 @@ function WatchPageContent() {
         </Link>
       </div>
 
-      <div className={`mx-auto mt-5 grid max-w-[1500px] grid-cols-1 gap-6 px-4 md:px-8 ${theaterMode ? 'lg:grid-cols-1' : 'lg:grid-cols-[minmax(0,1fr)_350px]'}`}>
+      <div className="mx-auto mt-5 max-w-[1440px] px-4 md:px-8">
         
         {/* PLAYER AREA */}
         <div className="min-w-0">
           <div
-            className="group relative flex aspect-video w-full flex-col overflow-hidden rounded-[24px] border border-white/10 bg-black shadow-[0_28px_80px_rgba(0,0,0,.55)] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#191a22]"
+            className="group relative flex aspect-video w-full flex-col overflow-hidden rounded-lg border border-white/5 bg-black shadow-[0_28px_80px_rgba(0,0,0,.55)] focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#191a22]"
             ref={playerContainerRef}
             tabIndex={0}
             role="region"
@@ -1392,6 +1392,11 @@ function WatchPageContent() {
             )}
           </div>
 
+        </div>
+      </div>
+
+      <div className={`mx-auto grid max-w-[1440px] gap-8 px-4 md:px-8 ${theaterMode ? 'grid-cols-1' : 'lg:grid-cols-[minmax(0,1fr)_300px]'}`}>
+        <div className="min-w-0">
           <WatchMovieInfo
             movie={movie}
             activeEpisode={activeEpisode}
@@ -1405,6 +1410,7 @@ function WatchPageContent() {
             onReportPlayback={() => void reportPlayback()}
             onCopyLink={() => { void navigator.clipboard.writeText(window.location.href); showToast('Đã sao chép liên kết xem phim.', 'success'); }}
           />
+          <MovieComments movieId={movie.id} currentTime={currentTime} onSeek={(seconds) => { if (videoRef.current) videoRef.current.currentTime = seconds; }} />
         </div>
 
         {/* SIDE BAR: EPISODES & SERVER SELECT */}
@@ -1418,7 +1424,6 @@ function WatchPageContent() {
           />
         )}
       </div>
-      <div className="mx-auto max-w-[1500px] px-4 md:px-8"><MovieComments movieId={movie.id} currentTime={currentTime} onSeek={(seconds) => { if (videoRef.current) videoRef.current.currentTime = seconds; }} /></div>
     </div>
   );
 }
