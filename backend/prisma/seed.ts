@@ -16,23 +16,23 @@ async function seedCommunitySamples(userRoleId: string) {
   }
 
   const sampleProfiles = [
-    { username: 'cine3d_mai', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=96&q=80' },
-    { username: 'cine3d_nam', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80' },
-    { username: 'cine3d_movie_fan', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=96&q=80' },
-    { username: 'cine3d_anime', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=96&q=80' },
-    { username: 'cine3d_cinema', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=96&q=80' },
-    { username: 'cine3d_popcorn', avatar: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=96&q=80' },
-    { username: 'cine3d_no_spoil', avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=96&q=80' },
-    { username: 'cine3d_dem_phim', avatar: 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=96&q=80' },
+    { seedId: 'cine3d_mai', username: 'maianh98', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=96&q=80' },
+    { seedId: 'cine3d_nam', username: 'minhquan_97', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80' },
+    { seedId: 'cine3d_movie_fan', username: 'ngoclinh.movie', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=96&q=80' },
+    { seedId: 'cine3d_anime', username: 'linhanime_02', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=96&q=80' },
+    { seedId: 'cine3d_cinema', username: 'tuananh.cinema', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=96&q=80' },
+    { seedId: 'cine3d_popcorn', username: 'khanhhan_99', avatar: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=96&q=80' },
+    { seedId: 'cine3d_no_spoil', username: 'ducnam.review', avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=96&q=80' },
+    { seedId: 'cine3d_dem_phim', username: 'phuongthao_01', avatar: 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=96&q=80' },
   ];
   const samplePassword = await bcrypt.hash(randomBytes(48).toString('base64url'), 12);
   const users = [];
   for (const profile of sampleProfiles) {
     users.push(await prisma.user.upsert({
-      where: { email: `${profile.username}@community.cine3d.invalid` },
-      update: { avatar: profile.avatar },
+      where: { email: `${profile.seedId}@community.cine3d.invalid` },
+      update: { username: profile.username, avatar: profile.avatar },
       create: {
-        email: `${profile.username}@community.cine3d.invalid`,
+        email: `${profile.seedId}@community.cine3d.invalid`,
         username: profile.username,
         password: samplePassword,
         avatar: profile.avatar,
