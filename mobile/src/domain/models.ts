@@ -129,6 +129,22 @@ export interface Comment {
   replies?: Comment[];
 }
 
+export interface CommunityComment {
+  id: string;
+  content: string;
+  createdAt: string;
+  likesCount: number;
+  user: Pick<User, 'id' | 'username' | 'avatar' | 'isVip'>;
+  movie: Pick<Movie, 'id' | 'title' | 'slug' | 'posterUrl'> | null;
+}
+
+export interface CommunityHome {
+  topComments: CommunityComment[];
+  latestComments: CommunityComment[];
+  hotMovies: (Movie & { favoritesCount?: number })[];
+  favoriteMovies: (Movie & { favoritesCount?: number })[];
+}
+
 export interface PlaylistItem {
   id: string;
   playlistId: string;

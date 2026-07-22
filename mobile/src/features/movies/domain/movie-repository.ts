@@ -1,4 +1,4 @@
-import type { Comment, HomeFeed, Movie, Playlist, WatchHistory } from '@/domain/models';
+import type { Comment, CommunityHome, HomeFeed, Movie, Playlist, WatchHistory } from '@/domain/models';
 
 export type CommentSort = 'newest' | 'popular';
 export interface CommentInput {
@@ -15,6 +15,7 @@ export interface PlaylistInput {
 
 export interface MovieRepository {
   getHomeFeed(options?: { forceNetwork?: boolean }): Promise<HomeFeed>;
+  getCommunityHome(): Promise<CommunityHome>;
   getMovie(slug: string): Promise<Movie>;
   getRelated(movie: Movie): Promise<Movie[]>;
   incrementView(movieId: string): Promise<void>;
@@ -47,6 +48,7 @@ export interface MovieRepository {
 export const movieKeys = {
   all: ['movies'] as const,
   home: () => [...movieKeys.all, 'home'] as const,
+  community: () => [...movieKeys.all, 'community'] as const,
   detail: (slug: string) => [...movieKeys.all, 'detail', slug] as const,
   favorites: () => [...movieKeys.all, 'favorites'] as const,
   watchlist: () => [...movieKeys.all, 'watchlist'] as const,

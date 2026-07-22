@@ -11,6 +11,7 @@ import { AsyncState, MovieRail, Screen } from '@/components/ui';
 import type { Banner, HomeFeed } from '@/domain/models';
 import { movieRepository } from '@/features/movies/data/http-movie-repository';
 import { movieKeys } from '@/features/movies/domain/movie-repository';
+import { CommunityHub } from '@/features/movies/presentation/community-hub';
 import { useAppStore } from '@/state/app-store';
 import { colors, spacing } from '@/theme';
 import { useAccessibilityPreferences } from '@/core/accessibility';
@@ -34,6 +35,11 @@ export function HomeScreen() {
     refetchOnMount: 'always',
   });
   const feed = query.data;
+  const community = useQuery({
+    queryKey: movieKeys.community(),
+    queryFn: () => movieRepository.getCommunityHome(),
+    retry: 1,
+  });
   const continueWatching = useMemo(
     () => (history.data ?? []).filter((entry) => !entry.completed && entry.movie).map((entry) => entry.movie!).slice(0, 12),
     [history.data],
@@ -97,6 +103,11 @@ export function HomeScreen() {
           <MovieRail title="Phim Hàn Quốc" movies={(feed?.countries.korea ?? []).slice(0, 12)} />
           <MovieRail title="Phim Trung Quốc" movies={(feed?.countries.china ?? []).slice(0, 12)} />
           <MovieRail title="Phim Việt Nam" movies={(feed?.countries.vietnam ?? []).slice(0, 12)} />
+          <CommunityHub
+            data={community.data}
+            fallbackHot={(feed?.trending ?? []).slice(0, 5)}
+            fallbackFavorite={(feed?.proposed ?? []).slice(0, 5)}
+          />
         </ScrollView>
       </AsyncState>
     </Screen>

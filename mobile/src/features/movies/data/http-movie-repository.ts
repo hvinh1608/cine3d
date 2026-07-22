@@ -1,7 +1,7 @@
 import { config } from '@/core/config';
 import { cacheRepository, type SQLiteCacheRepository } from '@/data/cache/sqlite-cache';
 import { apiClient } from '@/data/http/api-client';
-import type { Comment, HomeFeed, Movie, Playlist, WatchHistory } from '@/domain/models';
+import type { Comment, CommunityHome, HomeFeed, Movie, Playlist, WatchHistory } from '@/domain/models';
 import type { CommentInput, CommentSort, MovieRepository, PlaylistInput } from '@/features/movies/domain/movie-repository';
 
 const HOME_CACHE_KEY = 'query:movies:home:v1';
@@ -28,6 +28,9 @@ export class HttpMovieRepository implements MovieRepository {
 
   async getMovie(slug: string) {
     return (await apiClient.get<Movie>(`/movies/${encodeURIComponent(slug)}`)).data;
+  }
+  async getCommunityHome() {
+    return (await apiClient.get<CommunityHome>('/community/home')).data;
   }
   async getRelated(movie: Movie) {
     const genre = movie.movieGenres?.[0]?.genre.slug;
