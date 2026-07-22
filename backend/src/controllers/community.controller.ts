@@ -8,6 +8,61 @@ function publicCommentUser(user: { id: string; username: string; avatar: string 
   return { id: user.id, username: user.username, avatar: user.avatar, isVip: hasVipAccess(user) };
 }
 
+export const getCommunityHome = async (_req: AuthenticatedRequest, res: Response) => {
+  try {
+    const [topCommentsRaw, latestCommentsRaw, hotMovies, favoriteGroups] = await Promise.all([
+      prisma.comment.findMany({
+        where: { parentId: null, isSpoiler: false },
+        orderBy: [{ commentLikes: { _count: 'desc' } }, { createdAt: 'desc' }],
+        take: 8,
+        include: {
+          user: { select: { id: true, username: true, avatar: true, isVip: true, vipExpiresAt: true } },
+          commentLikes: { select: { id: true } },
+        },
+      }),
+      prisma.comment.findMany({
+        where: { parentId: null, isSpoiler: false },
+        orderBy: { createdAt: 'desc' },
+        take: 6,
+        include: {
+          user: { select: { id: true, username: true, avatar: true, isVip: true, vipExpiresAt: true } },
+          commentLikes: { select: { id: true } },
+        },
+      }),
+      prisma.movie.findMany({ orderBy: [{ views: 'desc' }, { updatedAt: 'desc' }], take: 5 }),
+      prisma.favorite.groupBy({ by: ['movieId'], _count: { movieId: true }, orderBy: { _count: { movieId: 'desc' } }, take: 5 }),
+    ]);
+
+    const movieIds = [...new Set([...topCommentsRaw, ...latestCommentsRaw].map((comment) => comment.movieId))];
+    const [commentMovies, favoriteMovies] = await Promise.all([
+      prisma.movie.findMany({ where: { id: { in: movieIds } }, select: { id: true, title: true, slug: true, posterUrl: true } }),
+      prisma.movie.findMany({ where: { id: { in: favoriteGroups.map((item) => item.movieId) } } }),
+    ]);
+    const movieById = new Map(commentMovies.map((movie) => [movie.id, movie]));
+    const favoriteMovieById = new Map(favoriteMovies.map((movie) => [movie.id, movie]));
+    const formatComment = (comment: (typeof topCommentsRaw)[number]) => ({
+      id: comment.id,
+      content: comment.content,
+      createdAt: comment.createdAt,
+      likesCount: comment.commentLikes.length,
+      user: publicCommentUser(comment.user),
+      movie: movieById.get(comment.movieId) || null,
+    });
+
+    return res.json({
+      topComments: topCommentsRaw.map(formatComment),
+      latestComments: latestCommentsRaw.map(formatComment),
+      hotMovies,
+      favoriteMovies: favoriteGroups.flatMap((item) => {
+        const movie = favoriteMovieById.get(item.movieId);
+        return movie ? [{ ...movie, favoritesCount: item._count.movieId }] : [];
+      }),
+    });
+  } catch (error) {
+    return internalError(res, 'Error retrieving community home.', error);
+  }
+};
+
 
 // Comments
 export const getComments = async (req: AuthenticatedRequest, res: Response) => {

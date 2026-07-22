@@ -7,6 +7,7 @@ import { Check, ChevronLeft, ChevronRight, CircleAlert, Info, Play, Plus, Star }
 import { useStore } from '@/hooks/useStore';
 import { toggleFavorite } from '@/lib/user-library';
 import MovieCard3D from '@/components/ui/MovieCard3D';
+import CommunityHub from '@/components/home/CommunityHub';
 import type { Banner, Movie } from '@/types/movie';
 
 export type HomeInitialData = {
@@ -116,5 +117,6 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
     <MovieRow title="Phim Trung Quốc mới" movies={initialData.china} href="/quoc-gia/trung-quoc" favoriteIds={favorites} accent="text-red-300" />
     <MovieRow title="Phim Hàn Quốc mới" movies={initialData.korea} href="/quoc-gia/han-quoc" favoriteIds={favorites} accent="text-pink-300" />
     <MovieRow title="Phim Việt Nam mới" movies={initialData.vietnam} href="/quoc-gia/viet-nam" favoriteIds={favorites} accent="text-emerald-300" />
+    <CommunityHub fallbackHot={initialData.trending} fallbackFavorite={initialData.proposed} />
   </main>;
 }

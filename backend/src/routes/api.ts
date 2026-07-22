@@ -47,6 +47,7 @@ import {
 } from '../controllers/user.controller';
 import {
   getComments,
+  getCommunityHome,
   createComment,
   toggleLikeComment,
   togglePinComment,
@@ -226,6 +227,7 @@ router.post('/billing/google/verify', rateLimit(60 * 1000, 20), authenticateToke
 router.post('/billing/google/rtdn', rateLimit(60 * 1000, 120), handleGooglePlayRtdn as any);
 
 // --- Community / Interaction Routes ---
+router.get('/community/home', getCommunityHome as any);
 router.get('/movies/:movieId/comments', optionalAuthenticate as any, getComments as any);
 router.post('/movies/:movieId/comments', interactionLimiter, authenticateToken as any, createComment as any);
 router.post('/comments/:commentId/like', interactionLimiter, authenticateToken as any, toggleLikeComment as any);
