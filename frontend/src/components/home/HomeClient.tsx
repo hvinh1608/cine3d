@@ -64,11 +64,13 @@ function AnimeSpotlight({ movies, favoriteIds }: { movies: Movie[]; favoriteIds:
 
 function MovieRow({ title, movies, href = '/search', favoriteIds, accent = 'text-amber-300' }: { title: string; movies: Movie[]; href?: string; favoriteIds: Set<string>; accent?: string }) {
   const rowRef = useRef<HTMLDivElement>(null);
+  const [showPrevious, setShowPrevious] = useState(false);
   if (!movies.length) return null;
   const scroll = (direction: number) => rowRef.current?.scrollBy({ left: direction * Math.max(600, rowRef.current.clientWidth * .8), behavior: 'smooth' });
+  const updatePreviousVisibility = () => setShowPrevious((rowRef.current?.scrollLeft ?? 0) > 1);
   return <section className="mx-auto mt-11 w-full max-w-[1440px] px-4 md:px-8">
     <div className="mb-5 flex items-center justify-between"><h2 className={`text-xl font-black md:text-2xl ${accent}`}>{title}</h2><Link href={href} className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white">Xem tất cả <ChevronRight className="h-4 w-4" /></Link></div>
-    <div className="relative"><button onClick={() => scroll(-1)} aria-label="Phim trước" className="absolute -left-3 top-[38%] z-20 hidden h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-xl hover:bg-amber-300 md:flex"><ChevronLeft /></button><div ref={rowRef} className="movie-row flex gap-4 overflow-x-auto pb-3 md:gap-5">{movies.map((movie) => <MovieCard key={movie.id} movie={movie} favorite={favoriteIds.has(movie.id)} />)}</div><button onClick={() => scroll(1)} aria-label="Phim tiếp theo" className="absolute -right-3 top-[38%] z-20 hidden h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-xl hover:bg-amber-300 md:flex"><ChevronRight /></button></div>
+    <div className="relative">{showPrevious && <button onClick={() => scroll(-1)} aria-label="Phim trước" className="absolute -left-3 top-[38%] z-20 hidden h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-xl hover:bg-amber-300 md:flex"><ChevronLeft /></button>}<div ref={rowRef} onScroll={updatePreviousVisibility} className="movie-row flex gap-4 overflow-x-auto pb-3 md:gap-5">{movies.map((movie) => <MovieCard key={movie.id} movie={movie} favorite={favoriteIds.has(movie.id)} />)}</div><button onClick={() => scroll(1)} aria-label="Phim tiếp theo" className="absolute -right-3 top-[38%] z-20 hidden h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-xl hover:bg-amber-300 md:flex"><ChevronRight /></button></div>
   </section>;
 }
 
