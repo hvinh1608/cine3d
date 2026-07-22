@@ -1,16 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from '@/components/ui/ResilientImage';
-import { Play, Star, Plus, Sparkles, ChevronLeft, ChevronRight, Check, X, Heart, CircleAlert } from 'lucide-react';
-import MovieCard3D from '../ui/MovieCard3D';
-import { useStore } from '../../hooks/useStore';
-import axios from '../../lib/api';
-import { toggleFavorite } from '../../lib/user-library';
-import type { Banner, Movie } from '../../types/movie';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+import { ChevronLeft, ChevronRight, Heart, Info, Play, Plus, Star } from 'lucide-react';
+import { useStore } from '@/hooks/useStore';
+import { toggleFavorite } from '@/lib/user-library';
+import type { Banner, Movie } from '@/types/movie';
 
 export type HomeInitialData = {
   banners: Banner[];
@@ -24,772 +20,81 @@ export type HomeInitialData = {
   loadError?: string;
 };
 
+const topics = [
+  ['Marvel', 'Siêu anh hùng', 'from-violet-600 to-indigo-950', 'vien-tuong'],
+  ['4K', 'Mãn nhãn', 'from-fuchsia-600 to-purple-950', 'vien-tuong'],
+  ['Cổ trang', 'Kiếm hiệp', 'from-cyan-500 to-blue-950', 'co-trang'],
+  ['Tình cảm', 'Ngọt ngào', 'from-pink-500 to-rose-950', 'tinh-cam'],
+  ['Kinh dị', 'Rùng rợn', 'from-orange-500 to-red-950', 'kinh-di'],
+  ['Hoạt hình', 'Cho cả nhà', 'from-emerald-500 to-teal-950', 'hoat-hinh'],
+] as const;
+
+function MovieCard({ movie, favorite }: { movie: Movie; favorite: boolean }) {
+  return <article className="group w-[145px] shrink-0 sm:w-[170px] lg:w-[185px]">
+    <Link href={`/movies/${movie.slug}`} className="relative block aspect-[2/3] overflow-hidden rounded-lg bg-[#242632]">
+      <Image src={movie.posterUrl} alt={movie.title} fill sizes="185px" className="object-cover transition duration-500 group-hover:scale-105" />
+      <span className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
+      <span className="absolute left-2 top-2 rounded bg-black/70 px-1.5 py-1 text-[9px] font-black text-amber-300 backdrop-blur">{movie.quality || 'HD'}</span>
+      <span className="absolute inset-0 grid place-items-center bg-black/25 opacity-0 transition group-hover:opacity-100"><span className="grid h-12 w-12 place-items-center rounded-full bg-amber-300 text-black"><Play className="ml-0.5 h-5 w-5 fill-current" /></span></span>
+    </Link>
+    <div className="mt-3 flex gap-2"><div className="min-w-0 flex-1"><Link href={`/movies/${movie.slug}`} className="block truncate text-sm font-bold text-white hover:text-amber-300">{movie.title}</Link><p className="mt-1 truncate text-[10px] text-slate-500">{movie.englishTitle || `${movie.releaseYear} · ${movie.isSeries ? 'Phim bộ' : 'Phim lẻ'}`}</p></div><button onClick={() => void toggleFavorite(movie.id, movie)} aria-label={favorite ? 'Bỏ yêu thích' : 'Yêu thích'} className={`h-fit pt-0.5 ${favorite ? 'text-rose-400' : 'text-slate-600 hover:text-white'}`}><Heart className={`h-4 w-4 ${favorite ? 'fill-current' : ''}`} /></button></div>
+  </article>;
+}
+
+function MovieRow({ title, movies, href = '/search', favoriteIds, accent = 'text-amber-300' }: { title: string; movies: Movie[]; href?: string; favoriteIds: Set<string>; accent?: string }) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  if (!movies.length) return null;
+  const scroll = (direction: number) => rowRef.current?.scrollBy({ left: direction * Math.max(600, rowRef.current.clientWidth * .8), behavior: 'smooth' });
+  return <section className="mx-auto mt-11 w-full max-w-[1440px] px-4 md:px-8">
+    <div className="mb-5 flex items-center justify-between"><h2 className={`text-xl font-black md:text-2xl ${accent}`}>{title}</h2><Link href={href} className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white">Xem tất cả <ChevronRight className="h-4 w-4" /></Link></div>
+    <div className="relative"><button onClick={() => scroll(-1)} aria-label="Phim trước" className="absolute -left-3 top-[38%] z-20 hidden h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-xl hover:bg-amber-300 md:flex"><ChevronLeft /></button><div ref={rowRef} className="movie-row flex gap-4 overflow-x-auto pb-3 md:gap-5">{movies.map((movie) => <MovieCard key={movie.id} movie={movie} favorite={favoriteIds.has(movie.id)} />)}</div><button onClick={() => scroll(1)} aria-label="Phim tiếp theo" className="absolute -right-3 top-[38%] z-20 hidden h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-xl hover:bg-amber-300 md:flex"><ChevronRight /></button></div>
+  </section>;
+}
+
 export default function HomeClient({ initialData }: { initialData: HomeInitialData }) {
-  const { user, accessToken, hasHydrated, authReady, favoriteIds, watchHistory, setWatchHistory, reduceMotion, showToast } = useStore();
-
-  const [banners, setBanners] = useState<Banner[]>(initialData.banners);
-  const [trending, setTrending] = useState<Movie[]>(initialData.trending);
-  const [proposed, setProposed] = useState<Movie[]>(initialData.proposed);
-  const [allMovies, setAllMovies] = useState<Movie[]>(initialData.movies);
-  const [animeList, setAnimeList] = useState<Movie[]>(initialData.anime);
-  const [chinaMovies, setChinaMovies] = useState<Movie[]>(initialData.china);
-  const [koreaMovies, setKoreaMovies] = useState<Movie[]>(initialData.korea);
-  const [vietnamMovies, setVietnamMovies] = useState<Movie[]>(initialData.vietnam);
-  const [personalized, setPersonalized] = useState<Movie[]>([]);
-  const [hasPersonalizedRecommendations, setHasPersonalizedRecommendations] = useState(false);
-  const [activeAnimeIndex, setActiveAnimeIndex] = useState(0);
-
-  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
-  const [parallaxOffset, setParallaxOffset] = useState({ x: 0, y: 0 });
-  const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState(initialData.loadError || '');
-  const [reloadKey, setReloadKey] = useState(0);
-  const catalogRetryStarted = useRef(false);
-  const [recommendedCanScrollLeft, setRecommendedCanScrollLeft] = useState(false);
-  const [recommendedCanScrollRight, setRecommendedCanScrollRight] = useState(true);
-  const [latestCanScrollLeft, setLatestCanScrollLeft] = useState(false);
-  const [latestCanScrollRight, setLatestCanScrollRight] = useState(true);
-  const [countryScrollState, setCountryScrollState] = useState<Record<string, { left: boolean; right: boolean }>>({
-    'trung-quoc': { left: false, right: true },
-    'han-quoc': { left: false, right: true },
-    'viet-nam': { left: false, right: true },
-  });
-
-  const recommendedRowRef = useRef<HTMLDivElement>(null);
-  const latestRowRef = useRef<HTMLDivElement>(null);
-  const trendingRowRef = useRef<HTMLDivElement>(null);
-  const animeRowRef = useRef<HTMLDivElement>(null);
-  const chinaRowRef = useRef<HTMLDivElement>(null);
-  const koreaRowRef = useRef<HTMLDivElement>(null);
-  const vietnamRowRef = useRef<HTMLDivElement>(null);
-
-  const favoriteIdSet = useMemo(() => new Set(favoriteIds), [favoriteIds]);
-
-  const scrollMovieRow = (ref: React.RefObject<HTMLDivElement | null>, direction: -1 | 1) => {
-    const row = ref.current;
-    if (!row) return;
-    row.scrollBy({
-      left: direction * Math.max(320, row.clientWidth * 0.85),
-      behavior: reduceMotion ? 'auto' : 'smooth',
-    });
-  };
-
-  const syncScrollControls = (
-    row: HTMLDivElement,
-    setCanScrollLeft: (value: boolean) => void,
-    setCanScrollRight: (value: boolean) => void,
-  ) => {
-    setCanScrollLeft(row.scrollLeft > 8);
-    setCanScrollRight(row.scrollLeft + row.clientWidth < row.scrollWidth - 8);
-  };
-
-  const syncCountryScrollControls = (slug: string, row: HTMLDivElement) => {
-    const next = {
-      left: row.scrollLeft > 8,
-      right: row.scrollLeft + row.clientWidth < row.scrollWidth - 8,
-    };
-    setCountryScrollState((current) => ({ ...current, [slug]: next }));
-  };
-
-  // Fetch data from backend
-  useEffect(() => {
-    if (reloadKey === 0) return;
-    const controller = new AbortController();
-    const fetchData = async () => {
-      setLoading(true);
-      setLoadError('');
-      const [homeResult, animeResult] = await Promise.allSettled([
-        axios.get(`${API_URL}/movies/home`, { signal: controller.signal, timeout: 35_000 }),
-        axios.get(`${API_URL}/movies`, { params: { type: 'hoathinh', limit: 12 }, signal: controller.signal, timeout: 30_000 }),
-      ]);
-
-      if (controller.signal.aborted) return;
-
-      if (homeResult.status === 'fulfilled') {
-        const data = homeResult.value.data;
-        setBanners(Array.isArray(data?.banners) ? data.banners : []);
-        setTrending(Array.isArray(data?.trending) ? data.trending : []);
-        setProposed(Array.isArray(data?.proposed) ? data.proposed : []);
-        setAllMovies(Array.isArray(data?.movies) ? data.movies : []);
-        setChinaMovies(Array.isArray(data?.countries?.china) ? data.countries.china : []);
-        setKoreaMovies(Array.isArray(data?.countries?.korea) ? data.countries.korea : []);
-        setVietnamMovies(Array.isArray(data?.countries?.vietnam) ? data.countries.vietnam : []);
-      }
-
-      if (animeResult.status === 'fulfilled') {
-        const animeData = animeResult.value.data;
-        const nextAnime = Array.isArray(animeData?.movies) ? animeData.movies : [];
-        setAnimeList(nextAnime);
-        setActiveAnimeIndex((index) => nextAnime.length ? Math.min(index, nextAnime.length - 1) : 0);
-      }
-
-      const failedSections = [homeResult, animeResult].filter((result) => result.status === 'rejected').length;
-      if (failedSections === 2) setLoadError('Không tải được danh sách phim. Backend có thể đang khởi động, vui lòng thử lại.');
-      else if (failedSections === 1) setLoadError('Một phần nội dung tải chậm và đang tạm thời không hiển thị.');
-      setLoading(false);
-    };
-
-    void fetchData();
-    return () => controller.abort();
-  }, [reloadKey]);
+  const { favoriteIds } = useStore();
+  const favorites = useMemo(() => new Set(favoriteIds), [favoriteIds]);
+  const [heroIndex, setHeroIndex] = useState(0);
+  const fallback = initialData.movies[0] || initialData.proposed[0] || initialData.trending[0];
+  const heroes = useMemo(() => initialData.banners.length ? initialData.banners.slice(0, 6) : fallback ? [{ id: fallback.id, title: fallback.title, description: fallback.description || '', imageUrl: fallback.backdropUrl, movie: fallback }] : [], [fallback, initialData.banners]);
+  const active = heroes[heroIndex];
 
   useEffect(() => {
-    if (catalogRetryStarted.current) return;
-    const catalogEmpty = initialData.movies.length === 0
-      && initialData.trending.length === 0
-      && initialData.proposed.length === 0;
-    // Only auto-retry when SSR returned nothing useful (or a hard load error).
-    if (!catalogEmpty && !initialData.loadError) return;
-    catalogRetryStarted.current = true;
-    setReloadKey(1);
-  }, [initialData.loadError, initialData.movies.length, initialData.proposed.length, initialData.trending.length]);
+    if (heroes.length < 2) return;
+    const timer = window.setInterval(() => setHeroIndex((index) => (index + 1) % heroes.length), 8000);
+    return () => window.clearInterval(timer);
+  }, [heroes.length]);
 
-  useEffect(() => {
-    // Watch history must not force the public movie catalog to refetch after login.
-    if (!user || !accessToken) {
-      if (!user) setWatchHistory([]);
-      return;
-    }
-    const controller = new AbortController();
-    axios.get(`${API_URL}/user/history`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      signal: controller.signal,
-    }).then((res) => {
-      const rows = Array.isArray(res.data) ? res.data : [];
-      setWatchHistory(rows.filter((item: { completed?: boolean }) => !item.completed));
-    }).catch((e) => {
-      if (!controller.signal.aborted) console.warn('Failed to fetch watch history.', e);
-    });
-    return () => controller.abort();
-  }, [user, accessToken, setWatchHistory]);
-
-  useEffect(() => {
-    if (!hasHydrated || !authReady) return;
-    if (!user) {
-      queueMicrotask(() => {
-        setPersonalized([]);
-        setHasPersonalizedRecommendations(false);
-      });
-      return;
-    }
-    const controller = new AbortController();
-    axios.get(`${API_URL}/movies/recommendations/me`, { signal: controller.signal })
-      .then((response) => {
-        setPersonalized(Array.isArray(response.data?.movies) ? response.data.movies : []);
-        setHasPersonalizedRecommendations(response.data?.personalized === true);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) {
-          setPersonalized([]);
-          setHasPersonalizedRecommendations(false);
-        }
-      });
-    return () => controller.abort();
-  }, [authReady, hasHydrated, user]);
-
-  // Parallax backdrop tracking
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (reduceMotion) return;
-    const { clientX, clientY } = e;
-    const { innerWidth, innerHeight } = window;
-    const x = (clientX - innerWidth / 2) / (innerWidth / 2);
-    const y = (clientY - innerHeight / 2) / (innerHeight / 2);
-    setParallaxOffset({ x, y });
-  };
-
-  const handleToggleFavorite = (movieId: string, movie?: Movie) => {
-    void toggleFavorite(movieId, movie);
-  };
-
-  const handleRemoveHistory = async (historyId: string) => {
-    if (!user || !accessToken) return;
-    try {
-      await axios.delete(`${API_URL}/user/history/${historyId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-      setWatchHistory(watchHistory.filter((item) => item.id !== historyId));
-      showToast('Đã xóa phim khỏi danh sách tiếp tục xem!', 'success');
-    } catch {
-      setWatchHistory(watchHistory.filter((item) => item.id !== historyId));
-    }
-  };
-
-  const fallbackMovie = allMovies[0] || proposed[0] || trending[0];
-  const activeBanner = banners[currentBannerIndex] || (fallbackMovie ? {
-    id: `fallback-banner-${fallbackMovie.id}`,
-    title: fallbackMovie.title,
-    description: fallbackMovie.description || fallbackMovie.englishTitle || fallbackMovie.title,
-    imageUrl: fallbackMovie.backdropUrl || fallbackMovie.posterUrl,
-    movie: fallbackMovie,
-  } : undefined);
-
-  // Rotate banner index every 12s
-  useEffect(() => {
-    const bannerCount = Math.min(banners.length, 6);
-    if (bannerCount <= 1) return;
-    const timer = setInterval(() => {
-      setCurrentBannerIndex((prev) => (prev >= bannerCount - 1 ? 0 : prev + 1));
-    }, 12000);
-    return () => clearInterval(timer);
-  }, [banners]);
-
-  // Rotate active anime showcase index every 8s
-  useEffect(() => {
-    if (animeList.length <= 1) return;
-    const timer = setInterval(() => {
-      setActiveAnimeIndex((prev) => (prev === animeList.length - 1 ? 0 : prev + 1));
-    }, 8000);
-    return () => clearInterval(timer);
-  }, [animeList, activeAnimeIndex]);
-
-  // Auto-scroll active anime poster into view in the bottom strip without pulling the page scroll position!
-  useEffect(() => {
-    const row = animeRowRef.current;
-    if (!row) return;
-    const activeChild = row.children[activeAnimeIndex] as HTMLElement;
-    if (activeChild) {
-      const containerWidth = row.clientWidth;
-      const childOffsetLeft = activeChild.offsetLeft;
-      const childWidth = activeChild.clientWidth;
-
-      const targetScrollLeft = childOffsetLeft - (containerWidth / 2) + (childWidth / 2);
-
-      row.scrollTo({
-        left: targetScrollLeft,
-        behavior: reduceMotion ? 'auto' : 'smooth',
-      });
-    }
-  }, [activeAnimeIndex, reduceMotion]);
-
-  if (loading && banners.length === 0 && allMovies.length === 0 && proposed.length === 0 && trending.length === 0) {
-    return (
-      <div className="flex-1 flex items-center justify-center h-[70vh]">
-        <div className="relative w-16 h-16">
-          <div className="absolute inset-0 rounded-full border-4 border-slate-900 border-t-red-600 animate-spin" />
-          <div className="absolute inset-2 rounded-full border-4 border-slate-900 border-t-purple-600 animate-spin animate-reverse" />
+  return <main className="-mt-20 min-h-screen bg-[#171820] pb-20 text-white">
+    {active && <section className="relative min-h-[650px] overflow-hidden md:min-h-[760px]">
+      <Image src={active.imageUrl || active.movie.posterUrl} alt={active.title} fill priority sizes="100vw" className="object-cover object-center" />
+      <div className="absolute inset-0 bg-[linear-gradient(90deg,#171820_0%,rgba(23,24,32,.78)_30%,rgba(23,24,32,.12)_72%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(23,24,32,.15)_0%,rgba(23,24,32,0)_46%,#171820_100%)]" />
+      <div className="relative mx-auto flex min-h-[650px] max-w-[1440px] items-end px-4 pb-28 pt-32 md:min-h-[760px] md:px-8 md:pb-36">
+        <div className="max-w-2xl">
+          <p className="mb-4 text-xs font-black uppercase tracking-[.28em] text-amber-300">CINE3D · Phim nổi bật</p>
+          <h1 className="text-4xl font-black leading-[.98] drop-shadow-2xl sm:text-6xl lg:text-7xl">{active.title}</h1>
+          {active.movie.englishTitle && <p className="mt-3 text-lg font-semibold text-amber-200">{active.movie.englishTitle}</p>}
+          <div className="mt-5 flex flex-wrap items-center gap-2 text-[11px] font-bold"><span className="flex items-center gap-1 rounded bg-amber-300 px-2.5 py-1.5 text-black"><Star className="h-3 w-3 fill-current" /> {Number(active.movie.ratingAvg || 0).toFixed(1)}</span><span className="rounded border border-white/30 px-2.5 py-1.5">{active.movie.releaseYear}</span><span className="rounded border border-white/30 px-2.5 py-1.5">{active.movie.quality || 'HD'}</span><span className="rounded border border-white/30 px-2.5 py-1.5">{active.movie.isSeries ? 'Phim bộ' : 'Phim lẻ'}</span>{active.movie.movieGenres?.slice(0, 2).map(({ genre }) => <span key={genre.slug} className="rounded-full bg-white/10 px-3 py-1.5">{genre.name}</span>)}</div>
+          <p className="mt-5 line-clamp-3 max-w-xl text-sm leading-7 text-slate-300 drop-shadow">{active.description || active.movie.description}</p>
+          <div className="mt-7 flex items-center gap-3"><Link href={`/watch/${active.movie.slug}`} className="flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-200 to-amber-400 px-7 py-3.5 text-sm font-black text-black shadow-[0_10px_30px_rgba(251,191,36,.2)] hover:brightness-110"><Play className="h-5 w-5 fill-current" /> Xem ngay</Link><Link href={`/movies/${active.movie.slug}`} className="grid h-12 w-12 place-items-center rounded-full bg-white/15 backdrop-blur hover:bg-white/25"><Info className="h-5 w-5" /></Link><button onClick={() => void toggleFavorite(active.movie.id, active.movie)} className="grid h-12 w-12 place-items-center rounded-full bg-white/15 backdrop-blur hover:bg-white/25"><Plus className="h-5 w-5" /></button></div>
         </div>
       </div>
-    );
-  }
+      {heroes.length > 1 && <div className="absolute bottom-11 right-4 hidden max-w-[48%] gap-3 md:flex lg:right-10">{heroes.map((banner, index) => <button key={banner.id} onClick={() => setHeroIndex(index)} className={`relative aspect-video w-28 overflow-hidden rounded-lg border-2 transition lg:w-36 ${index === heroIndex ? 'border-amber-300 opacity-100' : 'border-transparent opacity-55 hover:opacity-100'}`}><Image src={banner.imageUrl || banner.movie.posterUrl} alt={banner.title} fill sizes="144px" className="object-cover" /></button>)}</div>}
+    </section>}
 
-  // 6 gradient categories config
-  const categories = [
-    { name: 'Viễn Tưởng', query: 'vien-tuong', gradient: 'from-purple-600 to-indigo-900' },
-    { name: 'Tình Cảm', query: 'tinh-cam', gradient: 'from-pink-500 to-rose-900' },
-    { name: 'Hành Động', query: 'hanh-dong', gradient: 'from-orange-500 to-amber-700' },
-    { name: 'Kinh Dị', query: 'kinh-di', gradient: 'from-red-950 to-rose-800' },
-    { name: 'Cổ Trang', query: 'co-trang', gradient: 'from-cyan-600 to-blue-900' },
-    { name: 'Hài Hước', query: 'hai-huoc', gradient: 'from-slate-700 to-neutral-900' },
-  ];
+    {initialData.loadError && <div className="mx-auto max-w-[1440px] px-4 md:px-8"><p className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm text-amber-200">{initialData.loadError}</p></div>}
 
-  return (
-    <div className="-mt-20 flex w-full flex-1 flex-col bg-transparent pb-20 text-slate-100">
-      {loadError && (
-        <div className="max-w-7xl mx-auto px-4 md:px-8 w-full mt-6">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-950/30 px-4 py-3 text-sm text-amber-200">
-            <span>{loadError}</span>
-            <button type="button" onClick={() => setReloadKey((key) => key + 1)} className="rounded-lg border border-amber-400/20 px-3 py-1.5 text-xs font-black transition hover:bg-amber-400/10">
-              Thử tải lại
-            </button>
-          </div>
-        </div>
-      )}
+    <section className="mx-auto -mt-7 w-full max-w-[1440px] px-4 md:px-8"><h2 className="mb-5 text-xl font-black text-amber-300 md:text-2xl">Bạn đang quan tâm gì?</h2><div className="movie-row flex gap-3 overflow-x-auto pb-3">{topics.map(([title, subtitle, gradient, slug]) => <Link key={title} href={`/the-loai/${slug}`} className={`relative h-28 w-48 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br ${gradient} p-5 shadow-lg transition hover:-translate-y-1 sm:w-56`}><b className="block text-xl">{title}</b><span className="mt-1 block text-xs text-white/65">{subtitle}</span><ChevronRight className="absolute bottom-4 right-4 h-5 w-5 text-white/70" /><span className="absolute -bottom-12 -right-8 h-28 w-28 rounded-full bg-white/10" /></Link>)}</div></section>
 
-      {/* HERO BANNER SECTION (ROPHIM STYLE) */}
-      {activeBanner && (
-        <div
-          onMouseMove={handleMouseMove}
-          className="relative w-full h-[65vh] md:h-[80vh] overflow-hidden bg-slate-950 flex items-center select-none border-b border-white/5"
-        >
-          {/* Backdrop Image Layer */}
-          <div
-            style={{
-              transform: reduceMotion
-                ? 'scale(1)'
-                : `scale(1.06) translate3d(${parallaxOffset.x * -8}px, ${parallaxOffset.y * -8}px, 0px)`,
-              transition: 'transform 0.2s ease-out',
-            }}
-            className="absolute inset-0 w-full h-full bg-cover bg-center"
-          >
-            <Image
-              src={activeBanner.imageUrl}
-              alt={activeBanner.title}
-              fill
-              priority
-              sizes="100vw"
-              className="w-full h-full object-cover"
-            />
-            {/* Visual shadows/gradients */}
-            <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/40 to-transparent" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#191a22] via-transparent to-black/30" />
-          </div>
+    <MovieRow title="Đề xuất cho bạn" movies={initialData.proposed} favoriteIds={favorites} accent="text-amber-300" />
 
-          {/* Details Overlay */}
-          <div
-            style={{
-              transform: reduceMotion
-                ? 'none'
-                : `translate3d(${parallaxOffset.x * 10}px, ${parallaxOffset.y * 10}px, 20px)`,
-              transition: 'transform 0.2s ease-out',
-            }}
-            className="relative max-w-7xl mx-auto px-4 md:px-8 w-full z-20 flex flex-col items-start space-y-4 pt-12 text-left"
-          >
-            <div className="flex items-center space-x-2 bg-yellow-500 text-black text-[9px] md:text-xs font-black uppercase tracking-wider px-2.5 py-0.5 rounded shadow-lg">
-              <Sparkles className="w-3.5 h-3.5 mr-0.5 fill-current" /> NỔI BẬT
-            </div>
+    {!!initialData.trending.length && <section className="mx-auto mt-12 w-full max-w-[1440px] px-4 md:px-8"><div className="mb-5 flex items-center justify-between"><h2 className="text-xl font-black text-rose-400 md:text-2xl">Top phim hôm nay</h2><Link href="/search?sortBy=views" className="flex items-center gap-1 text-xs font-bold text-slate-400">Xem tất cả <ChevronRight className="h-4 w-4" /></Link></div><div className="movie-row flex gap-5 overflow-x-auto pb-4">{initialData.trending.slice(0, 10).map((movie, index) => <Link key={movie.id} href={`/movies/${movie.slug}`} className="group flex w-[270px] shrink-0 items-end"><span className="relative z-10 -mr-3 text-[92px] font-black leading-none text-transparent [-webkit-text-stroke:2px_rgba(255,255,255,.55)]">{index + 1}</span><span className="relative block aspect-[2/3] w-32 overflow-hidden rounded-lg bg-[#252735]"><Image src={movie.posterUrl} alt={movie.title} fill sizes="128px" className="object-cover transition group-hover:scale-105" /></span><span className="min-w-0 flex-1 pb-2 pl-3"><b className="line-clamp-2 text-sm group-hover:text-amber-300">{movie.title}</b><small className="mt-2 block text-[10px] text-slate-500">{movie.quality} · {movie.releaseYear}</small></span></Link>)}</div></section>}
 
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-black tracking-tight leading-none text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)] max-w-2xl">
-              {activeBanner.title}
-            </h1>
-
-            <p className="text-slate-300 text-xs md:text-sm max-w-xl line-clamp-3 drop-shadow-md leading-relaxed">
-              {activeBanner.description}
-            </p>
-
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs font-semibold text-slate-200">
-              <span className="flex items-center text-yellow-400 bg-black/50 px-2 py-0.5 rounded border border-white/5">
-                <Star className="w-3.5 h-3.5 fill-current mr-1" />
-                {activeBanner.movie?.ratingAvg?.toFixed(1) || '8.5'}
-              </span>
-              <span className="bg-black/50 px-2 py-0.5 rounded border border-white/5">
-                {activeBanner.movie?.releaseYear || '2025'}
-              </span>
-              <span className="bg-black/50 px-2 py-0.5 rounded border border-white/5">
-                {activeBanner.movie?.quality || 'HD'}
-              </span>
-              <span className="bg-black/50 px-2 py-0.5 rounded border border-white/5">
-                {activeBanner.movie?.isSeries ? 'Phim Bộ' : 'Phim Lẻ'}
-              </span>
-            </div>
-
-            <div className="flex items-center space-x-3 pt-1">
-              <Link
-                href={`/movies/${activeBanner.movie?.slug}`}
-                className="flex items-center bg-yellow-500 text-black text-xs md:text-sm font-black px-6 py-2.5 rounded-full hover:bg-white hover:text-black transition-all shadow-xl active:scale-95"
-              >
-                <Play className="w-4 h-4 fill-current mr-1.5" /> Xem Ngay
-              </Link>
-              <button
-                onClick={() => handleToggleFavorite(activeBanner.movie?.id, activeBanner.movie)}
-                className="flex items-center bg-white/10 hover:bg-white/20 border border-white/15 text-white text-xs md:text-sm font-bold px-5 py-2.5 rounded-full transition-all active:scale-95"
-              >
-                <Plus className="w-4 h-4 mr-1.5" /> Danh Sách
-              </button>
-            </div>
-          </div>
-
-          {/* Banner Quick Select Strip at the Bottom (Rophim Style overlay) */}
-          <div className="absolute bottom-6 left-0 right-0 z-30 max-w-7xl mx-auto px-4 md:px-8 w-full">
-            <div
-              style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-              className="flex items-center space-x-3 overflow-x-auto pl-8 pr-4 md:pl-[34%] md:pr-8 py-2 justify-start [&::-webkit-scrollbar]:hidden"
-            >
-              {banners.slice(0, 6).map((item, idx) => (
-                <button
-                  key={item.id}
-                  onClick={() => setCurrentBannerIndex(idx)}
-                    className={`relative w-16 md:w-24 aspect-video rounded-lg overflow-hidden border-2 transition-all hover:scale-105 shrink-0 ${
-                    currentBannerIndex === idx ? 'border-yellow-500 shadow-lg scale-105' : 'border-white/10 opacity-60'
-                  }`}
-                >
-                  <Image src={item.imageUrl} alt={item.title} fill sizes="96px" className="object-cover" />
-                  <div className="absolute inset-0 bg-black/40 flex items-end p-1 md:p-1.5">
-                    <span className="text-[8px] md:text-[9px] font-bold text-white truncate w-full text-left">
-                      {item.title}
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* CATEGORY / GENRE BUTTONS (6 COLUMNS) */}
-      <section className="max-w-7xl mx-auto px-4 md:px-8 w-full mt-10">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {categories.map((cat, i) => (
-            <Link
-              key={i}
-              href={`/the-loai/${encodeURIComponent(cat.query)}`}
-              className={`relative rounded-2xl overflow-hidden py-5 md:py-6 flex flex-col items-center justify-center bg-gradient-to-tr ${cat.gradient} shadow-lg hover:shadow-glow transition-all duration-300 transform hover:-translate-y-1 hover:scale-103 group border border-white/5`}
-            >
-              <span className="text-white text-base md:text-lg font-black tracking-wide drop-shadow-md">
-                {cat.name}
-              </span>
-              <span className="text-[10px] text-white/60 font-semibold uppercase tracking-widest mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                Khám Phá
-              </span>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      {/* ROW: CONTINUE WATCHING (TIEP TUC XEM) */}
-      {user && watchHistory && watchHistory.length > 0 && (
-        <section className="max-w-7xl mx-auto px-4 md:px-8 w-full mt-14 text-left">
-          <div className="flex items-center justify-between mb-5">
-            <div className="flex items-center space-x-2">
-              <div className="w-1 h-5 bg-gradient-to-r from-red-500 to-yellow-500 rounded-full" />
-              <h2 className="text-lg md:text-xl font-black uppercase tracking-wider text-white">
-                Tiếp Tục Xem
-              </h2>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-            {watchHistory.slice(0, 4).map((item) => {
-              const percent = Math.min(100, Math.floor((item.watchedTime / (item.duration || 1)) * 100));
-              const displayImage = item.movie?.backdropUrl || item.movie?.posterUrl;
-              return (
-                <div
-                  key={item.id}
-                  className="relative aspect-video w-full rounded-xl overflow-hidden bg-slate-900 border border-white/5 shadow-lg group select-none flex flex-col justify-end"
-                >
-                  {/* Remove button */}
-                  <button
-                    onClick={() => handleRemoveHistory(item.id)}
-                    className="absolute top-2 right-2 z-30 p-1 rounded-full bg-black/60 hover:bg-red-600 text-slate-300 hover:text-white transition-colors cursor-pointer opacity-0 group-hover:opacity-100 duration-200"
-                    title="Xóa khỏi danh sách"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                  <Image src={displayImage} alt={item.movie?.title || 'Phim đang xem'} fill sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw" className="object-cover transition-transform duration-500 group-hover:scale-105" />
-                  {/* Overlay gradient */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent" />
-
-                  {/* Content details */}
-                  <div className="relative z-10 p-3 flex flex-col space-y-1.5 w-full">
-                    <span className="self-start bg-yellow-500 text-black text-[9px] uppercase font-black px-1.5 py-0.5 rounded shadow">
-                      {percent}% Đã Xem
-                    </span>
-                    <h3 className="text-white font-bold text-xs md:text-sm leading-tight truncate text-left">
-                      {item.movie?.title}
-                    </h3>
-
-                    <div className="flex items-center justify-between text-[9px] text-slate-400 font-medium">
-                      <span className="truncate max-w-[70%]">
-                        {(() => {
-                          const matchedEp = item.movie?.episodes?.find((episode) => episode.id === item.episodeId);
-                          return matchedEp ? `${matchedEp.title} • ` : '';
-                        })()}
-                        Đã xem {Math.floor(item.watchedTime / 60)} phút
-                      </span>
-
-                      <Link
-                        href={`/watch/${item.movie?.slug}?ep=${(() => {
-                          const matchedEp = item.movie?.episodes?.find((episode) => episode.id === item.episodeId);
-                          return matchedEp?.episodeOrder || 1;
-                        })()}`}
-                        className="bg-white text-black hover:bg-yellow-500 rounded-full p-1 transition-colors cursor-pointer shrink-0"
-                        title="Xem tiếp"
-                      >
-                        <Play className="w-3 h-3 fill-current" />
-                      </Link>
-                    </div>
-                  </div>
-
-                  {/* Playback progress bar */}
-                  <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800 z-20">
-                    <div
-                      style={{ width: `${percent}%` }}
-                      className="h-full bg-gradient-to-r from-red-500 to-yellow-500"
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-
-      {/* ROW 1: RECOMMENDED MOVIES (PORTRAIT CARDS LIKE TOP 5) */}
-      <section className="max-w-7xl mx-auto px-4 md:px-8 w-full mt-14">
-        <div className="mb-5 flex items-center">
-          <div className="flex items-center space-x-2">
-            <div className="w-1 h-5 bg-red-600 rounded-full" />
-            <h2 className="text-lg md:text-xl font-black uppercase tracking-wider text-white">
-              Đề Xuất Cho Bạn
-            </h2>
-            <Link href="/search" aria-label="Xem thêm phim đề xuất" className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/25 bg-black/20 text-slate-200 transition hover:border-white/60 hover:bg-white hover:text-black">
-              <ChevronRight className="h-5 w-5" />
-            </Link>
-          </div>
-        </div>
-
-        <div className="relative">
-          {recommendedCanScrollLeft && <button type="button" onClick={() => scrollMovieRow(recommendedRowRef, -1)} aria-label="Xem phim phía trước" className="absolute left-0 top-1/2 z-40 flex h-11 w-11 -translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.45)] transition hover:scale-110 hover:bg-red-500 hover:text-white md:h-14 md:w-14"><ChevronLeft className="h-6 w-6" /></button>}
-          <div ref={recommendedRowRef} onScroll={(event) => syncScrollControls(event.currentTarget, setRecommendedCanScrollLeft, setRecommendedCanScrollRight)} className="movie-row flex space-x-8 overflow-x-auto pb-4 scroll-smooth">
-            {(hasPersonalizedRecommendations && personalized.length ? personalized : proposed).map((movie, index) => (
-              <div key={movie.id} className="w-[160px] sm:w-[200px] shrink-0 relative pt-2">
-                <MovieCard3D movie={movie} onToggleFavorite={handleToggleFavorite} isFavorited={favoriteIdSet.has(movie.id)} slant={index % 2 === 0 ? 'left' : 'right'} />
-              </div>
-            ))}
-            {!personalized.length && proposed.length === 0 && <p className="w-full py-4 text-center text-sm text-slate-500">Chưa có phim đề xuất.</p>}
-          </div>
-          {recommendedCanScrollRight && <button type="button" onClick={() => scrollMovieRow(recommendedRowRef, 1)} aria-label="Xem phim tiếp theo" className="absolute right-0 top-1/2 z-40 flex h-11 w-11 translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.45)] transition hover:scale-110 hover:bg-red-500 hover:text-white md:h-14 md:w-14"><ChevronRight className="h-6 w-6" /></button>}
-        </div>
-      </section>
-
-      {/* ROW 2: NEWLY UPDATED MOVIES (PORTRAIT CARDS LIKE TOP 5) */}
-      <section className="max-w-7xl mx-auto px-4 md:px-8 w-full mt-12">
-        <div className="mb-5 flex items-center">
-          <div className="flex items-center space-x-2">
-            <div className="w-1 h-5 bg-purple-600 rounded-full" />
-            <h2 className="text-lg md:text-xl font-black uppercase tracking-wider text-white">
-              Mới Cập Nhật
-            </h2>
-            <Link href="/search?sortBy=createdAt" aria-label="Xem tất cả phim mới cập nhật" className="ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/25 bg-black/20 text-slate-200 transition hover:border-white/60 hover:bg-white hover:text-black">
-              <ChevronRight className="h-5 w-5" />
-            </Link>
-          </div>
-        </div>
-
-        <div className="relative">
-          {latestCanScrollLeft && <button type="button" onClick={() => scrollMovieRow(latestRowRef, -1)} aria-label="Xem phim phía trước" className="absolute left-0 top-1/2 z-40 flex h-11 w-11 -translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.45)] transition hover:scale-110 hover:bg-purple-500 hover:text-white md:h-14 md:w-14"><ChevronLeft className="h-6 w-6" /></button>}
-          <div ref={latestRowRef} onScroll={(event) => syncScrollControls(event.currentTarget, setLatestCanScrollLeft, setLatestCanScrollRight)} className="movie-row flex space-x-8 overflow-x-auto pb-4 scroll-smooth">
-            {allMovies.map((movie, index) => (
-              <div key={movie.id} className="w-[160px] sm:w-[200px] shrink-0 relative pt-2">
-                <MovieCard3D movie={movie} onToggleFavorite={handleToggleFavorite} isFavorited={favoriteIdSet.has(movie.id)} slant={index % 2 === 0 ? 'right' : 'left'} />
-              </div>
-            ))}
-            {allMovies.length === 0 && loading && (
-              <p className="w-full py-4 text-center text-sm text-slate-500">Đang tải phim mới cập nhật…</p>
-            )}
-            {allMovies.length === 0 && !loading && (
-              <div className="flex w-full flex-col items-center gap-3 py-4">
-                <p className="text-center text-sm text-slate-500">Chưa có phim cập nhật.</p>
-                <button
-                  type="button"
-                  onClick={() => setReloadKey((key) => key + 1)}
-                  className="rounded-lg border border-white/15 px-3 py-1.5 text-xs font-black text-slate-300 transition hover:bg-white/10"
-                >
-                  Thử tải lại
-                </button>
-              </div>
-            )}
-          </div>
-          {latestCanScrollRight && <button type="button" onClick={() => scrollMovieRow(latestRowRef, 1)} aria-label="Xem phim tiếp theo" className="absolute right-0 top-1/2 z-40 flex h-11 w-11 translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.45)] transition hover:scale-110 hover:bg-purple-500 hover:text-white md:h-14 md:w-14"><ChevronRight className="h-6 w-6" /></button>}
-        </div>
-      </section>
-
-      {/* ROW 3: TOP 5 TODAY (PORTRAIT RANKED OVERLAY - ROPHIM STYLE) */}
-      <section className="max-w-7xl mx-auto px-4 md:px-8 w-full mt-14 mb-8">
-        <div className="mb-6 flex items-center">
-          <div className="flex items-center space-x-2">
-            <div className="w-1 h-5 bg-yellow-500 rounded-full" />
-            <h2 className="text-lg md:text-xl font-black uppercase tracking-wider text-white">
-              Top 5 Thịnh Hành
-            </h2>
-          </div>
-        </div>
-
-        <div
-          ref={trendingRowRef}
-          className="movie-row flex space-x-8 overflow-x-auto pb-4 scroll-smooth"
-        >
-          {trending.slice(0, 5).map((movie, index) => (
-            <div
-              key={movie.id}
-              className="w-[160px] sm:w-[200px] shrink-0 relative pt-2"
-            >
-              {/* Giant Rank Number in the background/overlay */}
-              <span className="text-yellow-500 font-extrabold text-7xl md:text-8xl italic absolute bottom-4 -left-3 z-30 select-none drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)]">
-                {index + 1}
-              </span>
-
-              <div className="z-10 relative">
-                <MovieCard3D
-                  movie={movie}
-                  onToggleFavorite={handleToggleFavorite}
-                  isFavorited={favoriteIdSet.has(movie.id)}
-                  slant={index % 2 === 0 ? 'left' : 'right'}
-                />
-              </div>
-            </div>
-          ))}
-          {trending.length === 0 && (
-            <p className="text-slate-500 text-sm py-4 w-full text-center">Chưa có phim thịnh hành.</p>
-          )}
-        </div>
-      </section>
-
-      {/* ROW: ANIME SHOWCASE SECTION (KHO TÀNG ANIME MỚI NHẤT) */}
-      {animeList.length > 0 && (
-        <section className="mx-auto mb-24 mt-14 w-full max-w-[1500px] px-3 sm:px-4 md:px-8">
-          <div className="flex items-center space-x-2 mb-5">
-            <div className="w-1 h-5 bg-yellow-500 rounded-full" />
-            <h2 className="text-lg md:text-xl font-black uppercase tracking-wider text-white flex items-center">
-              Kho Tàng Anime Mới Nhất
-              <Link
-                href="/search?type=hoathinh"
-                aria-label="Xem tất cả anime"
-                className="ml-2 flex h-8 w-8 items-center justify-center rounded-full border border-white/30 text-slate-300 transition-colors hover:bg-white hover:text-black"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </Link>
-            </h2>
-          </div>
-
-          {/* Active Anime showcase box */}
-          {(() => {
-            const activeAnime = animeList[activeAnimeIndex];
-            if (!activeAnime) return null;
-            return (
-              <div className="relative min-h-[510px] w-full rounded-[28px] border border-white/[0.08] bg-[#171923] shadow-[0_30px_90px_rgba(0,0,0,0.42)] transition-all duration-500 md:h-[520px] md:min-h-0 lg:h-[570px]">
-
-                {/* Left content panel */}
-                <div className="relative z-10 flex min-h-[510px] w-full flex-col justify-center space-y-4 px-6 pb-36 pt-9 text-left sm:px-9 md:h-full md:min-h-0 md:w-[52%] md:px-11 md:pb-40 md:pt-10 lg:w-[48%] lg:px-14">
-                  <div>
-                    <h3 className="text-3xl font-black leading-tight text-white drop-shadow-[0_3px_16px_rgba(0,0,0,0.8)] md:text-4xl">
-                      {activeAnime.title}
-                    </h3>
-                    {activeAnime.englishTitle && (
-                      <p className="mt-1.5 text-sm font-medium text-amber-300 md:text-base">
-                        {activeAnime.englishTitle}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Metadata Row */}
-                  <div className="flex flex-wrap items-center gap-2.5 text-xs font-semibold text-slate-100">
-                    <span className="rounded-md border border-yellow-400 bg-black/35 px-2.5 py-1.5 text-[11px] font-black text-white">
-                      IMDb {activeAnime.ratingAvg?.toFixed(1) || '8.0'}
-                    </span>
-                    <span className="rounded-md bg-white px-2.5 py-1.5 text-[11px] font-black text-black">
-                      T16
-                    </span>
-                    <span className="rounded-md border border-white/50 bg-black/20 px-2.5 py-1.5 text-[11px] font-bold backdrop-blur-sm">
-                      {activeAnime.releaseYear}
-                    </span>
-                    <span className="rounded-md border border-white/50 bg-black/20 px-2.5 py-1.5 text-[11px] font-bold backdrop-blur-sm">
-                      {activeAnime.isSeries ? 'Phần 1' : 'Movie'}
-                    </span>
-                    <span className="rounded-md border border-white/50 bg-black/20 px-2.5 py-1.5 text-[11px] font-bold backdrop-blur-sm">
-                      {activeAnime.isSeries ? `Tập ${activeAnime.episodeCount}` : 'Full'}
-                    </span>
-                  </div>
-
-                  {/* Genre tag */}
-                  <div>
-                    <span className="rounded-lg bg-white/10 px-3 py-1.5 text-[11px] font-bold text-slate-200 backdrop-blur-sm">
-                      Hoạt hình
-                    </span>
-                  </div>
-
-                  {/* Description */}
-                  <p className="line-clamp-3 max-w-xl text-sm leading-7 text-slate-200 drop-shadow-md md:line-clamp-4 md:text-base">
-                    {activeAnime.description || 'Thông tin chi tiết về bộ phim hoạt hình hấp dẫn đang được cập nhật.'}
-                  </p>
-
-                  {/* Buttons */}
-                  <div className="flex items-center gap-5 pt-3">
-                    {/* Play circular yellow */}
-                    <Link
-                      href={`/movies/${activeAnime.slug}`}
-                      className="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-amber-100 to-amber-400 text-[#171923] shadow-[0_12px_35px_rgba(251,191,36,0.28)] transition hover:scale-105 hover:brightness-110 active:scale-95 md:h-20 md:w-20"
-                    >
-                      <Play className="ml-1 h-7 w-7 fill-current md:h-8 md:w-8" />
-                    </Link>
-
-                    {/* Heart button */}
-                    <button
-                      onClick={() => handleToggleFavorite(activeAnime.id, activeAnime)}
-                      className="grid h-14 w-16 place-items-center rounded-l-full border border-white/10 bg-black/20 text-white shadow-lg backdrop-blur-md transition hover:bg-white/10 active:scale-90"
-                    >
-                      {favoriteIdSet.has(activeAnime.id) ? (
-                        <Check className="h-6 w-6 text-emerald-400" />
-                      ) : (
-                        <Heart className="h-6 w-6 fill-white" />
-                      )}
-                    </button>
-
-                    {/* Info/Alert button */}
-                    <Link
-                      href={`/movies/${activeAnime.slug}`}
-                      className="-ml-5 grid h-14 w-16 place-items-center rounded-r-full border border-l-0 border-white/10 bg-black/20 text-white shadow-lg backdrop-blur-md transition hover:bg-white/10"
-                    >
-                      <CircleAlert className="h-6 w-6 fill-white text-[#171923]" />
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Right backdrop layer */}
-                <div className="absolute inset-0 overflow-hidden rounded-[28px]">
-                  <Image
-                    src={activeAnime.backdropUrl || activeAnime.posterUrl}
-                    alt={activeAnime.title}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 1500px"
-                    className="object-cover object-center transition-opacity duration-500 md:object-[65%_center]"
-                  />
-                  {/* Fades to blend image with left panel */}
-                  <div className="absolute inset-0 bg-black/15" />
-                  <div className="absolute inset-0 bg-gradient-to-r from-[#171923] via-[#171923]/90 to-[#171923]/5 md:via-[42%] md:to-[78%]" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#171923] via-transparent to-black/20" />
-                  <div className="absolute inset-0 opacity-[0.12] [background-image:radial-gradient(rgba(255,255,255,0.55)_0.7px,transparent_0.7px)] [background-size:4px_4px]" />
-                </div>
-
-                {/* Overlaid Bottom list of posters sitting at the bottom edge (-bottom-10) */}
-                <div ref={animeRowRef} className="movie-row absolute -bottom-14 left-[5%] right-[2%] z-20 flex justify-start gap-3 overflow-x-auto scroll-smooth px-2 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:gap-4">
-                  {animeList.map((anime, idx) => (
-                    <button
-                      key={anime.id}
-                      onClick={() => setActiveAnimeIndex(idx)}
-                      title={anime.title}
-                      className={`group relative aspect-[2/3] h-[92px] shrink-0 overflow-hidden rounded-xl border-[3px] bg-slate-900 shadow-[0_12px_28px_rgba(0,0,0,0.5)] transition duration-300 hover:-translate-y-1 md:h-[112px] lg:h-[128px] ${
-                        activeAnimeIndex === idx
-                          ? '-translate-y-1 border-white opacity-100 shadow-[0_0_0_2px_rgba(251,191,36,0.9),0_16px_35px_rgba(0,0,0,0.65)]'
-                          : 'border-[#252833] opacity-90 hover:border-white/60 hover:opacity-100'
-                      }`}
-                    >
-                      <Image
-                        src={anime.posterUrl}
-                        alt={anime.title}
-                        fill
-                        sizes="80px"
-                        className="object-cover transition-transform duration-500 group-hover:scale-110"
-                      />
-                    </button>
-                  ))}
-                </div>
-
-              </div>
-            );
-          })()}
-
-        </section>
-      )}
-
-      {([
-        { title: 'Phim Trung Quốc Mới Nhất', slug: 'trung-quoc', movies: chinaMovies, ref: chinaRowRef, accent: 'bg-red-500' },
-        { title: 'Phim Hàn Quốc Mới Nhất', slug: 'han-quoc', movies: koreaMovies, ref: koreaRowRef, accent: 'bg-pink-500' },
-        { title: 'Phim Việt Nam Mới Nhất', slug: 'viet-nam', movies: vietnamMovies, ref: vietnamRowRef, accent: 'bg-emerald-500' },
-      ] as const).map((section) => section.movies.length > 0 && (
-        <section key={section.slug} className="mx-auto mt-12 w-full max-w-7xl px-4 md:px-8">
-          <div className="mb-5 flex items-center gap-3">
-            <div className="flex min-w-0 items-center gap-2">
-              <div className={`h-5 w-1 shrink-0 rounded-full ${section.accent}`} />
-              <h2 className="truncate text-lg font-black uppercase tracking-wider text-white md:text-xl">{section.title}</h2>
-              <Link href={`/quoc-gia/${section.slug}`} aria-label={`Xem tất cả ${section.title}`} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/20 text-slate-300 transition hover:bg-white hover:text-black">
-                <ChevronRight className="h-5 w-5" />
-              </Link>
-            </div>
-          </div>
-          <div className="relative">
-            {countryScrollState[section.slug]?.left && <button type="button" onClick={() => scrollMovieRow(section.ref, -1)} aria-label={`Cuộn ${section.title} sang trái`} className="absolute left-0 top-1/2 z-40 flex h-11 w-11 -translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.45)] transition hover:scale-110 hover:bg-red-500 hover:text-white md:h-14 md:w-14"><ChevronLeft className="h-6 w-6" /></button>}
-            <div ref={section.ref} onScroll={(event) => syncCountryScrollControls(section.slug, event.currentTarget)} className="movie-row flex space-x-5 overflow-x-auto pb-4 scroll-smooth md:space-x-8">
-              {section.movies.map((movie, index) => (
-                <div key={movie.id} className="relative w-[160px] shrink-0 pt-2 sm:w-[200px]">
-                  <MovieCard3D movie={movie} onToggleFavorite={handleToggleFavorite} isFavorited={favoriteIdSet.has(movie.id)} slant={index % 2 === 0 ? 'left' : 'right'} />
-                </div>
-              ))}
-            </div>
-            {countryScrollState[section.slug]?.right && <button type="button" onClick={() => scrollMovieRow(section.ref, 1)} aria-label={`Cuộn ${section.title} sang phải`} className="absolute right-0 top-1/2 z-40 flex h-11 w-11 translate-x-1/3 -translate-y-1/2 items-center justify-center rounded-full bg-white text-black shadow-[0_8px_28px_rgba(0,0,0,0.45)] transition hover:scale-110 hover:bg-red-500 hover:text-white md:h-14 md:w-14"><ChevronRight className="h-6 w-6" /></button>}
-          </div>
-        </section>
-      ))}
-    </div>
-  );
+    <MovieRow title="Phim mới cập nhật" movies={initialData.movies} href="/search?sortBy=createdAt" favoriteIds={favorites} accent="text-sky-300" />
+    <MovieRow title="Kho tàng Anime" movies={initialData.anime} href="/search?type=hoathinh" favoriteIds={favorites} accent="text-violet-300" />
+    <MovieRow title="Phim Trung Quốc mới" movies={initialData.china} href="/quoc-gia/trung-quoc" favoriteIds={favorites} accent="text-red-300" />
+    <MovieRow title="Phim Hàn Quốc mới" movies={initialData.korea} href="/quoc-gia/han-quoc" favoriteIds={favorites} accent="text-pink-300" />
+    <MovieRow title="Phim Việt Nam mới" movies={initialData.vietnam} href="/quoc-gia/viet-nam" favoriteIds={favorites} accent="text-emerald-300" />
+  </main>;
 }
