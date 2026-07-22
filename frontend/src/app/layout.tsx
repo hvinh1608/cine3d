@@ -11,6 +11,7 @@ import BackToTop from '../components/ui/BackToTop';
 import TranslationVoteBanner from '../components/ui/TranslationVoteBanner';
 import CinemaSplash from '../components/ui/CinemaSplash';
 import PwaBootstrap from '../components/pwa/PwaBootstrap';
+import MovieAssistant from '../components/assistant/MovieAssistant';
 import { getSiteUrl } from '../lib/site';
 
 const siteUrl = getSiteUrl();
@@ -53,6 +54,7 @@ export default function RootLayout({
         <ToastViewport />
         <BackToTop />
         <TranslationVoteBanner />
+        <MovieAssistant />
         <CinemaBackground />
 
         <Suspense fallback={<div className="fixed top-0 left-0 w-full h-16 bg-black/80" />}>
