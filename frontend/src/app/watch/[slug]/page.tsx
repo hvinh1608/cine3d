@@ -114,6 +114,7 @@ function WatchPageContent() {
   const lastCapturedFrameRef = useRef(-1);
   const settingsWasOpenRef = useRef(false);
   const pendingSourceResumeRef = useRef<{ episodeId: string; time: number; shouldPlay: boolean } | null>(null);
+  const autoplayAttemptedSourceRef = useRef<string | null>(null);
 
   useEffect(() => {
     try {
@@ -617,6 +618,26 @@ function WatchPageContent() {
     }
   };
 
+  const handleCanPlay = () => {
+    const video = videoRef.current;
+    if (!video || !activeSource) return;
+
+    const startupMs = Date.now() - loadStartedAtRef.current;
+    if (startupMs > 0) void axios.post('/analytics/events', {
+      name: 'player_startup', path: window.location.pathname, movieId: movie?.id,
+      metadata: { startupMs, source: activeSource.server },
+    }).catch(() => undefined);
+
+    if (autoplayAttemptedSourceRef.current === activeSource.id || !video.paused) return;
+    autoplayAttemptedSourceRef.current = activeSource.id;
+    void video.play().catch(() => {
+      // Browsers usually reject autoplay with sound. Muted autoplay is allowed.
+      video.muted = true;
+      setMuted(true);
+      void video.play().catch(() => setPlaying(false));
+    });
+  };
+
   const handleVideoPlay = () => {
     setPlaying(true);
     if (movie && activeEpisode && playTrackedEpisodeRef.current !== activeEpisode.id) {
@@ -906,11 +927,14 @@ function WatchPageContent() {
                 <video
                   key={activeEpisode?.id || 'default'}
                   ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted={muted}
                   onTimeUpdate={handleTimeUpdate}
                   onLoadedMetadata={handleLoadedMetadata}
                   onPlay={handleVideoPlay}
                   onLoadStart={() => { loadStartedAtRef.current = Date.now(); }}
-                  onCanPlay={() => { const startupMs = Date.now() - loadStartedAtRef.current; if (startupMs > 0) void axios.post('/analytics/events', { name: 'player_startup', path: window.location.pathname, movieId: movie.id, metadata: { startupMs, source: activeSource?.server } }).catch(() => undefined); }}
+                  onCanPlay={handleCanPlay}
                   onWaiting={() => { bufferingStartedAtRef.current = Date.now(); }}
                   onPlaying={() => { if (bufferingStartedAtRef.current) { const bufferingMs = Date.now() - bufferingStartedAtRef.current; bufferingStartedAtRef.current = null; void axios.post('/analytics/events', { name: 'player_buffer', path: window.location.pathname, movieId: movie.id, metadata: { bufferingMs, source: activeSource?.server, quality: activeSource?.quality } }).catch(() => undefined); } }}
                   onPause={() => setPlaying(false)}
