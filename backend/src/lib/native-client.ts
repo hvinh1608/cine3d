@@ -1,6 +1,11 @@
 import crypto from 'crypto';
 import type { Request } from 'express';
 
+// OAuth client IDs are public identifiers. Keep the production web audience in
+// the allowlist so a stale backend environment cannot reject tokens issued by
+// the currently deployed frontend.
+const CINE3D_WEB_GOOGLE_CLIENT_ID = '351178371430-1bum195duljbh950btqqvk8c2tamjcb6.apps.googleusercontent.com';
+
 export function isNativeClient(req: Pick<Request, 'get'>): boolean {
   return req.get('x-client-type')?.trim().toLowerCase() === 'mobile';
 }
@@ -18,6 +23,8 @@ export function configuredGoogleAudiences(env: NodeJS.ProcessEnv = process.env):
     ...(env.GOOGLE_CLIENT_IDS || '').split(','),
     env.GOOGLE_CLIENT_ID || '',
     env.GOOGLE_ANDROID_CLIENT_ID || '',
+    env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '',
+    CINE3D_WEB_GOOGLE_CLIENT_ID,
   ].map((value) => value.trim()).filter(Boolean))];
 }
 

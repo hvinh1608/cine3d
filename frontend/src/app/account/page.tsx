@@ -413,6 +413,7 @@ export default function AccountPage() {
                 <div className="relative">
                   <input
                     type="text"
+                    name="recovery-email"
                     inputMode="email"
                     autoComplete="email"
                     autoCapitalize="none"
@@ -430,6 +431,8 @@ export default function AccountPage() {
                 <div className="relative">
                   <input
                     type="password"
+                    name="new-password"
+                    autoComplete="new-password"
                     required
                     minLength={8}
                     value={newPassword}
@@ -453,6 +456,7 @@ export default function AccountPage() {
             <div className="relative">
               <input
                 type="text"
+                name="email"
                 inputMode="email"
                 autoComplete="email"
                 autoCapitalize="none"
@@ -471,6 +475,8 @@ export default function AccountPage() {
               <div className="relative">
                 <input
                   type="text"
+                  name="username"
+                  autoComplete="username"
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -484,6 +490,8 @@ export default function AccountPage() {
             <div className="relative">
               <input
                 type="password"
+                name="password"
+                autoComplete={isLogin ? 'current-password' : 'new-password'}
                 required
                 minLength={8}
                 value={password}

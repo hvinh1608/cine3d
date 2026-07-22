@@ -31,12 +31,18 @@ test('only explicitly marked mobile sessions receive refreshToken JSON', () => {
   });
 });
 
-test('Google audiences combine legacy, comma-separated, and Android IDs', () => {
+test('Google audiences combine configured IDs with the production web audience', () => {
   assert.deepEqual(configuredGoogleAudiences({
     GOOGLE_CLIENT_IDS: 'web-one, web-two,web-one',
     GOOGLE_CLIENT_ID: 'legacy',
     GOOGLE_ANDROID_CLIENT_ID: 'android',
-  }), ['web-one', 'web-two', 'legacy', 'android']);
+  }), [
+    'web-one',
+    'web-two',
+    'legacy',
+    'android',
+    '351178371430-1bum195duljbh950btqqvk8c2tamjcb6.apps.googleusercontent.com',
+  ]);
 });
 
 test('app attestation requires an exact configured server secret', () => {
