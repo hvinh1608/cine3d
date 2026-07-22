@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Bot, Film, LoaderCircle, MessageCircle, Search, Send, Sparkles, X } from 'lucide-react';
+import { Bot, Clapperboard, Film, LoaderCircle, Search, Send, Sparkles, X } from 'lucide-react';
 import Image from '@/components/ui/ResilientImage';
 import api from '@/lib/api';
 import type { MetaItem, Movie } from '@/types/movie';
@@ -259,6 +259,6 @@ export default function MovieAssistant() {
       </div>
       <form onSubmit={submit} className="border-t border-white/10 p-3"><div className="flex items-center gap-2 rounded-2xl bg-[#242631] p-1.5 pl-3"><Sparkles className="h-4 w-4 shrink-0 text-amber-300" /><input value={input} onChange={(event) => setInput(event.target.value)} maxLength={120} autoFocus placeholder="Ví dụ: phim Hàn tình cảm..." className="min-w-0 flex-1 bg-transparent py-2 text-xs outline-none placeholder:text-slate-600" /><button type="submit" disabled={!input.trim() || loading} aria-label="Gửi câu hỏi" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-amber-300 text-black disabled:cursor-not-allowed disabled:opacity-40"><Send className="h-4 w-4" /></button></div><p className="mt-2 text-center text-[9px] text-slate-600">Kết quả được lấy trực tiếp từ kho phim CINE3D</p></form>
     </section>}
-    <button onClick={() => setOpen((current) => !current)} aria-label={open ? 'Đóng trợ lý tìm phim' : 'Mở trợ lý tìm phim'} aria-expanded={open} className="fixed bottom-20 left-4 z-[71] grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-amber-200 to-amber-400 text-black shadow-[0_12px_35px_rgba(251,191,36,.3)] transition hover:scale-105 active:scale-95 md:bottom-6 md:left-6">{open ? <X className="h-6 w-6" /> : <MessageCircle className="h-6 w-6 fill-current" />}</button>
+    <button onClick={() => setOpen((current) => !current)} aria-label={open ? 'Đóng trợ lý tìm phim' : 'Mở trợ lý tìm phim'} aria-expanded={open} className="fixed bottom-20 left-4 z-[71] grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-amber-200 to-amber-400 text-black shadow-[0_12px_35px_rgba(251,191,36,.3)] transition hover:scale-105 active:scale-95 md:bottom-6 md:left-6">{open ? <X className="h-6 w-6" /> : <span className="relative"><Clapperboard className="h-7 w-7" /><Sparkles className="absolute -right-2 -top-2 h-3.5 w-3.5 fill-current" /></span>}</button>
   </>;
 }
