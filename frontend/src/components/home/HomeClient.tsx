@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from '@/components/ui/ResilientImage';
-import { ChevronLeft, ChevronRight, Heart, Info, Play, Plus, Star } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, CircleAlert, Info, Play, Plus, Star } from 'lucide-react';
 import { useStore } from '@/hooks/useStore';
 import { toggleFavorite } from '@/lib/user-library';
+import MovieCard3D from '@/components/ui/MovieCard3D';
 import type { Banner, Movie } from '@/types/movie';
 
 export type HomeInitialData = {
@@ -31,14 +32,33 @@ const topics = [
 
 function MovieCard({ movie, favorite }: { movie: Movie; favorite: boolean }) {
   return <article className="group w-[145px] shrink-0 sm:w-[170px] lg:w-[185px]">
-    <Link href={`/movies/${movie.slug}`} className="relative block aspect-[2/3] overflow-hidden rounded-lg bg-[#242632]">
-      <Image src={movie.posterUrl} alt={movie.title} fill sizes="185px" className="object-cover transition duration-500 group-hover:scale-105" />
-      <span className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60" />
-      <span className="absolute left-2 top-2 rounded bg-black/70 px-1.5 py-1 text-[9px] font-black text-amber-300 backdrop-blur">{movie.quality || 'HD'}</span>
-      <span className="absolute inset-0 grid place-items-center bg-black/25 opacity-0 transition group-hover:opacity-100"><span className="grid h-12 w-12 place-items-center rounded-full bg-amber-300 text-black"><Play className="ml-0.5 h-5 w-5 fill-current" /></span></span>
-    </Link>
-    <div className="mt-3 flex gap-2"><div className="min-w-0 flex-1"><Link href={`/movies/${movie.slug}`} className="block truncate text-sm font-bold text-white hover:text-amber-300">{movie.title}</Link><p className="mt-1 truncate text-[10px] text-slate-500">{movie.englishTitle || `${movie.releaseYear} · ${movie.isSeries ? 'Phim bộ' : 'Phim lẻ'}`}</p></div><button onClick={() => void toggleFavorite(movie.id, movie)} aria-label={favorite ? 'Bỏ yêu thích' : 'Yêu thích'} className={`h-fit pt-0.5 ${favorite ? 'text-rose-400' : 'text-slate-600 hover:text-white'}`}><Heart className={`h-4 w-4 ${favorite ? 'fill-current' : ''}`} /></button></div>
+    <MovieCard3D movie={movie} isFavorited={favorite} onToggleFavorite={(id, item) => void toggleFavorite(id, item)} />
+    <div className="mt-3 min-w-0"><Link href={`/movies/${movie.slug}`} className="block truncate text-sm font-bold text-white hover:text-amber-300">{movie.title}</Link><p className="mt-1 truncate text-[10px] text-slate-500">{movie.englishTitle || `${movie.releaseYear} · ${movie.isSeries ? 'Phim bộ' : 'Phim lẻ'}`}</p></div>
   </article>;
+}
+
+function AnimeSpotlight({ movies, favoriteIds }: { movies: Movie[]; favoriteIds: Set<string> }) {
+  const [index, setIndex] = useState(0);
+  const anime = movies[index];
+  useEffect(() => {
+    if (movies.length < 2) return;
+    const timer = window.setInterval(() => setIndex((current) => (current + 1) % movies.length), 8000);
+    return () => window.clearInterval(timer);
+  }, [movies.length]);
+  if (!anime) return null;
+  return <section className="mx-auto mb-24 mt-14 w-full max-w-[1440px] px-4 md:px-8">
+    <div className="mb-5 flex items-center justify-between"><h2 className="text-xl font-black text-violet-300 md:text-2xl">Kho tàng Anime mới nhất</h2><Link href="/search?type=hoathinh" className="flex items-center gap-1 text-xs font-bold text-slate-400">Xem tất cả <ChevronRight className="h-4 w-4" /></Link></div>
+    <div className="relative min-h-[500px] overflow-visible rounded-[28px] border border-white/[.08] bg-[#20222e] shadow-[0_30px_90px_rgba(0,0,0,.42)] md:h-[540px]">
+      <div className="absolute inset-0 overflow-hidden rounded-[28px]"><Image src={anime.backdropUrl || anime.posterUrl} alt={anime.title} fill sizes="1440px" className="object-cover object-center md:object-[65%_center]" /><div className="absolute inset-0 bg-gradient-to-r from-[#20222e] via-[#20222e]/90 to-transparent md:via-[43%] md:to-[78%]" /><div className="absolute inset-0 bg-gradient-to-t from-[#20222e] via-transparent to-black/20" /><div className="absolute inset-0 opacity-[.1] [background-image:radial-gradient(rgba(255,255,255,.6)_.7px,transparent_.7px)] [background-size:4px_4px]" /></div>
+      <div className="relative z-10 flex min-h-[500px] max-w-2xl flex-col justify-center px-6 pb-36 pt-10 md:h-full md:px-12 md:pb-40 lg:px-14">
+        <h3 className="text-3xl font-black md:text-4xl">{anime.title}</h3>{anime.englishTitle && <p className="mt-2 text-base text-amber-300">{anime.englishTitle}</p>}
+        <div className="mt-5 flex flex-wrap gap-2 text-[11px] font-bold"><span className="rounded border border-amber-300 px-2.5 py-1.5">IMDb {anime.ratingAvg?.toFixed(1) || '0.0'}</span><span className="rounded bg-white px-2.5 py-1.5 text-black">T16</span><span className="rounded border border-white/40 px-2.5 py-1.5">{anime.releaseYear}</span><span className="rounded border border-white/40 px-2.5 py-1.5">{anime.isSeries ? 'Phần 1' : 'Movie'}</span><span className="rounded border border-white/40 px-2.5 py-1.5">{anime.isSeries ? `Tập ${anime.episodeCount}` : 'Full'}</span></div>
+        <span className="mt-4 w-fit rounded-lg bg-white/10 px-3 py-1.5 text-[11px] font-bold">Hoạt hình</span><p className="mt-5 line-clamp-4 text-sm leading-7 text-slate-200">{anime.description || 'Thông tin phim đang được cập nhật.'}</p>
+        <div className="mt-6 flex items-center gap-4"><Link href={`/movies/${anime.slug}`} className="grid h-16 w-16 place-items-center rounded-full bg-gradient-to-br from-amber-100 to-amber-400 text-black shadow-xl"><Play className="ml-1 h-7 w-7 fill-current" /></Link><button onClick={() => void toggleFavorite(anime.id, anime)} className="grid h-12 w-14 place-items-center rounded-l-full border border-white/15 bg-black/20">{favoriteIds.has(anime.id) ? <Check className="text-emerald-400" /> : <Plus />}</button><Link href={`/movies/${anime.slug}`} className="-ml-4 grid h-12 w-14 place-items-center rounded-r-full border border-l-0 border-white/15 bg-black/20"><CircleAlert /></Link></div>
+      </div>
+      <div className="movie-row absolute -bottom-14 left-[5%] right-[2%] z-20 flex gap-3 overflow-x-auto px-2 py-2 md:gap-4">{movies.map((item, itemIndex) => <button key={item.id} onClick={() => setIndex(itemIndex)} className={`relative aspect-[2/3] h-[96px] shrink-0 overflow-hidden rounded-xl border-[3px] bg-slate-900 shadow-xl transition hover:-translate-y-1 md:h-[120px] ${index === itemIndex ? '-translate-y-1 border-white ring-2 ring-amber-300' : 'border-[#303340] opacity-85'}`}><Image src={item.posterUrl} alt={item.title} fill sizes="80px" className="object-cover" /></button>)}</div>
+    </div>
+  </section>;
 }
 
 function MovieRow({ title, movies, href = '/search', favoriteIds, accent = 'text-amber-300' }: { title: string; movies: Movie[]; href?: string; favoriteIds: Set<string>; accent?: string }) {
@@ -92,7 +112,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
     {!!initialData.trending.length && <section className="mx-auto mt-12 w-full max-w-[1440px] px-4 md:px-8"><div className="mb-5 flex items-center justify-between"><h2 className="text-xl font-black text-rose-400 md:text-2xl">Top phim hôm nay</h2><Link href="/search?sortBy=views" className="flex items-center gap-1 text-xs font-bold text-slate-400">Xem tất cả <ChevronRight className="h-4 w-4" /></Link></div><div className="movie-row flex gap-5 overflow-x-auto pb-4">{initialData.trending.slice(0, 10).map((movie, index) => <Link key={movie.id} href={`/movies/${movie.slug}`} className="group flex w-[270px] shrink-0 items-end"><span className="relative z-10 -mr-3 text-[92px] font-black leading-none text-transparent [-webkit-text-stroke:2px_rgba(255,255,255,.55)]">{index + 1}</span><span className="relative block aspect-[2/3] w-32 overflow-hidden rounded-lg bg-[#252735]"><Image src={movie.posterUrl} alt={movie.title} fill sizes="128px" className="object-cover transition group-hover:scale-105" /></span><span className="min-w-0 flex-1 pb-2 pl-3"><b className="line-clamp-2 text-sm group-hover:text-amber-300">{movie.title}</b><small className="mt-2 block text-[10px] text-slate-500">{movie.quality} · {movie.releaseYear}</small></span></Link>)}</div></section>}
 
     <MovieRow title="Phim mới cập nhật" movies={initialData.movies} href="/search?sortBy=createdAt" favoriteIds={favorites} accent="text-sky-300" />
-    <MovieRow title="Kho tàng Anime" movies={initialData.anime} href="/search?type=hoathinh" favoriteIds={favorites} accent="text-violet-300" />
+    <AnimeSpotlight movies={initialData.anime} favoriteIds={favorites} />
     <MovieRow title="Phim Trung Quốc mới" movies={initialData.china} href="/quoc-gia/trung-quoc" favoriteIds={favorites} accent="text-red-300" />
     <MovieRow title="Phim Hàn Quốc mới" movies={initialData.korea} href="/quoc-gia/han-quoc" favoriteIds={favorites} accent="text-pink-300" />
     <MovieRow title="Phim Việt Nam mới" movies={initialData.vietnam} href="/quoc-gia/viet-nam" favoriteIds={favorites} accent="text-emerald-300" />
