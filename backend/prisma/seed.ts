@@ -1,7 +1,79 @@
-  import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'node:crypto';
 
 const prisma = new PrismaClient();
+
+async function seedCommunitySamples(userRoleId: string) {
+  const movies = await prisma.movie.findMany({
+    orderBy: [{ views: 'desc' }, { updatedAt: 'desc' }],
+    take: 8,
+    select: { id: true, title: true },
+  });
+  if (!movies.length) {
+    console.log('Skipping community samples because no movies exist.');
+    return;
+  }
+
+  const sampleProfiles = [
+    { username: 'cine3d_mai', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=96&q=80' },
+    { username: 'cine3d_nam', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=96&q=80' },
+    { username: 'cine3d_movie_fan', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=96&q=80' },
+    { username: 'cine3d_anime', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=96&q=80' },
+    { username: 'cine3d_cinema', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=96&q=80' },
+    { username: 'cine3d_popcorn', avatar: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=96&q=80' },
+    { username: 'cine3d_no_spoil', avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=96&q=80' },
+    { username: 'cine3d_dem_phim', avatar: 'https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?auto=format&fit=crop&w=96&q=80' },
+  ];
+  const samplePassword = await bcrypt.hash(randomBytes(48).toString('base64url'), 12);
+  const users = [];
+  for (const profile of sampleProfiles) {
+    users.push(await prisma.user.upsert({
+      where: { email: `${profile.username}@community.cine3d.invalid` },
+      update: { avatar: profile.avatar },
+      create: {
+        email: `${profile.username}@community.cine3d.invalid`,
+        username: profile.username,
+        password: samplePassword,
+        avatar: profile.avatar,
+        isVerified: true,
+        roleId: userRoleId,
+      },
+    }));
+  }
+
+  const sampleComments = [
+    'Phần hình ảnh và âm thanh quá cuốn, xem trên màn hình lớn đúng chất điện ảnh!',
+    'Mạch phim chắc tay, càng về cuối càng hấp dẫn. Mình chấm 9/10.',
+    'Diễn xuất tự nhiên và cảm xúc, có nhiều đoạn khiến mình nhớ mãi.',
+    'Không tiết lộ nội dung đâu, nhưng đoạn kết thật sự đáng để chờ đợi.',
+    'Nhạc phim hay, màu sắc đẹp và cách kể chuyện rất có chiều sâu.',
+    'Cuối tuần xem bộ này quá hợp, giải trí tốt mà vẫn có nhiều điều để suy ngẫm.',
+    'Ban đầu xem thử một tập thôi mà cuối cùng cày liên tục luôn.',
+    'Một trong những phim mình thích nhất gần đây, rất đáng thêm vào danh sách xem.',
+    'Ai thích thể loại này thì nên xem, tiết tấu ổn và nhân vật có điểm nhấn.',
+    'Vừa xem xong phải vào bình luận ngay. Có ai cũng thích phân cảnh cuối không?',
+    'Chất lượng phim tốt, phụ đề dễ theo dõi. Mong sớm có thêm tập mới!',
+    'Nội dung thú vị hơn mình dự đoán, xem cùng bạn bè chắc sẽ vui lắm.',
+  ];
+
+  for (let index = 0; index < sampleComments.length; index += 1) {
+    const user = users[index % users.length];
+    const movie = movies[index % movies.length];
+    const content = sampleComments[index];
+    let comment = await prisma.comment.findFirst({ where: { userId: user.id, movieId: movie.id, content } });
+    if (!comment) comment = await prisma.comment.create({ data: { userId: user.id, movieId: movie.id, content } });
+    const desiredLikes = 2 + (index % 6);
+    for (const liker of users.filter((item) => item.id !== user.id).slice(0, desiredLikes)) {
+      await prisma.commentLike.upsert({
+        where: { commentId_userId: { commentId: comment.id, userId: liker.id } },
+        update: {},
+        create: { commentId: comment.id, userId: liker.id },
+      });
+    }
+  }
+  console.log(`${sampleComments.length} idempotent community sample comments ensured.`);
+}
 
 async function main() {
   console.log('Starting database seeding...');
@@ -134,6 +206,7 @@ async function main() {
   const existingMoviesCount = await prisma.movie.count();
   if (existingMoviesCount > 0) {
     console.log('Movies already exist in database. Skipping movie seeding.');
+    await seedCommunitySamples(userRole.id);
     console.log('Seeding completed successfully!');
     return;
   }
@@ -418,6 +491,8 @@ async function main() {
       console.log(`Banner created for: ${movie.title}`);
     }
   }
+
+  await seedCommunitySamples(userRole.id);
 
   console.log('Seeding completed successfully!');
 }
