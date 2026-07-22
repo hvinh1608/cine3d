@@ -43,6 +43,7 @@ export default function MovieDetailPage() {
   const [rating, setRating] = useState<number | null>(null);
   const [showTrailer, setShowTrailer] = useState(false);
   const [activeTab, setActiveTab] = useState<'episodes' | 'gallery' | 'cast' | 'related'>('episodes');
+  const [selectedSeason, setSelectedSeason] = useState(1);
 
   useEffect(() => {
     if (!slug) return;
@@ -51,6 +52,7 @@ export default function MovieDetailPage() {
       if (!alive) return;
       const detail = data as MovieDetail;
       setMovie(detail);
+      setSelectedSeason(Math.min(...(detail.episodes?.map((episode) => episode.seasonNumber || 1) || [1])));
       void api.post(`${API_URL}/movies/${detail.id}/view`).catch(() => undefined);
       const genre = detail.movieGenres?.[0]?.genre.slug;
       try {
@@ -75,8 +77,10 @@ export default function MovieDetailPage() {
       const season = episode.seasonNumber || 1;
       groups.set(season, [...(groups.get(season) || []), episode]);
     }
-    return [...groups.entries()];
+    return [...groups.entries()].sort(([a], [b]) => a - b);
   }, [movie?.episodes]);
+
+  const selectedEpisodes = seasons.find(([season]) => season === selectedSeason)?.[1] || [];
 
   if (loading) return <div className="grid min-h-[70vh] place-items-center bg-[#171820]"><div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-700 border-t-amber-300" /></div>;
   if (!movie) return <div className="grid min-h-[70vh] place-items-center bg-[#171820] text-slate-400">{error || 'Không tìm thấy phim.'}</div>;
@@ -158,7 +162,7 @@ export default function MovieDetailPage() {
             </nav>
 
             <div className="min-h-52 py-7">
-              {activeTab === 'episodes' && <div>{seasons.length ? seasons.map(([season, episodes]) => <div key={season} className="mb-7"><h3 className="mb-4 flex items-center gap-2 text-lg font-bold"><Clapperboard className="h-5 w-5 text-amber-300" /> Phần {season} <ChevronDown className="h-4 w-4 text-slate-500" /></h3><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">{episodes.map((episode) => <Link key={episode.id} href={`/watch/${movie.slug}?ep=${episode.episodeOrder}`} className="flex items-center justify-center gap-2 rounded-md bg-[#282a38] px-3 py-3 text-xs font-semibold text-slate-300 transition hover:bg-amber-300 hover:text-black"><Play className="h-3 w-3 fill-current" /> {episode.title || `Tập ${episode.episodeOrder}`}</Link>)}</div></div>) : <p className="text-sm text-slate-500">Danh sách tập đang được cập nhật.</p>}</div>}
+              {activeTab === 'episodes' && <div>{seasons.length ? <div className="mb-7"><div className="relative mb-4 w-fit"><Clapperboard className="pointer-events-none absolute left-0 top-1/2 h-5 w-5 -translate-y-1/2 text-amber-300" />{seasons.length > 1 ? <><select value={selectedSeason} onChange={(event) => setSelectedSeason(Number(event.target.value))} aria-label="Chọn phần phim" className="cursor-pointer appearance-none bg-transparent py-2 pl-7 pr-8 text-lg font-bold outline-none">{seasons.map(([season]) => <option key={season} value={season} className="bg-[#20222d]">Phần {season}</option>)}</select><ChevronDown className="pointer-events-none absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" /></> : <h3 className="py-2 pl-7 text-lg font-bold">Phần {selectedSeason}</h3>}</div><div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">{selectedEpisodes.map((episode) => <Link key={episode.id} href={`/watch/${movie.slug}?ep=${episode.episodeOrder}`} className="flex items-center justify-center gap-2 rounded-md bg-[#282a38] px-3 py-3 text-xs font-semibold text-slate-300 transition hover:bg-amber-300 hover:text-black"><Play className="h-3 w-3 fill-current" /> {episode.title || `Tập ${episode.episodeOrder}`}</Link>)}</div></div> : <p className="text-sm text-slate-500">Danh sách tập đang được cập nhật.</p>}</div>}
               {activeTab === 'gallery' && <div className="grid gap-4 sm:grid-cols-2"><div className="rounded-xl bg-[#20222d] p-5"><Clock3 className="mb-3 text-amber-300" /><b>Thời lượng</b><p className="mt-1 text-sm text-slate-400">{movie.duration ? `${movie.duration} phút` : 'Đang cập nhật'}</p></div><div className="rounded-xl bg-[#20222d] p-5"><Film className="mb-3 text-amber-300" /><b>Trạng thái</b><p className="mt-1 text-sm text-slate-400">{movie.status || 'Đang cập nhật'}</p></div>{movie.trailerUrl && <button onClick={() => setShowTrailer(true)} className="col-span-full flex items-center justify-center gap-2 rounded-xl border border-white/10 p-4 font-bold hover:bg-white/5"><Play className="h-4 w-4" /> Xem trailer</button>}</div>}
               {activeTab === 'cast' && <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">{movie.movieActors?.map(({ actor }) => <Link key={actor.name} href={actor.slug ? `/actors/${actor.slug}` : '#'} className="rounded-xl bg-[#20222d] p-4 text-sm font-semibold hover:bg-[#282a38]">{actor.name}</Link>) || <p className="text-slate-500">Đang cập nhật.</p>}</div>}
               {activeTab === 'related' && <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">{related.map((item) => <Link href={`/movies/${item.slug}`} key={item.id} className="group"><span className="relative block aspect-[2/3] overflow-hidden rounded-lg bg-[#252735]"><Image src={item.posterUrl} alt={item.title} fill sizes="180px" className="object-cover transition duration-500 group-hover:scale-105" /></span><b className="mt-2 block truncate text-xs group-hover:text-amber-300">{item.title}</b></Link>)}</div>}
