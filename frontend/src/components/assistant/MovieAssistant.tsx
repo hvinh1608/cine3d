@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { Bot, Clapperboard, Film, LoaderCircle, Search, Send, Sparkles, X } from 'lucide-react';
 import Image from '@/components/ui/ResilientImage';
 import api from '@/lib/api';
@@ -184,6 +185,7 @@ function findKnowledgeAnswer(input: string) {
 }
 
 export default function MovieAssistant() {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -249,6 +251,8 @@ export default function MovieAssistant() {
   };
 
   const submit = (event: FormEvent) => { event.preventDefault(); void ask(input); };
+
+  if (pathname === '/account') return null;
 
   return <>
     {open && <section aria-label="Trợ lý CINE3D" className="fixed bottom-36 left-3 z-[70] flex h-[min(650px,calc(100dvh-11rem))] w-[min(390px,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#171820]/[.98] text-white shadow-[0_24px_80px_rgba(0,0,0,.65)] backdrop-blur-xl md:bottom-24 md:left-6 md:h-[min(650px,calc(100dvh-7rem))]">
