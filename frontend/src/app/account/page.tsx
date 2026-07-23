@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from '@/components/ui/ResilientImage';
 import { useRouter } from 'next/navigation';
 import type { AxiosError } from 'axios';
-import { User, Lock, Mail, Heart, History, Play, Bookmark, Trash2, LogOut, Check, Save, Crown, Upload, SlidersHorizontal, Trophy, Clock3, Flame } from 'lucide-react';
+import { User, Lock, Mail, Eye, EyeOff, Heart, History, Play, Bookmark, Trash2, LogOut, Check, Save, Crown, Upload, SlidersHorizontal, Trophy, Clock3, Flame } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 import { loadFavorites } from '../../lib/user-library';
@@ -50,6 +50,8 @@ export default function AccountPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [recoveryMode, setRecoveryMode] = useState<'none' | 'forgot' | 'reset'>('none');
   const [resetToken, setResetToken] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -421,7 +423,7 @@ export default function AccountPage() {
                     required
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
-                    placeholder="hvinh.job"
+                    placeholder="ten.email"
                     className={`w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 text-sm text-white outline-none focus:border-red-500 ${email.includes('@') ? 'pr-4' : 'pr-28'}`}
                   />
                   <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
@@ -430,7 +432,7 @@ export default function AccountPage() {
               ) : (
                 <div className="relative">
                   <input
-                    type="password"
+                    type={showNewPassword ? 'text' : 'password'}
                     name="new-password"
                     autoComplete="new-password"
                     required
@@ -438,9 +440,18 @@ export default function AccountPage() {
                     value={newPassword}
                     onChange={(event) => setNewPassword(event.target.value)}
                     placeholder="Mật khẩu mới (ít nhất 8 ký tự)"
-                    className="w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-red-500"
+                    className="w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 pr-11 text-sm text-white outline-none focus:border-red-500"
                   />
                   <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword((visible) => !visible)}
+                    aria-label={showNewPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    aria-pressed={showNewPassword}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                  >
+                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               )}
               {recoveryMode === 'forgot' && <TurnstileWidget key={turnstileKey} onToken={setTurnstileToken} />}
@@ -464,7 +475,7 @@ export default function AccountPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="hvinh.job"
+                placeholder="ten.email"
                 className={`w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 text-xs text-white outline-none focus:border-red-500 md:text-sm ${email.includes('@') ? 'pr-4' : 'pr-28'}`}
               />
               <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
@@ -489,7 +500,7 @@ export default function AccountPage() {
 
             <div className="relative">
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 name="password"
                 autoComplete={isLogin ? 'current-password' : 'new-password'}
                 required
@@ -497,9 +508,18 @@ export default function AccountPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Mật khẩu"
-                className="w-full bg-slate-900 border border-white/10 focus:border-red-500 rounded-xl pl-10 pr-4 py-3 text-xs md:text-sm outline-none text-white"
+                className="w-full bg-slate-900 border border-white/10 focus:border-red-500 rounded-xl pl-10 pr-11 py-3 text-xs md:text-sm outline-none text-white"
               />
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
+              <button
+                type="button"
+                onClick={() => setShowPassword((visible) => !visible)}
+                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                aria-pressed={showPassword}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             </div>
 
             <TurnstileWidget key={turnstileKey} onToken={setTurnstileToken} />
