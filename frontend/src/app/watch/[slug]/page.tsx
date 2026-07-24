@@ -102,6 +102,7 @@ function WatchPageContent() {
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
+  const progressBarRef = useRef<HTMLInputElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const settingsPanelRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<import('hls.js').default | null>(null);
@@ -681,9 +682,12 @@ function WatchPageContent() {
     triggerControls();
   };
 
-  const updateTimelinePreview = (event: React.PointerEvent<HTMLDivElement>) => {
+  const updateTimelinePreview = (event: React.PointerEvent<HTMLElement>) => {
     if (!duration) return;
-    const bounds = event.currentTarget.getBoundingClientRect();
+    const track = progressBarRef.current;
+    if (!track) return;
+    const bounds = track.getBoundingClientRect();
+    if (bounds.width <= 0) return;
     const ratio = Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width));
     const time = ratio * duration;
     const bucket = getTimelinePreviewBucket(time, duration);
@@ -1278,39 +1282,42 @@ function WatchPageContent() {
                 }`} aria-hidden={!showControls}>
                   
                   {/* Progress Slider */}
-                  <div
-                    className="relative flex w-full items-center space-x-3"
-                    onPointerMove={updateTimelinePreview}
-                    onPointerLeave={() => setTimelinePreview((preview) => ({ ...preview, visible: false }))}
-                  >
-                    {timelinePreview.visible && (
-                      <div
-                        className="pointer-events-none absolute bottom-5 z-50 -translate-x-1/2 overflow-hidden rounded-lg border border-white/20 bg-black/90 shadow-2xl"
-                        style={{ left: `${timelinePreview.position}%` }}
-                      >
-                        {timelinePreview.image ? (
-                          <Image src={timelinePreview.image} alt="" width={160} height={90} unoptimized className="h-[90px] w-40 object-cover" />
-                        ) : (
-                          <div className="flex h-14 w-28 items-center justify-center bg-slate-950 text-[10px] font-bold text-slate-500">
-                            Xem trước
+                  <div className="relative flex w-full items-center space-x-3">
+                    <span className="shrink-0 text-[10px] md:text-xs font-semibold text-slate-300 tabular-nums">{formatTime(currentTime)}</span>
+                    <div
+                      className="relative min-w-0 flex-grow"
+                      onPointerMove={updateTimelinePreview}
+                      onPointerLeave={() => setTimelinePreview((preview) => ({ ...preview, visible: false }))}
+                    >
+                      {timelinePreview.visible && (
+                        <div
+                          className="pointer-events-none absolute bottom-5 z-50 -translate-x-1/2 overflow-hidden rounded-lg border border-white/20 bg-black/90 shadow-2xl"
+                          style={{ left: `${timelinePreview.position}%` }}
+                        >
+                          {timelinePreview.image ? (
+                            <Image src={timelinePreview.image} alt="" width={160} height={90} unoptimized className="h-[90px] w-40 object-cover" />
+                          ) : (
+                            <div className="flex h-14 w-28 items-center justify-center bg-slate-950 text-[10px] font-bold text-slate-500">
+                              Xem trước
+                            </div>
+                          )}
+                          <div className="px-2 py-1 text-center text-[10px] font-black tabular-nums text-white">
+                            {formatTime(timelinePreview.time)}
                           </div>
-                        )}
-                        <div className="px-2 py-1 text-center text-[10px] font-black tabular-nums text-white">
-                          {formatTime(timelinePreview.time)}
                         </div>
-                      </div>
-                    )}
-                    <span className="text-[10px] md:text-xs font-semibold text-slate-300">{formatTime(currentTime)}</span>
-                    <input
-                      type="range"
-                      min={0}
-                      max={duration || 100}
-                      value={currentTime}
-                      onChange={handleProgressChange}
-                      aria-label="Tua video"
-                      className="flex-grow accent-red-600 h-1.5 bg-slate-700/60 rounded-full cursor-pointer hover:scale-y-125 transition-transform"
-                    />
-                    <span className="text-[10px] md:text-xs font-semibold text-slate-300">{formatTime(duration)}</span>
+                      )}
+                      <input
+                        ref={progressBarRef}
+                        type="range"
+                        min={0}
+                        max={duration || 100}
+                        value={currentTime}
+                        onChange={handleProgressChange}
+                        aria-label="Tua video"
+                        className="h-1.5 w-full cursor-pointer rounded-full bg-slate-700/60 accent-red-600 transition-transform hover:scale-y-125"
+                      />
+                    </div>
+                    <span className="shrink-0 text-[10px] md:text-xs font-semibold text-slate-300 tabular-nums">{formatTime(duration)}</span>
                   </div>
 
                   {/* Action Buttons Row */}
