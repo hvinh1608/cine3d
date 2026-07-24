@@ -44,15 +44,15 @@ export default function AccountRoute() {
   if (!user) return <View style={styles.center}><Text>Đang tải tài khoản…</Text></View>;
 
   const links = [
-    ['Hồ sơ tài khoản', 'Đổi tên hiển thị và ảnh đại diện', '/account/profile'],
-    ['Hồ sơ người xem', activeProfile ? `Đang dùng: ${activeProfile.name}` : 'Tạo và chuyển hồ sơ', '/account/profiles'],
-    ['VIP CINE3D', user.isVip ? 'Đang hoạt động' : 'Gói và lịch sử giao dịch', '/account/vip'],
-    ['Thông báo', 'Hộp thư và thiết lập đẩy', '/account/notifications'],
-    ['Thiết bị đăng nhập', 'Xem và thu hồi phiên', '/account/sessions'],
-    ['Đăng nhập web bằng QR', 'Phê duyệt phiên đăng nhập trên máy tính', '/qr-login'],
-    ['Góp ý và hỗ trợ', 'Lịch sử, trạng thái và phản hồi', '/account/feedback'],
-    ['Cài đặt', 'Phát, phụ đề, tải xuống, bảo mật', '/account/settings'],
-    ['Quyền riêng tư và pháp lý', 'Điều khoản, dữ liệu và phiên bản', '/account/legal'],
+    ['Đăng nhập web bằng QR', 'Quét mã trên máy tính để vào web', '/qr-login', 'qrcode-scan'],
+    ['Hồ sơ tài khoản', 'Đổi tên hiển thị và ảnh đại diện', '/account/profile', 'account-circle'],
+    ['Hồ sơ người xem', activeProfile ? `Đang dùng: ${activeProfile.name}` : 'Tạo và chuyển hồ sơ', '/account/profiles', 'account-multiple'],
+    ['VIP CINE3D', user.isVip ? 'Đang hoạt động' : 'Gói và lịch sử giao dịch', '/account/vip', 'crown'],
+    ['Thông báo', 'Hộp thư và thiết lập đẩy', '/account/notifications', 'bell'],
+    ['Thiết bị đăng nhập', 'Xem và thu hồi phiên', '/account/sessions', 'cellphone-link'],
+    ['Góp ý và hỗ trợ', 'Lịch sử, trạng thái và phản hồi', '/account/feedback', 'message-text'],
+    ['Cài đặt', 'Phát, phụ đề, tải xuống, bảo mật', '/account/settings', 'cog'],
+    ['Quyền riêng tư và pháp lý', 'Điều khoản, dữ liệu và phiên bản', '/account/legal', 'shield-account'],
   ] as const;
 
   return (
@@ -67,9 +67,15 @@ export default function AccountRoute() {
       </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <View style={styles.list}>
-        {links.map(([title, description, href], index) => (
+        {links.map(([title, description, href, icon], index) => (
           <View key={href}>
-            <List.Item title={title} description={description} onPress={() => router.push(href as Href)} right={(props) => <List.Icon {...props} icon="chevron-right" />} />
+            <List.Item
+              title={title}
+              description={description}
+              onPress={() => router.push(href as Href)}
+              left={(props) => <List.Icon {...props} icon={icon} />}
+              right={(props) => <List.Icon {...props} icon="chevron-right" />}
+            />
             {index < links.length - 1 ? <Divider /> : null}
           </View>
         ))}
