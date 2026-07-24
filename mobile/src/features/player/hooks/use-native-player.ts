@@ -110,13 +110,27 @@ export function useNativePlayer(movie: Movie, requestedEpisode?: number) {
       ]);
       if (!active || !episode) return;
       const remote = history.find((item) => item.movieId === movie.id);
-      const restoredEpisodeId = checkpoint?.episodeId ?? remote?.episodeId;
+      const remoteUpdatedAt = remote?.updatedAt ? Date.parse(remote.updatedAt) : 0;
+      const preferCheckpoint = Boolean(
+        checkpoint && (!remote || !Number.isFinite(remoteUpdatedAt) || checkpoint.updatedAt >= remoteUpdatedAt),
+      );
+      const restoredEpisodeId = (preferCheckpoint ? checkpoint?.episodeId : remote?.episodeId)
+        ?? remote?.episodeId
+        ?? checkpoint?.episodeId;
       if (!requestedEpisode && restoredEpisodeId) {
         const restoredEpisode = episodes.find((item) => item.id === restoredEpisodeId);
         if (restoredEpisode) setEpisodeState(restoredEpisode);
       }
-      const restoredPosition = checkpoint?.position ?? remote?.watchedTime ?? remote?.progressSeconds ?? 0;
-      const checkpointDuration = checkpoint?.duration ?? remote?.duration ?? remote?.durationSeconds ?? 0;
+      const restoredPosition = (preferCheckpoint ? checkpoint?.position : undefined)
+        ?? remote?.watchedTime
+        ?? remote?.progressSeconds
+        ?? checkpoint?.position
+        ?? 0;
+      const checkpointDuration = (preferCheckpoint ? checkpoint?.duration : undefined)
+        ?? remote?.duration
+        ?? remote?.durationSeconds
+        ?? checkpoint?.duration
+        ?? 0;
       const nearlyFinished = remote?.completed
         || (checkpointDuration > 0 && restoredPosition / checkpointDuration >= 0.9);
       if ((!restoredEpisodeId || restoredEpisodeId === episode.id) && restoredPosition > 15 && !nearlyFinished) {

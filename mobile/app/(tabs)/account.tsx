@@ -23,7 +23,11 @@ export default function AccountRoute() {
     try {
       const [nextUser, profiles] = await Promise.all([accountApi.me(), accountApi.profiles()]);
       setUser(nextUser);
-      if (!activeProfile || !profiles.some((item) => item.id === activeProfile.id)) setActiveProfile(profiles[0] || null);
+      if (!activeProfile || !profiles.some((item) => item.id === activeProfile.id)) {
+        setActiveProfile(profiles[0] || null);
+      } else {
+        setActiveProfile(activeProfile);
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'Không thể tải tài khoản.');
     } finally { setLoading(false); }

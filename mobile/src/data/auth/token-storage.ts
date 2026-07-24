@@ -15,6 +15,7 @@ export interface KeyValueStorage {
 const ACCESS_TOKEN_KEY = 'cine3d.auth.access';
 const REFRESH_TOKEN_KEY = 'cine3d.auth.refresh';
 const USER_KEY = 'cine3d.auth.user';
+const ACTIVE_PROFILE_KEY = 'cine3d.auth.active-profile';
 const REMEMBERED_EMAIL_KEY = 'cine3d.auth.remembered-email';
 const secureOptions: SecureStore.SecureStoreOptions = {
   keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
@@ -59,6 +60,18 @@ export class TokenStorage {
     }
   }
 
+  async saveActiveProfileId(profileId: string | null): Promise<void> {
+    if (!profileId) {
+      await this.storage.deleteItemAsync(ACTIVE_PROFILE_KEY);
+      return;
+    }
+    await this.storage.setItemAsync(ACTIVE_PROFILE_KEY, profileId);
+  }
+
+  async getActiveProfileId(): Promise<string | null> {
+    return this.storage.getItemAsync(ACTIVE_PROFILE_KEY);
+  }
+
   async saveRememberedEmail(email: string): Promise<void> {
     const normalized = email.trim().toLowerCase();
     if (!normalized) return;
@@ -74,6 +87,7 @@ export class TokenStorage {
       this.storage.deleteItemAsync(ACCESS_TOKEN_KEY),
       this.storage.deleteItemAsync(REFRESH_TOKEN_KEY),
       this.storage.deleteItemAsync(USER_KEY),
+      this.storage.deleteItemAsync(ACTIVE_PROFILE_KEY),
     ]);
     const failure = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
     if (failure) throw failure.reason;

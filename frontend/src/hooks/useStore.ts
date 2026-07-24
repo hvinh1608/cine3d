@@ -94,13 +94,15 @@ export const useStore = create<AppState>()(persist((set, get) => ({
   }),
   setWatchlist: (watchlist) => set({ watchlist }),
   setWatchHistory: (watchHistory) => set({ watchHistory }),
-  setProfiles: (profiles) => set((state) => ({
-    profiles,
-    selectedProfileId: state.selectedProfileId
-      && !profiles.some((profile) => profile.id === state.selectedProfileId)
-      ? (profiles[0]?.id || null)
-      : state.selectedProfileId,
-  })),
+  setProfiles: (profiles) => set((state) => {
+    const stillValid = Boolean(
+      state.selectedProfileId && profiles.some((profile) => profile.id === state.selectedProfileId),
+    );
+    return {
+      profiles,
+      selectedProfileId: stillValid ? state.selectedProfileId : (profiles[0]?.id || null),
+    };
+  }),
   selectProfile: (selectedProfileId) => set({
     selectedProfileId,
     favorites: [],

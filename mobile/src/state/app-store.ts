@@ -60,6 +60,7 @@ export const useAppStore = create<AppStore>((set) => ({
     }));
   },
   setActiveProfile: (activeProfile) => {
+    void tokenStorage.saveActiveProfileId(activeProfile?.id ?? null);
     set((state) => ({ session: { ...state.session, activeProfile } }));
   },
   setUser: (user) => {
@@ -80,3 +81,4 @@ export const useAppStore = create<AppStore>((set) => ({
     }
   },
 }));
+

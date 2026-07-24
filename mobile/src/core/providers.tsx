@@ -14,6 +14,7 @@ import { syncSessionOnResume } from '@/data/http/api-client';
 import { discoveryKeys } from '@/features/discovery/domain/discovery-repository';
 import { movieKeys } from '@/features/movies/domain/movie-repository';
 import { useAppStore } from '@/state/app-store';
+import { ensureActiveProfile } from '@/features/account/data/ensure-active-profile';
 import { paperTheme } from '@/theme';
 import { ErrorBoundary, ToastHost } from '@/components/ui';
 import { AppLock } from '@/features/account/presentation/app-lock';
@@ -49,6 +50,7 @@ export function AppProviders({ children }: PropsWithChildren) {
       } catch {
         /* keep cached user when offline; interceptor handles expired sessions */
       }
+      await ensureActiveProfile();
       // Load user-specific rails only after tokens are refreshed on cold start.
       void queryClient.invalidateQueries({ queryKey: movieKeys.history() });
       void queryClient.invalidateQueries({ queryKey: discoveryKeys.history() });
@@ -94,8 +96,10 @@ export function AppProviders({ children }: PropsWithChildren) {
       }
       // Fresh login while the app is already running (not initial hydrate).
       if (hydrated && nextToken && !previousToken && previousHydrated) {
-        void queryClient.invalidateQueries({ queryKey: movieKeys.history() });
-        void queryClient.invalidateQueries({ queryKey: discoveryKeys.history() });
+        void ensureActiveProfile().then(() => {
+          void queryClient.invalidateQueries({ queryKey: movieKeys.history() });
+          void queryClient.invalidateQueries({ queryKey: discoveryKeys.history() });
+        });
       }
       previousToken = nextToken;
       previousHydrated = hydrated;
