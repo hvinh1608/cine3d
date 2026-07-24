@@ -116,6 +116,9 @@ function WatchPageContent() {
   const settingsWasOpenRef = useRef(false);
   const pendingSourceResumeRef = useRef<{ episodeId: string; time: number; shouldPlay: boolean } | null>(null);
   const autoplayAttemptedSourceRef = useRef<string | null>(null);
+  const historyResumedEpisodeRef = useRef<string | null>(null);
+  const dataSaverRef = useRef(dataSaver);
+  dataSaverRef.current = dataSaver;
 
   useEffect(() => {
     try {
@@ -298,18 +301,37 @@ function WatchPageContent() {
 
   // Load Video source HLS / MP4
   useEffect(() => {
-    if (!videoRef.current || !activeSource) return;
+    if (!videoRef.current || !activeSource || !activeEpisode) return;
 
     const video = videoRef.current;
+    const episodeId = activeEpisode.id;
+    const sourceId = activeSource.id;
+    const sourceUrl = activeSource.url;
+    const sourceType = activeSource.type;
+    const sourceServer = activeSource.server;
+    const movieId = movie?.id;
+    const saveData = dataSaverRef.current;
 
-    const isServerSwitch = pendingSourceResumeRef.current?.episodeId === activeEpisode?.id;
-    // Every episode has its own timeline; only a server switch carries time over.
+    let pendingResume = pendingSourceResumeRef.current?.episodeId === episodeId
+      ? pendingSourceResumeRef.current
+      : null;
+
+    // Auth/token churn must not wipe playback — keep position if we already started this episode.
+    if (!pendingResume && historyResumedEpisodeRef.current === episodeId && video.currentTime > 5) {
+      pendingResume = {
+        episodeId,
+        time: video.currentTime,
+        shouldPlay: !video.paused && !video.ended,
+      };
+      pendingSourceResumeRef.current = pendingResume;
+    }
+
+    const isServerSwitch = Boolean(pendingResume);
     if (!isServerSwitch) {
       video.currentTime = 0;
       setCurrentTime(0);
     }
 
-    // Clear previous Hls instance
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
@@ -320,79 +342,98 @@ function WatchPageContent() {
 
     let disposed = false;
     let hls: import('hls.js').default | null = null;
-    if (activeSource.type === 'hls') {
+    if (sourceType === 'hls') {
       void import('hls.js').then(({ default: Hls }) => {
         if (disposed) return;
         if (Hls.isSupported()) {
-          const instance = new Hls({ maxBufferLength: dataSaver ? 15 : 30, maxMaxBufferLength: dataSaver ? 30 : 60, capLevelToPlayerSize: true });
+          const instance = new Hls({
+            maxBufferLength: saveData ? 15 : 30,
+            maxMaxBufferLength: saveData ? 30 : 60,
+            capLevelToPlayerSize: true,
+          });
           if (disposed) { instance.destroy(); return; }
           hls = instance;
-          instance.loadSource(activeSource.url);
+          instance.loadSource(sourceUrl);
           instance.attachMedia(video);
-        
-        instance.on(Hls.Events.MANIFEST_PARSED, () => {
-          const loadedLevels = instance.levels.map((level, index) => ({
-            index,
-            height: level.height,
-            bitrate: level.bitrate,
-            name: level.name || (level.height ? `${level.height}p` : `Level ${index + 1}`)
-          }));
-          setQualities(loadedLevels);
-          if (dataSaver && loadedLevels.length) {
-            const lowest = loadedLevels.reduce((best, level) => level.bitrate < best.bitrate ? level : best, loadedLevels[0]);
-            instance.currentLevel = lowest.index;
-            setCurrentQualityIndex(lowest.index);
-          }
-        });
-        instance.on(Hls.Events.ERROR, (_event, data) => {
-          if (!data.fatal) return;
-          void axios.post('/analytics/events', {
-            name: 'player_error', path: window.location.pathname, movieId: movie?.id,
-            metadata: { source: activeSource.server, type: data.type, details: data.details },
-          }).catch(() => undefined);
-          const sources = activeEpisode?.videoSources || [];
-          const currentIndex = sources.findIndex((source) => source.id === activeSource.id);
-          const fallback = sources.slice(currentIndex + 1).find((source) => source.url !== activeSource.url);
-          if (fallback) {
-            showToast(`Server ${activeSource.server} lỗi, đang chuyển sang ${fallback.server}.`, 'info');
-            void axios.post('/analytics/events', { name: 'server_fallback', path: window.location.pathname, movieId: movie?.id, metadata: { from: activeSource.server, to: fallback.server, details: data.details } }).catch(() => undefined);
-            pendingSourceResumeRef.current = {
-              episodeId: activeEpisode?.id || '',
-              time: video.currentTime,
-              shouldPlay: !video.paused && !video.ended,
-            };
-            setActiveSource(fallback);
-          }
-        });
+
+          instance.on(Hls.Events.MANIFEST_PARSED, () => {
+            const loadedLevels = instance.levels.map((level, index) => ({
+              index,
+              height: level.height,
+              bitrate: level.bitrate,
+              name: level.name || (level.height ? `${level.height}p` : `Level ${index + 1}`),
+            }));
+            setQualities(loadedLevels);
+            if (dataSaverRef.current && loadedLevels.length) {
+              const lowest = loadedLevels.reduce((best, level) => (level.bitrate < best.bitrate ? level : best), loadedLevels[0]);
+              instance.currentLevel = lowest.index;
+              setCurrentQualityIndex(lowest.index);
+            }
+          });
+          instance.on(Hls.Events.ERROR, (_event, data) => {
+            if (!data.fatal) return;
+            void axios.post('/analytics/events', {
+              name: 'player_error', path: window.location.pathname, movieId,
+              metadata: { source: sourceServer, type: data.type, details: data.details },
+            }).catch(() => undefined);
+            const sources = activeEpisode.videoSources || [];
+            const currentIndex = sources.findIndex((source) => source.id === sourceId);
+            const fallback = sources.slice(currentIndex + 1).find((source) => source.url !== sourceUrl);
+            if (fallback) {
+              showToast(`Server ${sourceServer} lỗi, đang chuyển sang ${fallback.server}.`, 'info');
+              void axios.post('/analytics/events', {
+                name: 'server_fallback', path: window.location.pathname, movieId,
+                metadata: { from: sourceServer, to: fallback.server, details: data.details },
+              }).catch(() => undefined);
+              pendingSourceResumeRef.current = {
+                episodeId,
+                time: video.currentTime,
+                shouldPlay: !video.paused && !video.ended,
+              };
+              setActiveSource(fallback);
+            }
+          });
           hlsRef.current = instance;
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          video.src = activeSource.url;
+          video.src = sourceUrl;
         } else {
           showToast('Trình duyệt không hỗ trợ nguồn phát HLS này.', 'error');
         }
       }).catch(() => showToast('Không thể tải bộ phát HLS.', 'error'));
     } else {
-      // Direct MP4
-      video.src = activeSource.url;
+      video.src = sourceUrl;
     }
 
-    // Auto-resume from watch history if logged in
+    // Resume from history once per episode — never re-apply stale progress mid-watch.
     const fetchHistoryAndResume = async () => {
-      if (!isServerSwitch && user && accessToken && movie) {
-        try {
-          const res = await axios.get(`${API_URL}/user/history`, {
-            headers: { Authorization: `Bearer ${accessToken}` }
-          });
-          const record = (res.data as HistoryRecord[]).find((history) => history.movieId === movie.id && history.episodeId === activeEpisode?.id);
-          if (record && record.watchedTime > 5) {
-            video.currentTime = record.watchedTime;
-          }
-        } catch {
-          // ignore
+      if (isServerSwitch || historyResumedEpisodeRef.current === episodeId || !movieId) return;
+      const { user: currentUser, accessToken: token, selectedProfileId } = useStore.getState();
+      if (!currentUser || !token) {
+        historyResumedEpisodeRef.current = episodeId;
+        return;
+      }
+      try {
+        const res = await axios.get(`${API_URL}/user/history`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            ...(selectedProfileId ? { 'X-Profile-Id': selectedProfileId } : {}),
+          },
+        });
+        if (disposed) return;
+        const record = (res.data as HistoryRecord[]).find(
+          (history) => history.movieId === movieId && history.episodeId === episodeId,
+        );
+        historyResumedEpisodeRef.current = episodeId;
+        // Only seek on a fresh start; ignore if playback already moved ahead.
+        if (record && record.watchedTime > 5 && video.currentTime < 5) {
+          video.currentTime = record.watchedTime;
+          setCurrentTime(record.watchedTime);
         }
+      } catch {
+        if (!disposed) historyResumedEpisodeRef.current = episodeId;
       }
     };
-    fetchHistoryAndResume();
+    void fetchHistoryAndResume();
 
     setPlaying(false);
     setActiveSubTrack('none');
@@ -405,8 +446,19 @@ function WatchPageContent() {
         if (hlsRef.current === hls) hlsRef.current = null;
       }
     };
-  }, [activeSource, movie, activeEpisode, user, accessToken, dataSaver, showToast]);
+  // Intentionally omit user/accessToken/dataSaver: remounting on those caused mid-watch rewinds.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSource?.id, activeEpisode?.id, movie?.id, showToast]);
 
+  // Apply data-saver quality without remounting the stream.
+  useEffect(() => {
+    const hls = hlsRef.current;
+    if (!hls || !qualities.length) return;
+    if (!dataSaver) return;
+    const lowest = qualities.reduce((best, level) => (level.bitrate < best.bitrate ? level : best), qualities[0]);
+    hls.currentLevel = lowest.index;
+    setCurrentQualityIndex(lowest.index);
+  }, [dataSaver, qualities]);
   const nextEpisode = movie?.episodes
     ?.filter((episode) => episode.episodeOrder > (activeEpisode?.episodeOrder || 0))
     .sort((first, second) => first.episodeOrder - second.episodeOrder)[0] || null;

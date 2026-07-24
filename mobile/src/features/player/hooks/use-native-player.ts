@@ -36,6 +36,8 @@ export function useNativePlayer(movie: Movie, requestedEpisode?: number) {
   const lastSavedAt = useRef(0);
   const lastCheckpointAt = useRef(0);
   const wasReady = useRef(false);
+  const hasRestoredRef = useRef(false);
+  const pendingSourceResumeRef = useRef<{ time: number; shouldPlay: boolean } | null>(null);
 
   const player = useVideoPlayer(null, (instance) => {
     instance.timeUpdateEventInterval = 1;
@@ -86,6 +88,8 @@ export function useNativePlayer(movie: Movie, requestedEpisode?: number) {
     startedAt.current = Date.now();
     firstReady.current = false;
     wasReady.current = false;
+    const resume = pendingSourceResumeRef.current;
+    pendingSourceResumeRef.current = null;
     let active = true;
     void player.replaceAsync({
       uri: source.url,
@@ -93,7 +97,12 @@ export function useNativePlayer(movie: Movie, requestedEpisode?: number) {
       useCaching: source.type === 'mp4',
       metadata: { title: `${movie.title} · ${episode.title}`, artist: 'Cine3D', artwork: movie.posterUrl },
     }).then(() => {
-      if (active) player.play();
+      if (!active) return;
+      if (resume && resume.time > 5) {
+        player.currentTime = resume.time;
+        setPosition(resume.time);
+      }
+      if (!resume || resume.shouldPlay) player.play();
     }).catch((reason) => {
       if (active) setError(redactErrorMessage(reason));
     });
@@ -102,13 +111,19 @@ export function useNativePlayer(movie: Movie, requestedEpisode?: number) {
   }, [episode, movie.id, movie.posterUrl, movie.title, player, source]);
 
   useEffect(() => {
+    hasRestoredRef.current = false;
+  }, [movie.id, episode?.id]);
+
+  useEffect(() => {
     let active = true;
     void (async () => {
+      if (hasRestoredRef.current || !episode) return;
       const [checkpoint, history] = await Promise.all([
         checkpointRepository.get(profileKey, movie.id),
         authenticated ? movieRepository.getHistory().catch(() => []) : Promise.resolve([]),
       ]);
-      if (!active || !episode) return;
+      if (!active || hasRestoredRef.current) return;
+      hasRestoredRef.current = true;
       const remote = history.find((item) => item.movieId === movie.id);
       const remoteUpdatedAt = remote?.updatedAt ? Date.parse(remote.updatedAt) : 0;
       const preferCheckpoint = Boolean(
@@ -117,9 +132,12 @@ export function useNativePlayer(movie: Movie, requestedEpisode?: number) {
       const restoredEpisodeId = (preferCheckpoint ? checkpoint?.episodeId : remote?.episodeId)
         ?? remote?.episodeId
         ?? checkpoint?.episodeId;
-      if (!requestedEpisode && restoredEpisodeId) {
+      if (!requestedEpisode && restoredEpisodeId && restoredEpisodeId !== episode.id) {
         const restoredEpisode = episodes.find((item) => item.id === restoredEpisodeId);
-        if (restoredEpisode) setEpisodeState(restoredEpisode);
+        if (restoredEpisode) {
+          setEpisodeState(restoredEpisode);
+          return;
+        }
       }
       const restoredPosition = (preferCheckpoint ? checkpoint?.position : undefined)
         ?? remote?.watchedTime
@@ -133,13 +151,13 @@ export function useNativePlayer(movie: Movie, requestedEpisode?: number) {
         ?? 0;
       const nearlyFinished = remote?.completed
         || (checkpointDuration > 0 && restoredPosition / checkpointDuration >= 0.9);
-      if ((!restoredEpisodeId || restoredEpisodeId === episode.id) && restoredPosition > 15 && !nearlyFinished) {
+      if (restoredPosition > 15 && !nearlyFinished && player.currentTime < 5) {
         player.currentTime = restoredPosition;
         setPosition(restoredPosition);
       }
     })();
     return () => { active = false; };
-  }, [authenticated, episode, episodes, movie.id, player, profileKey, requestedEpisode]);
+  }, [authenticated, episode?.id, movie.id, player, profileKey, requestedEpisode, episodes, episode]);
 
   useEffect(() => {
     const subscriptions = [
@@ -183,6 +201,10 @@ export function useNativePlayer(movie: Movie, requestedEpisode?: number) {
             void playerApi.track('server_fallback', movie.id, {
               episodeId: episode?.id, from: source?.id, to: fallback.id, reason: message, oldStatus,
             }).catch(() => undefined);
+            pendingSourceResumeRef.current = {
+              time: player.currentTime,
+              shouldPlay: player.playing,
+            };
             setSource(fallback);
           } else setError(message);
         }
