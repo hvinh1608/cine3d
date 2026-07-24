@@ -112,7 +112,7 @@ export default function Footer() {
                 <Download className="h-5 w-5" />
                 <span className="text-left leading-tight">
                   <small className="block text-[10px] font-bold uppercase tracking-wider text-white/70">Tải trực tiếp</small>
-                  CINE3D APK 1.0.11
+                  CINE3D APK 1.0.12
                 </span>
               </a>
               <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -132,7 +132,7 @@ export default function Footer() {
                 marginSize={1}
                 bgColor="#ffffff"
                 fgColor="#09090b"
-                title="Mã QR tải CINE3D APK 1.0.11"
+                title="Mã QR tải CINE3D APK 1.0.12"
               />
             </a>
           </div>
