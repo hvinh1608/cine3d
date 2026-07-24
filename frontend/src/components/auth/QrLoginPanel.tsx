@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
 import { RefreshCw, Smartphone } from 'lucide-react';
 import axios from '../../lib/api';
@@ -33,6 +34,7 @@ type QrPollResponse = {
 };
 
 export default function QrLoginPanel({ compact = false }: { compact?: boolean }) {
+  const router = useRouter();
   const setSession = useStore((state) => state.setSession);
   const showToast = useStore((state) => state.showToast);
   const [payload, setPayload] = useState<QrCreateResponse | null>(null);
@@ -108,13 +110,14 @@ export default function QrLoginPanel({ compact = false }: { compact?: boolean })
           tokenRef.current = '';
           setSession(data.user, data.accessToken);
           showToast('Đăng nhập bằng QR thành công!', 'success');
+          router.replace('/');
         }
       } catch {
         // keep polling through transient network blips
       }
     }, 2000);
     return () => window.clearInterval(timer);
-  }, [createSession, payload?.token, setSession, showToast, status]);
+  }, [createSession, payload?.token, router, setSession, showToast, status]);
 
   return (
     <div className={`h-full text-center ${compact ? 'flex flex-col justify-center' : ''}`}>
