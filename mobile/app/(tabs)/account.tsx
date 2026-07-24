@@ -44,7 +44,7 @@ export default function AccountRoute() {
   if (!user) return <View style={styles.center}><Text>Đang tải tài khoản…</Text></View>;
 
   const links = [
-    ['Đăng nhập web bằng QR', 'Quét mã trên máy tính để vào web', '/qr-login', 'qrcode-scan'],
+    ['Đăng nhập web bằng QR', 'Mở camera quét mã trên máy tính', '/qr-login', 'qrcode-scan'],
     ['Hồ sơ tài khoản', 'Đổi tên hiển thị và ảnh đại diện', '/account/profile', 'account-circle'],
     ['Hồ sơ người xem', activeProfile ? `Đang dùng: ${activeProfile.name}` : 'Tạo và chuyển hồ sơ', '/account/profiles', 'account-multiple'],
     ['VIP CINE3D', user.isVip ? 'Đang hoạt động' : 'Gói và lịch sử giao dịch', '/account/vip', 'crown'],
