@@ -3,7 +3,7 @@
 import Image from '@/components/ui/ResilientImage';
 import Link from 'next/link';
 import { Download, Flag, HelpCircle, Mail, ScanLine, ShieldCheck, Smartphone } from 'lucide-react';
-import { QRCodeSVG } from 'qrcode.react';
+import BrandedQrCode from './BrandedQrCode';
 import { ANDROID_APK_URL } from '../../lib/android-app';
 
 const footerLinks = [
@@ -125,13 +125,9 @@ export default function Footer() {
               aria-label="Quét hoặc nhấn để tải CINE3D APK"
               className="mx-auto block rounded-2xl border border-white/15 bg-white p-2.5 shadow-[0_0_35px_rgba(245,158,11,0.1)] transition hover:scale-[1.02]"
             >
-              <QRCodeSVG
+              <BrandedQrCode
                 value={ANDROID_APK_URL}
                 size={148}
-                level="H"
-                marginSize={1}
-                bgColor="#ffffff"
-                fgColor="#09090b"
                 title="Mã QR tải CINE3D APK 1.0.12"
               />
             </a>

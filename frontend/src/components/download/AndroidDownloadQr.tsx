@@ -1,7 +1,7 @@
 'use client';
 
-import { QRCodeSVG } from 'qrcode.react';
 import { ScanLine } from 'lucide-react';
+import BrandedQrCode from '@/components/ui/BrandedQrCode';
 
 type AndroidDownloadQrProps = {
   url: string;
@@ -21,13 +21,9 @@ export default function AndroidDownloadQr({ url }: AndroidDownloadQrProps) {
         aria-label="Quét hoặc nhấn để tải CINE3D APK"
         className="mx-auto mt-4 block w-fit rounded-2xl bg-white p-3 shadow-[0_0_35px_rgba(239,68,68,0.18)] transition hover:scale-[1.02]"
       >
-        <QRCodeSVG
+        <BrandedQrCode
           value={url}
           size={184}
-          level="H"
-          marginSize={1}
-          bgColor="#ffffff"
-          fgColor="#09090b"
           title="Mã QR tải ứng dụng CINE3D cho Android"
         />
       </a>

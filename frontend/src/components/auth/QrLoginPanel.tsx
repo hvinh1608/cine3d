@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { QRCodeSVG } from 'qrcode.react';
 import { RefreshCw, Smartphone } from 'lucide-react';
 import axios from '../../lib/api';
 import { useStore } from '../../hooks/useStore';
+import BrandedQrCode from '../ui/BrandedQrCode';
 
 type QrCreateResponse = {
   sessionId: string;
@@ -147,7 +147,7 @@ export default function QrLoginPanel({ compact = false }: { compact?: boolean })
       {status === 'pending' && payload && (
         <>
           <div className="mx-auto inline-flex rounded-xl bg-white p-2 shadow-lg">
-            <QRCodeSVG value={payload.deepLink} size={qrSize} level="M" bgColor="#ffffff" fgColor="#09090b" />
+            <BrandedQrCode value={payload.deepLink} size={qrSize} title="Mã QR đăng nhập web CINE3D" />
           </div>
           <p className="mt-2.5 text-[11px] leading-4 text-slate-500">
             Dùng camera điện thoại quét mã khi app đã đăng nhập.
