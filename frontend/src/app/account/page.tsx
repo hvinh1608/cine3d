@@ -60,7 +60,17 @@ export default function AccountPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState('');
   const [turnstileKey, setTurnstileKey] = useState(0);
+  const [wideAuthLayout, setWideAuthLayout] = useState(false);
+  const [mobileQrOpen, setMobileQrOpen] = useState(false);
   const submittingRef = useRef(false);
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px)');
+    const sync = () => setWideAuthLayout(media.matches);
+    sync();
+    media.addEventListener('change', sync);
+    return () => media.removeEventListener('change', sync);
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -376,185 +386,212 @@ export default function AccountPage() {
 
   // Render Login/Signup forms if guest
   if (!user) {
+    const showQr = recoveryMode === 'none' && isLogin;
     return (
-      <div className="flex-1 w-full max-w-md mx-auto px-4 py-16 flex flex-col justify-center">
-        <div className="glass-panel p-8 rounded-3xl text-left space-y-6 shadow-2xl relative">
-          
-          <div className="text-center space-y-2">
-            <h2 className="text-2xl font-black tracking-wide bg-gradient-to-r from-red-500 to-purple-500 bg-clip-text text-transparent uppercase">
-              {recoveryMode === 'forgot' ? 'Quên Mật Khẩu' : recoveryMode === 'reset' ? 'Đặt Lại Mật Khẩu' : isLogin ? 'Đăng Nhập CINE3D' : 'Đăng Ký Tài Khoản'}
-            </h2>
-            <p className="text-xs text-slate-500">Trải nghiệm rạp chiếu phim 3D không gian ảo.</p>
-          </div>
-
-          {errorMsg && (
-            <div className="bg-red-950/45 border border-red-500/30 text-red-400 text-xs px-4 py-2.5 rounded-lg">
-              {errorMsg}
-            </div>
-          )}
-          {authNotice && (
-            <div className="rounded-lg border border-emerald-500/30 bg-emerald-950/40 px-4 py-2.5 text-xs leading-relaxed text-emerald-300">
-              {authNotice}
-            </div>
-          )}
-
-          {recoveryMode === 'none' && (
-            <>
-              <GoogleSignInButton onCredential={handleGoogleCredential} />
-              <FacebookSignInButton onAccessToken={handleFacebookAccessToken} />
-              <QrLoginPanel />
-              <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-slate-600">
-                <span className="h-px flex-1 bg-white/10" />
-                Hoặc dùng email
-                <span className="h-px flex-1 bg-white/10" />
+      <div className="flex flex-1 items-center justify-center px-4 py-8 md:py-12">
+        <div className={`glass-panel relative w-full overflow-hidden rounded-3xl shadow-2xl ${showQr ? 'max-w-3xl' : 'max-w-md'}`}>
+          <div className={`grid ${showQr ? 'lg:grid-cols-[1.15fr_0.85fr]' : 'grid-cols-1'}`}>
+            <div className="space-y-4 p-5 text-left sm:p-7">
+              <div className="space-y-1">
+                <h2 className="text-xl font-black tracking-wide text-white sm:text-2xl">
+                  {recoveryMode === 'forgot' ? 'Quên mật khẩu' : recoveryMode === 'reset' ? 'Đặt lại mật khẩu' : isLogin ? 'Đăng nhập' : 'Tạo tài khoản'}
+                </h2>
+                <p className="text-xs text-slate-500">
+                  {showQr ? 'Dùng email, mạng xã hội hoặc quét QR bằng app.' : 'Trải nghiệm rạp chiếu phim 3D của CINE3D.'}
+                </p>
               </div>
-            </>
-          )}
 
-          {recoveryMode !== 'none' ? (
-            <form onSubmit={handleRecoverySubmit} className="space-y-4">
-              {recoveryMode === 'forgot' ? (
-                <div className="relative">
-                  <input
-                    type="text"
-                    name="recovery-email"
-                    inputMode="email"
-                    autoComplete="email"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    required
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="ten.email"
-                    className={`w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 text-sm text-white outline-none focus:border-red-500 ${email.includes('@') ? 'pr-4' : 'pr-28'}`}
-                  />
-                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-                  {!email.includes('@') && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-500">@gmail.com</span>}
+              {errorMsg && (
+                <div className="rounded-lg border border-red-500/30 bg-red-950/45 px-3 py-2 text-xs text-red-400">
+                  {errorMsg}
                 </div>
+              )}
+              {authNotice && (
+                <div className="rounded-lg border border-emerald-500/30 bg-emerald-950/40 px-3 py-2 text-xs leading-relaxed text-emerald-300">
+                  {authNotice}
+                </div>
+              )}
+
+              {recoveryMode === 'none' && (
+                <div className="space-y-2.5">
+                  <GoogleSignInButton onCredential={handleGoogleCredential} />
+                  <FacebookSignInButton onAccessToken={handleFacebookAccessToken} />
+                  <div className="flex items-center gap-3 pt-1 text-[10px] font-bold uppercase tracking-widest text-slate-600">
+                    <span className="h-px flex-1 bg-white/10" />
+                    Email
+                    <span className="h-px flex-1 bg-white/10" />
+                  </div>
+                </div>
+              )}
+
+              {recoveryMode !== 'none' ? (
+                <form onSubmit={handleRecoverySubmit} className="space-y-3">
+                  {recoveryMode === 'forgot' ? (
+                    <div className="relative">
+                      <input
+                        type="text"
+                        name="recovery-email"
+                        inputMode="email"
+                        autoComplete="email"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        required
+                        value={email}
+                        onChange={(event) => setEmail(event.target.value)}
+                        placeholder="ten.email"
+                        className={`w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 text-sm text-white outline-none focus:border-red-500 ${email.includes('@') ? 'pr-4' : 'pr-28'}`}
+                      />
+                      <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                      {!email.includes('@') && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-500">@gmail.com</span>}
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <input
+                        type={showNewPassword ? 'text' : 'password'}
+                        name="new-password"
+                        autoComplete="new-password"
+                        required
+                        minLength={8}
+                        value={newPassword}
+                        onChange={(event) => setNewPassword(event.target.value)}
+                        placeholder="Mật khẩu mới (ít nhất 8 ký tự)"
+                        className="w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 pr-11 text-sm text-white outline-none focus:border-red-500"
+                      />
+                      <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword((visible) => !visible)}
+                        aria-label={showNewPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                        aria-pressed={showNewPassword}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                      >
+                        {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
+                  )}
+                  {recoveryMode === 'forgot' && <TurnstileWidget key={turnstileKey} onToken={setTurnstileToken} />}
+                  <button type="submit" disabled={isSubmitting} className="w-full rounded-xl bg-gradient-to-r from-red-600 to-red-500 py-3 text-sm font-black text-white disabled:opacity-60">
+                    {isSubmitting ? 'Đang xử lý...' : recoveryMode === 'forgot' ? 'Gửi email khôi phục' : 'Lưu mật khẩu mới'}
+                  </button>
+                  <button type="button" onClick={() => { setRecoveryMode('none'); setErrorMsg(''); setAuthNotice(''); setTurnstileToken(''); setTurnstileKey((value) => value + 1); }} className="w-full text-xs text-slate-400 transition hover:text-white">
+                    Quay lại đăng nhập
+                  </button>
+                </form>
               ) : (
-                <div className="relative">
-                  <input
-                    type={showNewPassword ? 'text' : 'password'}
-                    name="new-password"
-                    autoComplete="new-password"
-                    required
-                    minLength={8}
-                    value={newPassword}
-                    onChange={(event) => setNewPassword(event.target.value)}
-                    placeholder="Mật khẩu mới (ít nhất 8 ký tự)"
-                    className="w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 pr-11 text-sm text-white outline-none focus:border-red-500"
-                  />
-                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                <form onSubmit={handleAuthSubmit} className="space-y-3">
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="email"
+                      inputMode="email"
+                      autoComplete="email"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="ten.email"
+                      className={`w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 text-sm text-white outline-none focus:border-red-500 ${email.includes('@') ? 'pr-4' : 'pr-28'}`}
+                    />
+                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                    {!email.includes('@') && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-500">@gmail.com</span>}
+                  </div>
+
+                  {!isLogin && (
+                    <div className="relative">
+                      <input
+                        type="text"
+                        name="username"
+                        autoComplete="username"
+                        required
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="Tên tài khoản"
+                        className="w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-red-500"
+                      />
+                      <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                    </div>
+                  )}
+
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      name="password"
+                      autoComplete={isLogin ? 'current-password' : 'new-password'}
+                      required
+                      minLength={8}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Mật khẩu"
+                      className="w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 pr-11 text-sm text-white outline-none focus:border-red-500"
+                    />
+                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((visible) => !visible)}
+                      aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                      aria-pressed={showPassword}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+
+                  <TurnstileWidget key={turnstileKey} onToken={setTurnstileToken} />
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full rounded-xl bg-gradient-to-r from-red-600 to-red-500 py-3 text-sm font-black text-white shadow-lg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isSubmitting ? 'Đang xử lý...' : isLogin ? 'Đăng nhập' : 'Tạo tài khoản'}
+                  </button>
+                </form>
+              )}
+
+              {recoveryMode === 'none' && (
+                <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
+                  {isLogin ? (
+                    <button type="button" onClick={() => { setRecoveryMode('forgot'); setErrorMsg(''); setAuthNotice(''); setTurnstileToken(''); setTurnstileKey((value) => value + 1); }} className="text-slate-500 transition hover:text-amber-300">
+                      Quên mật khẩu?
+                    </button>
+                  ) : <span />}
                   <button
                     type="button"
-                    onClick={() => setShowNewPassword((visible) => !visible)}
-                    aria-label={showNewPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                    aria-pressed={showNewPassword}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                    onClick={() => {
+                      setIsLogin(!isLogin);
+                      setErrorMsg('');
+                      setTurnstileToken('');
+                      setTurnstileKey((value) => value + 1);
+                    }}
+                    className="font-semibold text-slate-300 transition hover:text-red-400"
                   >
-                    {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {isLogin ? 'Đăng ký' : 'Đã có tài khoản? Đăng nhập'}
                   </button>
                 </div>
               )}
-              {recoveryMode === 'forgot' && <TurnstileWidget key={turnstileKey} onToken={setTurnstileToken} />}
-              <button type="submit" disabled={isSubmitting} className="w-full rounded-xl bg-gradient-to-r from-red-600 to-purple-600 py-3.5 text-sm font-black text-white disabled:opacity-60">
-                {isSubmitting ? 'Đang xử lý...' : recoveryMode === 'forgot' ? 'Gửi email khôi phục' : 'Lưu mật khẩu mới'}
-              </button>
-              <button type="button" onClick={() => { setRecoveryMode('none'); setErrorMsg(''); setAuthNotice(''); setTurnstileToken(''); setTurnstileKey((value) => value + 1); }} className="w-full text-xs text-slate-400 transition hover:text-white">
-                Quay lại đăng nhập
-              </button>
-            </form>
-          ) : (
-          <form onSubmit={handleAuthSubmit} className="space-y-4">
-            <div className="relative">
-              <input
-                type="text"
-                name="email"
-                inputMode="email"
-                autoComplete="email"
-                autoCapitalize="none"
-                spellCheck={false}
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="ten.email"
-                className={`w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 text-xs text-white outline-none focus:border-red-500 md:text-sm ${email.includes('@') ? 'pr-4' : 'pr-28'}`}
-              />
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
-              {!email.includes('@') && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-slate-500 md:text-sm">@gmail.com</span>}
+
+              {showQr && !wideAuthLayout && (
+                <details
+                  className="rounded-2xl border border-white/10 bg-slate-950/40"
+                  onToggle={(event) => setMobileQrOpen(event.currentTarget.open)}
+                >
+                  <summary className="cursor-pointer list-none px-4 py-3 text-center text-xs font-bold text-slate-300 marker:content-none [&::-webkit-details-marker]:hidden">
+                    Đăng nhập bằng QR trên app
+                  </summary>
+                  <div className="border-t border-white/5 px-4 pb-4 pt-3">
+                    {mobileQrOpen ? <QrLoginPanel compact /> : null}
+                  </div>
+                </details>
+              )}
             </div>
 
-            {!isLogin && (
-              <div className="relative">
-                <input
-                  type="text"
-                  name="username"
-                  autoComplete="username"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Tên tài khoản"
-                  className="w-full bg-slate-900 border border-white/10 focus:border-red-500 rounded-xl pl-10 pr-4 py-3 text-xs md:text-sm outline-none text-white"
-                />
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
-              </div>
+            {showQr && wideAuthLayout && (
+              <aside className="border-l border-white/10 bg-gradient-to-b from-red-950/20 via-slate-950/40 to-slate-950/10 p-6">
+                <QrLoginPanel compact />
+              </aside>
             )}
-
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                name="password"
-                autoComplete={isLogin ? 'current-password' : 'new-password'}
-                required
-                minLength={8}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mật khẩu"
-                className="w-full bg-slate-900 border border-white/10 focus:border-red-500 rounded-xl pl-10 pr-11 py-3 text-xs md:text-sm outline-none text-white"
-              />
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
-              <button
-                type="button"
-                onClick={() => setShowPassword((visible) => !visible)}
-                aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                aria-pressed={showPassword}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-
-            <TurnstileWidget key={turnstileKey} onToken={setTurnstileToken} />
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full bg-gradient-to-r from-red-600 to-purple-600 hover:from-red-700 hover:to-purple-700 disabled:cursor-not-allowed disabled:opacity-60 text-white text-xs md:text-sm font-black py-3.5 rounded-xl transition-all shadow-lg active:scale-98"
-            >
-              {isSubmitting ? 'Đang xử lý...' : isLogin ? 'Đăng Nhập' : 'Tạo Tài Khoản'}
-            </button>
-          </form>
-          )}
-
-          {recoveryMode === 'none' && <div className="space-y-3 text-center pt-2">
-            {isLogin && (
-              <button type="button" onClick={() => { setRecoveryMode('forgot'); setErrorMsg(''); setAuthNotice(''); setTurnstileToken(''); setTurnstileKey((value) => value + 1); }} className="block w-full text-xs text-slate-500 transition hover:text-yellow-400">
-                Quên mật khẩu?
-              </button>
-            )}
-            <button
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setErrorMsg('');
-                setTurnstileToken('');
-                setTurnstileKey((value) => value + 1);
-              }}
-              className="text-xs text-slate-400 hover:text-red-500 transition-colors"
-            >
-              {isLogin ? 'Chưa có tài khoản? Đăng ký ngay' : 'Đã có tài khoản? Đăng nhập'}
-            </button>
-          </div>}
-
+          </div>
         </div>
       </div>
     );

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { RefreshCw, Smartphone, X } from 'lucide-react';
+import { RefreshCw, Smartphone } from 'lucide-react';
 import axios from '../../lib/api';
 import { useStore } from '../../hooks/useStore';
 
@@ -32,7 +32,7 @@ type QrPollResponse = {
   message?: string;
 };
 
-export default function QrLoginPanel() {
+export default function QrLoginPanel({ compact = false }: { compact?: boolean }) {
   const setSession = useStore((state) => state.setSession);
   const showToast = useStore((state) => state.showToast);
   const [payload, setPayload] = useState<QrCreateResponse | null>(null);
@@ -41,6 +41,7 @@ export default function QrLoginPanel() {
   const [error, setError] = useState('');
   const tokenRef = useRef('');
   const claimingRef = useRef(false);
+  const qrSize = compact ? 132 : 148;
 
   const cancelCurrent = useCallback(async () => {
     const token = tokenRef.current;
@@ -116,22 +117,25 @@ export default function QrLoginPanel() {
   }, [createSession, payload?.token, setSession, showToast, status]);
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-slate-950/50 p-4 text-center">
-      <div className="mb-3 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider text-slate-400">
+    <div className={`h-full text-center ${compact ? 'flex flex-col justify-center' : ''}`}>
+      <div className="mb-2.5 flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
         <Smartphone className="h-3.5 w-3.5 text-red-400" />
-        Đăng nhập bằng app
+        Quét app để vào
       </div>
 
       {status === 'loading' && (
-        <div className="mx-auto flex h-44 w-44 items-center justify-center rounded-2xl bg-white/5">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-700 border-t-red-500" />
+        <div
+          className="mx-auto flex items-center justify-center rounded-xl bg-white/5"
+          style={{ width: qrSize + 16, height: qrSize + 16 }}
+        >
+          <div className="h-7 w-7 animate-spin rounded-full border-2 border-slate-700 border-t-red-500" />
         </div>
       )}
 
       {status === 'error' && (
-        <div className="space-y-3 py-6">
-          <p className="text-xs text-red-400">{error}</p>
-          <button type="button" onClick={() => void createSession()} className="rounded-full bg-white/10 px-4 py-2 text-xs font-bold text-white hover:bg-white/15">
+        <div className="space-y-2 py-4">
+          <p className="text-[11px] text-red-400">{error}</p>
+          <button type="button" onClick={() => void createSession()} className="rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-white/15">
             Thử lại
           </button>
         </div>
@@ -139,29 +143,20 @@ export default function QrLoginPanel() {
 
       {status === 'pending' && payload && (
         <>
-          <div className="mx-auto inline-flex rounded-2xl bg-white p-3 shadow-lg">
-            <QRCodeSVG value={payload.deepLink} size={168} level="M" bgColor="#ffffff" fgColor="#09090b" />
+          <div className="mx-auto inline-flex rounded-xl bg-white p-2 shadow-lg">
+            <QRCodeSVG value={payload.deepLink} size={qrSize} level="M" bgColor="#ffffff" fgColor="#09090b" />
           </div>
-          <p className="mt-3 text-xs leading-5 text-slate-400">
-            Mở app CINE3D đã đăng nhập trên điện thoại, rồi quét mã này bằng camera điện thoại để xác nhận đăng nhập web.
+          <p className="mt-2.5 text-[11px] leading-4 text-slate-500">
+            Dùng camera điện thoại quét mã khi app đã đăng nhập.
           </p>
-          <p className="mt-2 text-[11px] font-bold text-amber-300">
-            Mã còn hiệu lực {secondsLeft}s
-          </p>
-          <div className="mt-3 flex items-center justify-center gap-2">
+          <div className="mt-2.5 flex items-center justify-center gap-2">
+            <span className="text-[10px] font-bold tabular-nums text-amber-300">{secondsLeft}s</span>
             <button
               type="button"
               onClick={() => void createSession()}
-              className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 text-[11px] font-bold text-slate-300 hover:bg-white/5"
+              className="inline-flex items-center gap-1 rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-bold text-slate-300 hover:bg-white/5"
             >
-              <RefreshCw className="h-3.5 w-3.5" /> Làm mới mã
-            </button>
-            <button
-              type="button"
-              onClick={() => void cancelCurrent().then(() => createSession())}
-              className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 text-[11px] font-bold text-slate-500 hover:text-slate-300"
-            >
-              <X className="h-3.5 w-3.5" /> Hủy
+              <RefreshCw className="h-3 w-3" /> Làm mới
             </button>
           </div>
         </>
