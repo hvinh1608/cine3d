@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
+import type { Href } from 'expo-router';
 import { Image } from 'expo-image';
 import { Button, Divider, List, Text } from 'react-native-paper';
 import { accountApi } from '@/features/account/data/account-api';
@@ -48,6 +49,7 @@ export default function AccountRoute() {
     ['VIP CINE3D', user.isVip ? 'Đang hoạt động' : 'Gói và lịch sử giao dịch', '/account/vip'],
     ['Thông báo', 'Hộp thư và thiết lập đẩy', '/account/notifications'],
     ['Thiết bị đăng nhập', 'Xem và thu hồi phiên', '/account/sessions'],
+    ['Đăng nhập web bằng QR', 'Phê duyệt phiên đăng nhập trên máy tính', '/qr-login'],
     ['Góp ý và hỗ trợ', 'Lịch sử, trạng thái và phản hồi', '/account/feedback'],
     ['Cài đặt', 'Phát, phụ đề, tải xuống, bảo mật', '/account/settings'],
     ['Quyền riêng tư và pháp lý', 'Điều khoản, dữ liệu và phiên bản', '/account/legal'],
@@ -67,7 +69,7 @@ export default function AccountRoute() {
       <View style={styles.list}>
         {links.map(([title, description, href], index) => (
           <View key={href}>
-            <List.Item title={title} description={description} onPress={() => router.push(href)} right={(props) => <List.Icon {...props} icon="chevron-right" />} />
+            <List.Item title={title} description={description} onPress={() => router.push(href as Href)} right={(props) => <List.Icon {...props} icon="chevron-right" />} />
             {index < links.length - 1 ? <Divider /> : null}
           </View>
         ))}

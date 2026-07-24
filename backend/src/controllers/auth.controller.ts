@@ -891,3 +891,175 @@ export const verifyEmailNative = async (req: AuthenticatedRequest, res: Response
     return internalError(res, 'Could not verify email.', error);
   }
 };
+
+const QR_LOGIN_TTL_MS = 2 * 60 * 1000;
+
+function qrDeepLink(token: string) {
+  const base = (process.env.CLIENT_URLS || process.env.CLIENT_URL || clientUrl)
+    .split(',')[0]
+    .trim()
+    .replace(/\/$/, '') || clientUrl;
+  return `${base}/qr-login?t=${encodeURIComponent(token)}`;
+}
+
+async function findFreshQrSession(token: string) {
+  const session = await prisma.qrLoginSession.findUnique({
+    where: { tokenHash: hashToken(token) },
+  });
+  if (!session) return null;
+  if (session.expiresAt.getTime() <= Date.now() && session.status === 'PENDING') {
+    await prisma.qrLoginSession.update({
+      where: { id: session.id },
+      data: { status: 'EXPIRED' },
+    });
+    return { ...session, status: 'EXPIRED' };
+  }
+  return session;
+}
+
+/** Web creates a pending QR session shown as a scannable deep link. */
+export const createQrLoginSession = async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const token = crypto.randomBytes(32).toString('hex');
+    const meta = getSessionMetadata(req);
+    const expiresAt = new Date(Date.now() + QR_LOGIN_TTL_MS);
+    const session = await prisma.qrLoginSession.create({
+      data: {
+        tokenHash: hashToken(token),
+        expiresAt,
+        userAgent: meta.userAgent,
+        ipAddress: meta.ipAddress,
+      },
+    });
+    return res.status(201).json({
+      sessionId: session.id,
+      token,
+      expiresAt: expiresAt.toISOString(),
+      expiresInSeconds: Math.floor(QR_LOGIN_TTL_MS / 1000),
+      deepLink: qrDeepLink(token),
+      status: 'PENDING',
+    });
+  } catch (error) {
+    return internalError(res, 'Could not create QR login session.', error);
+  }
+};
+
+/** Web polls until the mobile app approves, then claims tokens once. */
+export const getQrLoginSession = async (req: AuthenticatedRequest, res: Response) => {
+  const token = typeof req.params.token === 'string' ? req.params.token.trim() : '';
+  if (!token || token.length < 32) return res.status(400).json({ message: 'Mã QR không hợp lệ.' });
+
+  try {
+    const session = await findFreshQrSession(token);
+    if (!session) return res.status(404).json({ message: 'Phiên QR không tồn tại.', status: 'MISSING' });
+
+    if (session.status === 'PENDING') {
+      return res.json({
+        status: 'PENDING',
+        expiresAt: session.expiresAt.toISOString(),
+        expiresInSeconds: Math.max(0, Math.floor((session.expiresAt.getTime() - Date.now()) / 1000)),
+      });
+    }
+
+    if (session.status === 'EXPIRED' || session.status === 'CANCELLED') {
+      return res.json({ status: session.status, expiresAt: session.expiresAt.toISOString() });
+    }
+
+    if (session.status === 'USED') {
+      return res.status(410).json({ status: 'USED', message: 'Mã QR đã được dùng.' });
+    }
+
+    if (session.status !== 'APPROVED' || !session.userId) {
+      return res.status(409).json({ status: session.status, message: 'Phiên QR chưa sẵn sàng.' });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.userId },
+      include: { role: true },
+    });
+    if (!user || user.isLocked) {
+      await prisma.qrLoginSession.update({ where: { id: session.id }, data: { status: 'CANCELLED' } });
+      return res.status(403).json({ status: 'CANCELLED', message: 'Tài khoản không khả dụng.' });
+    }
+
+    const claimed = await prisma.qrLoginSession.updateMany({
+      where: { id: session.id, status: 'APPROVED' },
+      data: { status: 'USED', usedAt: new Date() },
+    });
+    if (claimed.count === 0) {
+      return res.status(410).json({ status: 'USED', message: 'Mã QR đã được dùng.' });
+    }
+
+    const authSession = await createSession(user, req);
+    if (!isNativeClient(req)) res.cookie(REFRESH_COOKIE, authSession.refreshToken, cookieOptions);
+    return res.json(sessionResponse(req, {
+      status: 'APPROVED',
+      accessToken: authSession.accessToken,
+      user: authSession.user,
+      message: 'Đăng nhập bằng QR thành công.',
+    }, authSession.refreshToken));
+  } catch (error) {
+    return internalError(res, 'Could not read QR login session.', error);
+  }
+};
+
+/** Authenticated mobile app approves the pending web QR session. */
+export const approveQrLoginSession = async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user?.id) return res.status(401).json({ message: 'Vui lòng đăng nhập trên app trước.' });
+  const token = typeof req.body.token === 'string' ? req.body.token.trim() : '';
+  if (!token || token.length < 32) return res.status(400).json({ message: 'Mã QR không hợp lệ.' });
+
+  try {
+    const session = await findFreshQrSession(token);
+    if (!session) return res.status(404).json({ message: 'Phiên QR không tồn tại hoặc đã hết hạn.' });
+    if (session.status === 'EXPIRED') return res.status(410).json({ message: 'Mã QR đã hết hạn. Hãy tạo mã mới trên web.' });
+    if (session.status === 'CANCELLED') return res.status(410).json({ message: 'Phiên QR đã bị hủy trên web.' });
+    if (session.status === 'USED') return res.status(410).json({ message: 'Mã QR đã được dùng.' });
+    if (session.status === 'APPROVED') {
+      if (session.userId === req.user.id) {
+        return res.json({ message: 'Đã xác nhận đăng nhập web.', status: 'APPROVED' });
+      }
+      return res.status(409).json({ message: 'Mã QR đã được xác nhận bởi tài khoản khác.' });
+    }
+
+    const updated = await prisma.qrLoginSession.updateMany({
+      where: { id: session.id, status: 'PENDING' },
+      data: {
+        status: 'APPROVED',
+        userId: req.user.id,
+        approvedAt: new Date(),
+      },
+    });
+    if (updated.count === 0) {
+      return res.status(409).json({ message: 'Không thể xác nhận mã QR. Thử lại với mã mới.' });
+    }
+
+    return res.json({
+      message: 'Đã xác nhận. Máy tính sẽ đăng nhập trong giây lát.',
+      status: 'APPROVED',
+    });
+  } catch (error) {
+    return internalError(res, 'Could not approve QR login session.', error);
+  }
+};
+
+/** Web cancels a pending QR session. */
+export const cancelQrLoginSession = async (req: AuthenticatedRequest, res: Response) => {
+  const token = typeof req.body.token === 'string' ? req.body.token.trim() : '';
+  if (!token || token.length < 32) return res.status(400).json({ message: 'Mã QR không hợp lệ.' });
+
+  try {
+    const session = await findFreshQrSession(token);
+    if (!session) return res.status(404).json({ message: 'Phiên QR không tồn tại.' });
+    if (session.status !== 'PENDING' && session.status !== 'APPROVED') {
+      return res.json({ message: 'Phiên QR đã kết thúc.', status: session.status });
+    }
+    await prisma.qrLoginSession.update({
+      where: { id: session.id },
+      data: { status: 'CANCELLED' },
+    });
+    return res.json({ message: 'Đã hủy đăng nhập QR.', status: 'CANCELLED' });
+  } catch (error) {
+    return internalError(res, 'Could not cancel QR login session.', error);
+  }
+};

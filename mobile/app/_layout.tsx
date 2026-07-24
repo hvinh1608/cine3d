@@ -34,6 +34,7 @@ export default function RootLayout() {
         <Stack.Screen name="account/profile" options={{ title: 'Hồ sơ tài khoản' }} />
         <Stack.Screen name="account/profiles" options={{ title: 'Hồ sơ người xem' }} />
         <Stack.Screen name="account/sessions" options={{ title: 'Thiết bị đăng nhập' }} />
+        <Stack.Screen name="qr-login" options={{ title: 'Đăng nhập web bằng QR' }} />
         <Stack.Screen name="account/notifications" options={{ title: 'Thông báo' }} />
         <Stack.Screen name="account/feedback" options={{ title: 'Góp ý và hỗ trợ' }} />
         <Stack.Screen name="account/settings" options={{ title: 'Cài đặt' }} />

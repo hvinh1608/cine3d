@@ -112,6 +112,9 @@ export const accountApi = {
     const refreshToken = (await tokenStorage.getTokens()).refreshToken;
     return (await apiClient.delete<{ message: string }>('/auth/sessions/others', { headers: refreshToken ? { 'X-Refresh-Token': refreshToken } : {} })).data;
   },
+  async approveQrLogin(token: string) {
+    return (await apiClient.post<{ message: string; status: string }>('/auth/qr/approve', { token })).data;
+  },
   async notifications() { return (await apiClient.get<AccountNotification[]>('/user/notifications')).data; },
   async readNotification(id: string) { await apiClient.put(`/user/notifications/${id}/read`); },
   async readAllNotifications() { await apiClient.put('/user/notifications/read-all'); },

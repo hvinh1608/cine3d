@@ -12,6 +12,7 @@ import { loadFavorites } from '../../lib/user-library';
 import GoogleSignInButton from '../../components/auth/GoogleSignInButton';
 import FacebookSignInButton from '../../components/auth/FacebookSignInButton';
 import TurnstileWidget from '../../components/auth/TurnstileWidget';
+import QrLoginPanel from '../../components/auth/QrLoginPanel';
 import ExperienceCenter from '../../components/account/ExperienceCenter';
 import { localizeApiMessage } from '../../lib/api-errors';
 
@@ -401,6 +402,7 @@ export default function AccountPage() {
             <>
               <GoogleSignInButton onCredential={handleGoogleCredential} />
               <FacebookSignInButton onAccessToken={handleFacebookAccessToken} />
+              <QrLoginPanel />
               <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-slate-600">
                 <span className="h-px flex-1 bg-white/10" />
                 Hoặc dùng email

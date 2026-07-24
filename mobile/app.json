@@ -113,6 +113,11 @@
               "scheme": "https",
               "host": "cine3d.id.vn",
               "pathPrefix": "/watch-together/rooms"
+            },
+            {
+              "scheme": "https",
+              "host": "cine3d.id.vn",
+              "pathPrefix": "/qr-login"
             }
           ],
           "category": [

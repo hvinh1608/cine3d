@@ -46,6 +46,7 @@ model User {
   notifications      Notification[]
   reports            Report[]
   refreshTokens      RefreshToken[]
+  qrLoginSessions    QrLoginSession[]
   vipOrders          VipOrder[]         @relation("VipOrderUser")
   confirmedVipOrders VipOrder[]         @relation("VipOrderConfirmer")
   movieFollows       MovieFollow[]
@@ -517,6 +518,24 @@ model RefreshToken {
 
   @@index([userId, expiresAt])
   @@index([expiresAt])
+}
+
+/// Short-lived QR login bridge: web shows QR, authenticated mobile app approves.
+model QrLoginSession {
+  id         String    @id @default(uuid())
+  tokenHash  String    @unique
+  status     String    @default("PENDING") // PENDING | APPROVED | USED | CANCELLED | EXPIRED
+  userId     String?
+  user       User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  approvedAt DateTime?
+  usedAt     DateTime?
+  expiresAt  DateTime
+  userAgent  String?
+  ipAddress  String?
+  createdAt  DateTime  @default(now())
+
+  @@index([expiresAt, status])
+  @@index([userId, createdAt])
 }
 
 model MovieFollow {

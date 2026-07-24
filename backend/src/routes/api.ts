@@ -13,6 +13,10 @@ import {
   resetPassword,
   verifyEmail,
   verifyEmailNative,
+  createQrLoginSession,
+  getQrLoginSession,
+  approveQrLoginSession,
+  cancelQrLoginSession,
 } from '../controllers/auth.controller';
 import {
   getMovies,
@@ -158,6 +162,10 @@ router.post('/auth/verify-email', resetLimiter, verifyEmailNative as any);
 router.get('/auth/sessions', authenticateToken as any, getSessions as any);
 router.delete('/auth/sessions/others', authenticateToken as any, revokeOtherSessions as any);
 router.delete('/auth/sessions/:id', authenticateToken as any, revokeSession as any);
+router.post('/auth/qr/session', authLimiter, createQrLoginSession as any);
+router.get('/auth/qr/session/:token', rateLimit(60 * 1000, 120), getQrLoginSession as any);
+router.post('/auth/qr/approve', authLimiter, authenticateToken as any, approveQrLoginSession as any);
+router.post('/auth/qr/cancel', authLimiter, cancelQrLoginSession as any);
 
 // --- Movie Routes ---
 router.get('/movies', getMovies);
