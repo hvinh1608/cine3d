@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma';
 import { internalError } from '../lib/http-error';
 import { hasVipAccess } from '../lib/vip';
 import { hashOpaqueToken, isEligibleDownloadSource } from '../lib/native-client';
+import { defaultDownloadUrl, ensureAppVersionPolicies } from '../lib/app-version-policy';
 
 const cleanOptional = (value: unknown, max: number): string | null =>
   typeof value === 'string' && value.trim() ? value.trim().slice(0, max) : null;
@@ -86,11 +87,30 @@ export const getAppVersionPolicy = async (req: AuthenticatedRequest, res: Respon
     return res.status(400).json({ message: 'A valid platform is required.' });
   }
   try {
-    const policy = await prisma.appVersionPolicy.findUnique({
+    let policy = await prisma.appVersionPolicy.findUnique({
       where: { platform },
       select: { platform: true, minVersion: true, latestVersion: true, forceUpdate: true, message: true, storeUrl: true, updatedAt: true },
     });
-    if (!policy) return res.status(404).json({ message: 'Version policy not configured.' });
+    if (!policy) {
+      await ensureAppVersionPolicies();
+      policy = await prisma.appVersionPolicy.findUnique({
+        where: { platform },
+        select: { platform: true, minVersion: true, latestVersion: true, forceUpdate: true, message: true, storeUrl: true, updatedAt: true },
+      });
+    }
+    if (!policy) {
+      return res.json({
+        policy: {
+          platform,
+          minVersion: '1.0.0',
+          latestVersion: '1.0.13',
+          forceUpdate: false,
+          message: 'Đã có bản CINE3D mới. Cập nhật để trải nghiệm ổn định hơn.',
+          storeUrl: defaultDownloadUrl(platform as 'android' | 'ios'),
+          updatedAt: new Date().toISOString(),
+        },
+      });
+    }
     return res.json({ policy });
   } catch (error) {
     return internalError(res, 'Could not load app version policy.', error);

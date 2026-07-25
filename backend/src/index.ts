@@ -15,6 +15,7 @@ import { decodeAccessToken } from './middleware/auth';
 import { hasVipAccess } from './lib/vip';
 import { cacheDelete, cacheSet, closeRedis, redisStatus } from './lib/redis';
 import { issueRoomAccessToken, verifyRoomAccessToken } from './lib/watch-room-token';
+import { ensureAppVersionPolicies } from './lib/app-version-policy';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -347,6 +348,9 @@ server.listen(PORT, () => {
   console.log(`  Port: ${PORT}                               `);
   console.log(`  Env: ${process.env.NODE_ENV || 'development'}`);
   console.log(`===============================================`);
+  void ensureAppVersionPolicies()
+    .then(() => console.log('App version policies ensured.'))
+    .catch((error) => console.warn('Could not ensure app version policies.', error));
 });
 
 async function shutdown(signal: string) {

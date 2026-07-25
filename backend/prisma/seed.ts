@@ -133,6 +133,34 @@ async function main() {
   }
   console.log('VIP plans ensured.');
 
+  // 3b. Native app update policy (APK / future iOS)
+  const downloadBase = (process.env.CLIENT_URL || 'https://cine3d.id.vn').replace(/\/$/, '');
+  await prisma.appVersionPolicy.upsert({
+    where: { platform: 'android' },
+    update: {},
+    create: {
+      platform: 'android',
+      minVersion: '1.0.0',
+      latestVersion: '1.0.13',
+      forceUpdate: false,
+      message: 'Đã có bản CINE3D mới. Cập nhật để trải nghiệm ổn định hơn.',
+      storeUrl: `${downloadBase}/download`,
+    },
+  });
+  await prisma.appVersionPolicy.upsert({
+    where: { platform: 'ios' },
+    update: {},
+    create: {
+      platform: 'ios',
+      minVersion: '1.0.0',
+      latestVersion: '1.0.13',
+      forceUpdate: false,
+      message: 'Đã có bản CINE3D mới. Cập nhật để trải nghiệm ổn định hơn.',
+      storeUrl: null,
+    },
+  });
+  console.log('App version policies ensured.');
+
   // 4. Create Countries
   const countriesData = [
     { name: 'Mỹ', slug: 'my' },

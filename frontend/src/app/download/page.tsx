@@ -91,7 +91,7 @@ export default function DownloadAppPage() {
         </div>
         <ul className="space-y-2 text-sm leading-6 text-slate-400">
           <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" /> Android có thể hiện cảnh báo “nguồn không xác định” — chọn cài tiếp nếu bạn tải từ cine3d.id.vn.</li>
-          <li className="flex gap-2"><RefreshCw className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" /> Mỗi bản mới: tải APK mới và cài đè (giữ nguyên dữ liệu đăng nhập).</li>
+          <li className="flex gap-2"><RefreshCw className="mt-0.5 h-4 w-4 shrink-0 text-sky-400" /> Mỗi bản mới: tải APK mới và cài đè (giữ nguyên dữ liệu đăng nhập). App cũng sẽ tự báo khi có bản cập nhật.</li>
           <li className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" /> VIP mua trên web sẽ áp dụng trên app sau khi đăng nhập cùng tài khoản và làm mới trang VIP.</li>
         </ul>
       </section>

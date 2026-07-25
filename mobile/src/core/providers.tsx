@@ -1,11 +1,12 @@
-import { useEffect, useState, type PropsWithChildren } from 'react';
+import { useCallback, useEffect, useState, type PropsWithChildren } from 'react';
 import { AppState, Linking, View } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import * as SecureStore from 'expo-secure-store';
 import { router, type Href } from 'expo-router';
 import NetInfo from '@react-native-community/netinfo';
 import { focusManager, onlineManager, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-import { Button, PaperProvider, Text } from 'react-native-paper';
+import { Button, Dialog, PaperProvider, Portal, Text } from 'react-native-paper';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { config } from '@/core/config';
@@ -26,6 +27,13 @@ import { colors, spacing } from '@/theme';
 import { DevPerformanceOverlay } from '@/components/dev-performance-overlay';
 import { TranslationVoteBanner } from '@/components/translation-vote-banner';
 import { checkpointRepository } from '@/features/player/data/player-storage';
+
+const DISMISSED_UPDATE_KEY = 'cine3d.update.dismissedVersion';
+const secureOptions: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
+
+type VersionPolicy = Awaited<ReturnType<typeof accountApi.versionPolicy>>;
 
 export function AppProviders({ children }: PropsWithChildren) {
   const [queryClient] = useState(() => new QueryClient({
@@ -134,9 +142,9 @@ export function AppProviders({ children }: PropsWithChildren) {
   );
 }
 
-function compareVersions(current: string, minimum: string): number {
+function compareVersions(current: string, target: string): number {
   const left = current.split('.').map(Number);
-  const right = minimum.split('.').map(Number);
+  const right = target.split('.').map(Number);
   for (let index = 0; index < Math.max(left.length, right.length); index += 1) {
     const difference = (left[index] || 0) - (right[index] || 0);
     if (difference) return difference;
@@ -145,26 +153,81 @@ function compareVersions(current: string, minimum: string): number {
 }
 
 function VersionGate({ children }: PropsWithChildren) {
-  const [policy, setPolicy] = useState<Awaited<ReturnType<typeof accountApi.versionPolicy>> | null>(null);
-  useEffect(() => {
-    void accountApi.versionPolicy().then(setPolicy).catch(() => undefined);
+  const [policy, setPolicy] = useState<VersionPolicy | null>(null);
+  const [softVisible, setSoftVisible] = useState(false);
+
+  const refreshPolicy = useCallback(async () => {
+    try {
+      const next = await accountApi.versionPolicy();
+      setPolicy(next);
+      const current = accountApi.appVersion;
+      const behindLatest = compareVersions(current, next.latestVersion) < 0;
+      const forced = next.forceUpdate && compareVersions(current, next.minVersion) < 0;
+      if (!behindLatest || forced) {
+        setSoftVisible(false);
+        return;
+      }
+      const dismissed = await SecureStore.getItemAsync(DISMISSED_UPDATE_KEY, secureOptions);
+      setSoftVisible(dismissed !== next.latestVersion);
+    } catch {
+      /* offline / policy not configured */
+    }
   }, []);
-  const blocked = policy?.forceUpdate && compareVersions(accountApi.appVersion, policy.minVersion) < 0;
-  if (!blocked) return <>{children}</>;
-  return (
-    <View
-      accessibilityRole="alert"
-      style={{ flex: 1, justifyContent: 'center', gap: spacing.md, padding: spacing.xl, backgroundColor: colors.background }}
-    >
-      <Text variant="headlineSmall">Cần cập nhật ứng dụng</Text>
-      <Text>{policy.message || 'Phiên bản này không còn được hỗ trợ.'}</Text>
-      <Button
-        mode="contained"
-        disabled={!policy.storeUrl}
-        onPress={() => policy.storeUrl && void Linking.openURL(policy.storeUrl)}
+
+  useEffect(() => {
+    void refreshPolicy();
+    const subscription = AppState.addEventListener('change', (status) => {
+      if (status === 'active') void refreshPolicy();
+    });
+    return () => subscription.remove();
+  }, [refreshPolicy]);
+
+  const dismissSoftUpdate = useCallback(() => {
+    setSoftVisible(false);
+    if (!policy?.latestVersion) return;
+    void SecureStore.setItemAsync(DISMISSED_UPDATE_KEY, policy.latestVersion, secureOptions);
+  }, [policy?.latestVersion]);
+
+  const openUpdate = useCallback(() => {
+    if (policy?.storeUrl) void Linking.openURL(policy.storeUrl);
+  }, [policy?.storeUrl]);
+
+  const blocked = Boolean(policy?.forceUpdate && compareVersions(accountApi.appVersion, policy.minVersion) < 0);
+  if (blocked && policy) {
+    return (
+      <View
+        accessibilityRole="alert"
+        style={{ flex: 1, justifyContent: 'center', gap: spacing.md, padding: spacing.xl, backgroundColor: colors.background }}
       >
-        Cập nhật
-      </Button>
-    </View>
+        <Text variant="headlineSmall">Cần cập nhật ứng dụng</Text>
+        <Text>{policy.message || 'Phiên bản này không còn được hỗ trợ.'}</Text>
+        <Button mode="contained" disabled={!policy.storeUrl} onPress={openUpdate}>
+          Cập nhật
+        </Button>
+      </View>
+    );
+  }
+
+  return (
+    <>
+      {children}
+      <Portal>
+        <Dialog visible={softVisible} onDismiss={dismissSoftUpdate}>
+          <Dialog.Title>Có bản mới</Dialog.Title>
+          <Dialog.Content>
+            <Text>
+              {policy?.message
+                || `Đã có CINE3D ${policy?.latestVersion || ''}. Bạn đang dùng ${accountApi.appVersion}.`}
+            </Text>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={dismissSoftUpdate}>Để sau</Button>
+            <Button mode="contained" disabled={!policy?.storeUrl} onPress={openUpdate}>
+              Cập nhật
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
+    </>
   );
 }

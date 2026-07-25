@@ -5,6 +5,7 @@ import { internalError } from '../lib/http-error';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { sendPushToUsers } from '../services/push.service';
 import { checkDueVideoSources, checkVideoSource } from '../services/source-health.service';
+import { defaultDownloadUrl, isValidAppVersion } from '../lib/app-version-policy';
 
 async function resolveCountryId(value: unknown): Promise<string | null> {
   if (typeof value !== 'string' || !value.trim()) return null;
@@ -723,5 +724,85 @@ export const updateUserRole = async (req: AuthenticatedRequest, res: Response) =
     });
   } catch (error: any) {
     return internalError(res, 'Lỗi hệ thống khi cập nhật vai trò người dùng.', error);
+  }
+};
+
+const appVersionSelect = {
+  platform: true,
+  minVersion: true,
+  latestVersion: true,
+  forceUpdate: true,
+  message: true,
+  storeUrl: true,
+  updatedAt: true,
+} as const;
+
+export const getAdminAppVersionPolicies = async (_req: Request, res: Response) => {
+  try {
+    const policies = await prisma.appVersionPolicy.findMany({
+      orderBy: { platform: 'asc' },
+      select: appVersionSelect,
+    });
+    return res.json({ policies });
+  } catch (error: any) {
+    return internalError(res, 'Không tải được chính sách phiên bản app.', error);
+  }
+};
+
+export const upsertAdminAppVersionPolicy = async (req: Request, res: Response) => {
+  const platform = typeof req.body.platform === 'string' ? req.body.platform.trim().toLowerCase() : '';
+  if (!['android', 'ios'].includes(platform)) {
+    return res.status(400).json({ message: 'platform phải là android hoặc ios.' });
+  }
+
+  const minVersion = typeof req.body.minVersion === 'string' ? req.body.minVersion.trim() : '';
+  const latestVersion = typeof req.body.latestVersion === 'string' ? req.body.latestVersion.trim() : '';
+  if (!isValidAppVersion(minVersion) || !isValidAppVersion(latestVersion)) {
+    return res.status(400).json({ message: 'minVersion/latestVersion phải dạng x.y.z (ví dụ 1.0.13).' });
+  }
+
+  const forceUpdate = Boolean(req.body.forceUpdate);
+  const message = typeof req.body.message === 'string' && req.body.message.trim()
+    ? req.body.message.trim().slice(0, 500)
+    : null;
+  const storeUrlRaw = typeof req.body.storeUrl === 'string' ? req.body.storeUrl.trim() : '';
+  const storeUrl = storeUrlRaw ? storeUrlRaw.slice(0, 500) : null;
+  if (storeUrl) {
+    try {
+      const parsed = new URL(storeUrl);
+      if (!['http:', 'https:'].includes(parsed.protocol)) {
+        return res.status(400).json({ message: 'storeUrl phải là http(s).' });
+      }
+    } catch {
+      return res.status(400).json({ message: 'storeUrl không hợp lệ.' });
+    }
+  }
+
+  try {
+    const policy = await prisma.appVersionPolicy.upsert({
+      where: { platform },
+      create: {
+        platform,
+        minVersion,
+        latestVersion,
+        forceUpdate,
+        message,
+        storeUrl: storeUrl || defaultDownloadUrl(platform as 'android' | 'ios'),
+      },
+      update: {
+        minVersion,
+        latestVersion,
+        forceUpdate,
+        message,
+        storeUrl,
+      },
+      select: appVersionSelect,
+    });
+    return res.json({
+      message: `Đã cập nhật chính sách phiên bản ${platform}.`,
+      policy,
+    });
+  } catch (error: any) {
+    return internalError(res, 'Không lưu được chính sách phiên bản app.', error);
   }
 };

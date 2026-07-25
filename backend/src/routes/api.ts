@@ -80,6 +80,8 @@ import {
   updateUserRole,
   getReports,
   resolveReport,
+  getAdminAppVersionPolicies,
+  upsertAdminAppVersionPolicy,
 } from '../controllers/admin.controller';
 import { fetchGenres, fetchCountries, KkphimError } from '../services/kkphim.client';
 import { extractMetaItems } from '../services/kkphim.mapper';
@@ -330,5 +332,7 @@ router.post('/admin/vip-orders/:id/confirm', authenticateToken as any, requireAd
 router.post('/admin/vip-orders/:id/cancel', authenticateToken as any, requireAdmin as any, cancelAdminVipOrder as any);
 router.get('/admin/feedback', authenticateToken as any, requireAdmin as any, getAdminFeedback as any);
 router.put('/admin/feedback/:id', authenticateToken as any, requireAdmin as any, updateFeedback as any);
+router.get('/admin/app-version', authenticateToken as any, requireAdmin as any, getAdminAppVersionPolicies as any);
+router.put('/admin/app-version', authenticateToken as any, requireAdmin as any, upsertAdminAppVersionPolicy as any);
 
 export default router;

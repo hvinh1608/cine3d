@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shield, Film, ListVideo, AlertTriangle, Users, BarChart3, Plus, Trash2, Edit, X, Lock, Unlock, RefreshCw, Tv, Subtitles, Star, ReceiptText, CheckCircle2, ServerCrash, MessageSquareText } from 'lucide-react';
+import { Shield, Film, ListVideo, AlertTriangle, Users, BarChart3, Plus, Trash2, Edit, X, Lock, Unlock, RefreshCw, Tv, Subtitles, Star, ReceiptText, CheckCircle2, ServerCrash, MessageSquareText, Smartphone } from 'lucide-react';
 import type { AxiosError } from 'axios';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
@@ -29,6 +29,15 @@ type AnalyticsEventItem = { id: string; name?: string; path?: string | null; mov
 type AnalyticsSummary = { periodDays: number; activeUsers: number; events: Record<string, number>; recentPlayerErrors: AnalyticsEventItem[]; recentQualityEvents?: AnalyticsEventItem[] };
 type SourceHealth = { id: string; server: string; quality: string; url: string; healthStatus: string; lastCheckedAt?: string | null; lastStatusCode?: number | null; lastResponseTimeMs?: number | null; lastError?: string | null; consecutiveFailures: number; episode: { title: string; episodeOrder: number; movie: { title: string; slug: string } } };
 type SystemHealth = { backend: boolean; database: string; redis: string; checkedAt?: string };
+type AppVersionPolicy = {
+  platform: string;
+  minVersion: string;
+  latestVersion: string;
+  forceUpdate: boolean;
+  message?: string | null;
+  storeUrl?: string | null;
+  updatedAt?: string;
+};
 
 const isUserVipActive = (user: AdminUser) => Boolean(user.isVip || (user.vipExpiresAt && new Date(user.vipExpiresAt).getTime() > Date.now()));
 const requestMessage = (error: unknown, fallback: string) =>
@@ -62,6 +71,15 @@ export default function AdminPage() {
   const [sourceHealth, setSourceHealth] = useState<{ sources: SourceHealth[]; totals: Record<string, number> }>({ sources: [], totals: {} });
   const [checkingSources, setCheckingSources] = useState(false);
   const [systemHealth, setSystemHealth] = useState<SystemHealth>({ backend: false, database: 'checking', redis: 'checking' });
+  const [androidPolicy, setAndroidPolicy] = useState<AppVersionPolicy>({
+    platform: 'android',
+    minVersion: '1.0.0',
+    latestVersion: '1.0.13',
+    forceUpdate: false,
+    message: 'Đã có bản CINE3D mới. Cập nhật để trải nghiệm ổn định hơn.',
+    storeUrl: 'https://cine3d.id.vn/download',
+  });
+  const [savingAppVersion, setSavingAppVersion] = useState(false);
 
   const loadSystemHealth = useCallback(async () => {
     try {
@@ -73,6 +91,44 @@ export default function AdminPage() {
       setSystemHealth({ backend: false, database: 'unavailable', redis: 'unavailable', checkedAt: new Date().toISOString() });
     }
   }, []);
+
+  const loadAppVersionPolicy = useCallback(async () => {
+    if (!accessToken) return;
+    try {
+      const { data } = await axios.get<{ policies: AppVersionPolicy[] }>(`${API_URL}/admin/app-version`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const android = data.policies?.find((item) => item.platform === 'android');
+      if (android) setAndroidPolicy(android);
+    } catch {
+      /* policy endpoint may not exist on older backends */
+    }
+  }, [accessToken]);
+
+  const saveAppVersionPolicy = useCallback(async () => {
+    if (!accessToken) return;
+    setSavingAppVersion(true);
+    try {
+      const { data } = await axios.put(
+        `${API_URL}/admin/app-version`,
+        {
+          platform: 'android',
+          minVersion: androidPolicy.minVersion.trim(),
+          latestVersion: androidPolicy.latestVersion.trim(),
+          forceUpdate: androidPolicy.forceUpdate,
+          message: androidPolicy.message?.trim() || null,
+          storeUrl: androidPolicy.storeUrl?.trim() || null,
+        },
+        { headers: { Authorization: `Bearer ${accessToken}` } },
+      );
+      if (data.policy) setAndroidPolicy(data.policy);
+      showToast(data.message || 'Đã lưu chính sách cập nhật APK.', 'success');
+    } catch (error) {
+      showToast(requestMessage(error, 'Không lưu được chính sách cập nhật APK.'), 'error');
+    } finally {
+      setSavingAppVersion(false);
+    }
+  }, [accessToken, androidPolicy, showToast]);
 
   // Entities List States
   const [movies, setMovies] = useState<AdminMovie[]>([]);
@@ -186,8 +242,8 @@ export default function AdminPage() {
   }, [accessToken, movieCountry, showToast]);
 
   useEffect(() => {
-    queueMicrotask(() => { void loadAdminData(); void loadSystemHealth(); });
-  }, [loadAdminData, loadSystemHealth]);
+    queueMicrotask(() => { void loadAdminData(); void loadSystemHealth(); void loadAppVersionPolicy(); });
+  }, [loadAdminData, loadSystemHealth, loadAppVersionPolicy]);
 
   const loadMoviesPage = useCallback(async (page: number, search = movieSearch) => {
     if (!accessToken) return;
@@ -719,6 +775,84 @@ export default function AdminPage() {
                 ].map(([label, ok, detail]) => <div key={String(label)} className="rounded-xl border border-white/5 bg-black/20 p-4"><div className="flex items-center justify-between"><span className="text-[10px] font-black uppercase text-slate-500">{label}</span>{ok ? <CheckCircle2 className="h-4 w-4 text-emerald-400" /> : <AlertTriangle className="h-4 w-4 text-amber-400" />}</div><p className={`mt-2 text-sm font-bold ${ok ? 'text-emerald-300' : 'text-amber-300'}`}>{String(detail)}</p></div>)}
               </div>
               {systemHealth.checkedAt && <p className="mt-3 text-right text-[9px] text-slate-600">Cập nhật {new Date(systemHealth.checkedAt).toLocaleString('vi-VN')}</p>}
+            </section>
+
+            <section className="rounded-2xl border border-white/5 bg-slate-900/40 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="flex items-center text-sm font-black uppercase tracking-wider text-slate-200">
+                    <Smartphone className="mr-2 h-4 w-4 text-sky-400" /> Cập nhật APK Android
+                  </h3>
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    App sẽ hiện dialog &quot;Có bản mới&quot; khi version trên máy thấp hơn bản mới nhất. Bật ép cập nhật nếu bản cũ không còn hỗ trợ.
+                  </p>
+                </div>
+                <button type="button" onClick={() => void loadAppVersionPolicy()} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-[10px] font-bold text-slate-300 hover:bg-white/5">
+                  <RefreshCw className="h-3.5 w-3.5" /> Tải lại
+                </button>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500">
+                  Bản mới nhất
+                  <input
+                    value={androidPolicy.latestVersion}
+                    onChange={(event) => setAndroidPolicy((current) => ({ ...current, latestVersion: event.target.value }))}
+                    className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm font-bold text-white outline-none focus:border-sky-500/50"
+                    placeholder="1.0.13"
+                  />
+                </label>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500">
+                  Bản tối thiểu
+                  <input
+                    value={androidPolicy.minVersion}
+                    onChange={(event) => setAndroidPolicy((current) => ({ ...current, minVersion: event.target.value }))}
+                    className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm font-bold text-white outline-none focus:border-sky-500/50"
+                    placeholder="1.0.0"
+                  />
+                </label>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 sm:col-span-2">
+                  Link tải / trang download
+                  <input
+                    value={androidPolicy.storeUrl || ''}
+                    onChange={(event) => setAndroidPolicy((current) => ({ ...current, storeUrl: event.target.value }))}
+                    className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white outline-none focus:border-sky-500/50"
+                    placeholder="https://cine3d.id.vn/download"
+                  />
+                </label>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 sm:col-span-2">
+                  Nội dung thông báo
+                  <textarea
+                    value={androidPolicy.message || ''}
+                    onChange={(event) => setAndroidPolicy((current) => ({ ...current, message: event.target.value }))}
+                    rows={2}
+                    className="mt-1.5 w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white outline-none focus:border-sky-500/50"
+                  />
+                </label>
+              </div>
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <label className="inline-flex items-center gap-2 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={androidPolicy.forceUpdate}
+                    onChange={(event) => setAndroidPolicy((current) => ({ ...current, forceUpdate: event.target.checked }))}
+                    className="h-4 w-4 rounded border-white/20 bg-black/40"
+                  />
+                  Ép cập nhật (khóa app nếu thấp hơn bản tối thiểu)
+                </label>
+                <button
+                  type="button"
+                  disabled={savingAppVersion}
+                  onClick={() => void saveAppVersionPolicy()}
+                  className="inline-flex items-center gap-2 rounded-xl bg-sky-600 px-4 py-2.5 text-xs font-black text-white transition hover:bg-sky-500 disabled:opacity-60"
+                >
+                  {savingAppVersion ? 'Đang lưu…' : 'Lưu chính sách APK'}
+                </button>
+              </div>
+              {androidPolicy.updatedAt ? (
+                <p className="mt-3 text-right text-[9px] text-slate-600">
+                  Cập nhật {new Date(androidPolicy.updatedAt).toLocaleString('vi-VN')}
+                </p>
+              ) : null}
             </section>
             
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
