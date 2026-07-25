@@ -44,6 +44,34 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Reveal content progressively as it enters the viewport. The ready class is
+   added only after hydration, so content remains accessible without JS. */
+.scroll-reveal-ready {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0) scale(0.985);
+  filter: blur(3px);
+  transition:
+    opacity 650ms cubic-bezier(0.22, 1, 0.36, 1) var(--scroll-reveal-delay, 0ms),
+    transform 650ms cubic-bezier(0.22, 1, 0.36, 1) var(--scroll-reveal-delay, 0ms),
+    filter 500ms ease-out var(--scroll-reveal-delay, 0ms);
+  will-change: opacity, transform, filter;
+}
+
+.scroll-reveal-ready.scroll-reveal-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+  filter: blur(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal-ready {
+    opacity: 1;
+    transform: none;
+    filter: none;
+    transition: none;
+  }
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
