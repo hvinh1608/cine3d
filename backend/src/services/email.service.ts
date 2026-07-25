@@ -139,3 +139,89 @@ export async function sendActionEmail(input: {
     text,
   });
 }
+
+export async function sendOtpEmail(input: {
+  to: string;
+  username: string;
+  otp: string;
+}) {
+  if (!emailDeliveryConfigured) throw new Error('Email delivery is not configured.');
+
+  const safeUsername = escapeHtml(input.username);
+  const safeOtp = escapeHtml(input.otp);
+  const subject = 'Mã OTP đăng ký CINE3D';
+  const html = `
+        <div style="background:#07070b;padding:36px 16px;font-family:Arial,sans-serif;color:#e5e7eb">
+          <div style="max-width:560px;margin:auto;background:#111827;border:1px solid #273244;border-radius:18px;padding:32px">
+            <p style="margin:0 0 8px;color:#f59e0b;font-weight:800;letter-spacing:2px">CINE3D</p>
+            <h1 style="margin:0 0 18px;font-size:24px;color:#fff">Xác nhận đăng ký bằng số điện thoại</h1>
+            <p style="line-height:1.7">Xin chào ${safeUsername},</p>
+            <p style="line-height:1.7;color:#cbd5e1">Nhập mã OTP dưới đây để kích hoạt tài khoản CINE3D của bạn:</p>
+            <div style="margin:22px 0;padding:16px;border-radius:14px;background:#07070b;color:#facc15;font-size:32px;font-weight:900;letter-spacing:10px;text-align:center">${safeOtp}</div>
+            <p style="font-size:12px;line-height:1.6;color:#64748b">Mã có hiệu lực trong 10 phút. Không chia sẻ mã này với bất kỳ ai. Nếu bạn không yêu cầu đăng ký, hãy bỏ qua email.</p>
+          </div>
+        </div>`;
+  const text = `Xin chào ${input.username}. Mã OTP đăng ký CINE3D của bạn là: ${input.otp}. Mã có hiệu lực trong 10 phút.`;
+
+  if (brevoConfigured) {
+    const response = await fetch(BREVO_API_URL, {
+      method: 'POST',
+      headers: {
+        'api-key': process.env.BREVO_API_KEY!,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sender: parseSender(process.env.MAIL_FROM!),
+        to: [{ email: input.to }],
+        subject,
+        htmlContent: html,
+        textContent: text,
+      }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) {
+      const details = await response.text();
+      throw new Error(`Brevo rejected the request (${response.status}): ${details.slice(0, 300)}`);
+    }
+    return;
+  }
+
+  if (resendConfigured) {
+    const response = await fetch(RESEND_API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'CINE3D/1.0',
+      },
+      body: JSON.stringify({ from: process.env.MAIL_FROM, to: [input.to], subject, html, text }),
+    });
+    if (!response.ok) {
+      const details = await response.text();
+      throw new Error(`Email provider rejected the request (${response.status}): ${details.slice(0, 300)}`);
+    }
+    return;
+  }
+
+  const port = Number(process.env.SMTP_PORT || 465);
+  const smtpHost = process.env.SMTP_HOST!;
+  let connectionHost = smtpHost;
+  try {
+    const ipv4Addresses = await resolve4(smtpHost);
+    if (ipv4Addresses[0]) connectionHost = ipv4Addresses[0];
+  } catch (error) {
+    console.warn(`Could not resolve an IPv4 address for ${smtpHost}; using the hostname.`, error);
+  }
+  const transporter = nodemailer.createTransport({
+    host: connectionHost,
+    port,
+    secure: process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : port === 465,
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
+    tls: { servername: smtpHost },
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  });
+  await transporter.sendMail({ from: process.env.MAIL_FROM, to: input.to, subject, html, text });
+}

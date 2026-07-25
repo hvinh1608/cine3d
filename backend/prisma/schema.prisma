@@ -18,6 +18,7 @@ model Role {
 model User {
   id                       String    @id @default(uuid())
   email                    String    @unique
+  phone                    String?   @unique
   googleId                 String?   @unique
   facebookId               String?   @unique
   username                 String    @unique
@@ -63,6 +64,7 @@ model User {
   downloadEntitlements DownloadEntitlement[]
 
   @@index([email])
+  @@index([phone])
   @@index([username])
   @@index([passwordResetToken])
   @@index([emailVerificationToken])

@@ -23,8 +23,29 @@ describe('native account API contract', () => {
     await accountApi.login('user@example.com', 'password123');
 
     expect(mockedClient.post).toHaveBeenCalledWith('/auth/login', {
-      email: 'user@example.com',
+      identifier: 'user@example.com',
       password: 'password123',
+    });
+  });
+
+  it('uses the phone registration and email OTP contracts', async () => {
+    mockedClient.post
+      .mockResolvedValueOnce({ data: { requiresVerification: true, verificationType: 'otp' } } as never)
+      .mockResolvedValueOnce({ data: { message: 'verified', verified: true } } as never);
+
+    await accountApi.register('user@gmail.com', 'user', 'password123', '0912345678');
+    await accountApi.verifyRegistrationOtp('user@gmail.com', '123456');
+
+    expect(mockedClient.post).toHaveBeenNthCalledWith(1, '/auth/register', {
+      email: 'user@gmail.com',
+      username: 'user',
+      password: 'password123',
+      registrationMethod: 'phone',
+      phone: '0912345678',
+    });
+    expect(mockedClient.post).toHaveBeenNthCalledWith(2, '/auth/verify-registration-otp', {
+      email: 'user@gmail.com',
+      otp: '123456',
     });
   });
 
