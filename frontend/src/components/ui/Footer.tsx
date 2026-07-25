@@ -112,7 +112,7 @@ export default function Footer() {
                 <Download className="h-5 w-5" />
                 <span className="text-left leading-tight">
                   <small className="block text-[10px] font-bold uppercase tracking-wider text-white/70">Tải trực tiếp</small>
-                  CINE3D APK 1.0.12
+                  CINE3D APK 1.0.13
                 </span>
               </a>
               <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -128,7 +128,7 @@ export default function Footer() {
               <BrandedQrCode
                 value={ANDROID_APK_URL}
                 size={148}
-                title="Mã QR tải CINE3D APK 1.0.12"
+                title="Mã QR tải CINE3D APK 1.0.13"
               />
             </a>
           </div>
