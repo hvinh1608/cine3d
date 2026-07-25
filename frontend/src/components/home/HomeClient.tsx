@@ -130,8 +130,8 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
   };
 
   return <main className="-mt-20 min-h-screen bg-[#171820] pb-20 text-white">
-    {active && <section className="relative min-h-[650px] overflow-hidden md:min-h-[760px]">
-      <Image src={active.imageUrl || active.movie.posterUrl} alt={active.title} fill priority sizes="100vw" className="object-cover object-center" />
+    {active && <section data-hero-parallax className="relative min-h-[650px] overflow-hidden md:min-h-[760px]">
+      <Image src={active.imageUrl || active.movie.posterUrl} alt={active.title} fill priority sizes="100vw" className="hero-parallax-layer object-cover object-center" />
       <div className="absolute inset-0 bg-[linear-gradient(90deg,#171820_0%,rgba(23,24,32,.78)_30%,rgba(23,24,32,.12)_72%)]" />
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(23,24,32,.15)_0%,rgba(23,24,32,0)_46%,#171820_100%)]" />
       <div className="relative mx-auto flex min-h-[650px] max-w-[1440px] items-end px-4 pb-28 pt-32 md:min-h-[760px] md:px-8 md:pb-36">

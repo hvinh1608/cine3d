@@ -72,6 +72,43 @@ body {
   }
 }
 
+/* Cinematic depth for the home hero, updated through one requestAnimationFrame
+   per scroll frame. */
+.hero-parallax-layer {
+  transform: translate3d(0, var(--hero-parallax-offset, 0px), 0) scale(1.08);
+  transition: transform 80ms linear;
+  will-change: transform;
+}
+
+/* Lightweight route entrance; the keyed wrapper restarts it after navigation. */
+.page-transition {
+  animation: page-enter 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-parallax-layer {
+    transform: none;
+    transition: none;
+  }
+
+  .page-transition {
+    animation: none;
+  }
+}
+
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

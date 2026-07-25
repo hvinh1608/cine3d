@@ -32,7 +32,7 @@ export default function ScrollReveal() {
 
     const register = () => {
       const viewportHeight = window.innerHeight;
-      document.querySelectorAll<HTMLElement>(REVEAL_SELECTOR).forEach((element, index) => {
+      document.querySelectorAll<HTMLElement>(REVEAL_SELECTOR).forEach((element) => {
         if (observed.has(element) || element.closest('[data-scroll-reveal="off"]')) return;
         observed.add(element);
 
@@ -41,13 +41,36 @@ export default function ScrollReveal() {
           return;
         }
 
-        element.style.setProperty('--scroll-reveal-delay', `${Math.min(index % 4, 3) * 45}ms`);
+        const siblings = element.parentElement
+          ? Array.from(element.parentElement.children).filter((child) => child.matches('article'))
+          : [];
+        const siblingIndex = siblings.indexOf(element);
+        const delayStep = siblingIndex >= 0 ? siblingIndex % 6 : 0;
+        element.style.setProperty('--scroll-reveal-delay', `${delayStep * 55}ms`);
         element.classList.add(READY_CLASS);
         observer.observe(element);
       });
     };
 
     register();
+    let parallaxFrame = 0;
+    const updateParallax = () => {
+      parallaxFrame = 0;
+      document.querySelectorAll<HTMLElement>('[data-hero-parallax]').forEach((hero) => {
+        const bounds = hero.getBoundingClientRect();
+        if (bounds.bottom <= 0 || bounds.top >= window.innerHeight) return;
+        const offset = Math.max(-90, Math.min(90, -bounds.top * 0.14));
+        hero.style.setProperty('--hero-parallax-offset', `${offset}px`);
+      });
+    };
+    const requestParallaxUpdate = () => {
+      if (parallaxFrame) return;
+      parallaxFrame = window.requestAnimationFrame(updateParallax);
+    };
+    updateParallax();
+    window.addEventListener('scroll', requestParallaxUpdate, { passive: true });
+    window.addEventListener('resize', requestParallaxUpdate);
+
     const mutationObserver = new MutationObserver(register);
     const contentRoot = document.querySelector('body > main') || document.body;
     mutationObserver.observe(contentRoot, { childList: true, subtree: true });
@@ -55,6 +78,9 @@ export default function ScrollReveal() {
     return () => {
       mutationObserver.disconnect();
       observer.disconnect();
+      window.removeEventListener('scroll', requestParallaxUpdate);
+      window.removeEventListener('resize', requestParallaxUpdate);
+      if (parallaxFrame) window.cancelAnimationFrame(parallaxFrame);
       cleanupTimers.forEach((timer) => window.clearTimeout(timer));
     };
   }, []);

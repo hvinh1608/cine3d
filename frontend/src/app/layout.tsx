@@ -13,6 +13,7 @@ import CinemaSplash from '../components/ui/CinemaSplash';
 import PwaBootstrap from '../components/pwa/PwaBootstrap';
 import MovieAssistant from '../components/assistant/MovieAssistant';
 import ScrollReveal from '../components/ui/ScrollReveal';
+import PageTransition from '../components/ui/PageTransition';
 import { getSiteUrl } from '../lib/site';
 
 const siteUrl = getSiteUrl();
@@ -64,7 +65,7 @@ export default function RootLayout({
         </Suspense>
 
         <main className="flex-1 w-full relative z-10 pt-20 pb-20 md:pb-0 flex flex-col">
-          {children}
+          <PageTransition>{children}</PageTransition>
         </main>
 
         <Footer />
