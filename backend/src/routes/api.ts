@@ -13,7 +13,6 @@ import {
   resetPassword,
   verifyEmail,
   verifyEmailNative,
-  verifyRegistrationOtp,
   createQrLoginSession,
   getQrLoginSession,
   approveQrLoginSession,
@@ -152,7 +151,6 @@ const authLimiter = rateLimit(15 * 60 * 1000, 20);
 const resetLimiter = rateLimit(60 * 60 * 1000, 5);
 const interactionLimiter = rateLimit(60 * 1000, 60);
 router.post('/auth/register', authLimiter, register);
-router.post('/auth/verify-registration-otp', resetLimiter, verifyRegistrationOtp);
 router.post('/auth/login', authLimiter, login);
 router.post('/auth/google', authLimiter, googleLogin);
 router.post('/auth/facebook', authLimiter, facebookLogin);

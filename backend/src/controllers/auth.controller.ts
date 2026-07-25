@@ -7,7 +7,7 @@ import { OAuth2Client } from 'google-auth-library';
 import { AuthenticatedRequest } from '../middleware/auth';
 import { internalError } from '../lib/http-error';
 import { hasVipAccess } from '../lib/vip';
-import { emailDeliveryConfigured, sendActionEmail, sendOtpEmail } from '../services/email.service';
+import { emailDeliveryConfigured, sendActionEmail } from '../services/email.service';
 import {
   getRefreshCookieClearOptions,
   getRefreshCookieOptions,
@@ -211,23 +211,6 @@ function createActionToken() {
   };
 }
 
-function normalizePhone(value: unknown): string {
-  if (typeof value !== 'string') return '';
-  const digits = value.replace(/\D/g, '');
-  if (/^0\d{9}$/.test(digits)) return `+84${digits.slice(1)}`;
-  if (/^84\d{9}$/.test(digits)) return `+${digits}`;
-  return '';
-}
-
-function createRegistrationOtp() {
-  const otp = crypto.randomInt(100000, 1000000).toString();
-  return {
-    otp,
-    tokenHash: hashToken(otp),
-    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-  };
-}
-
 async function createAvailableUsername(name: string, email: string) {
   const rawBase = name || email.split('@')[0] || 'cine3d-user';
   const base = rawBase
@@ -277,20 +260,15 @@ if (
 }
 export const register = async (req: AuthenticatedRequest, res: Response) => {
   const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-  const registrationMethod = req.body.registrationMethod === 'phone' ? 'phone' : 'email';
-  const phone = registrationMethod === 'phone' ? normalizePhone(req.body.phone) : '';
   const username = typeof req.body.username === 'string' ? req.body.username.trim() : '';
   const { password } = req.body;
 
-  if (!email || !username || !password || (registrationMethod === 'phone' && !phone)) {
+  if (!email || !username || !password) {
     return res.status(400).json({ message: 'Vui lòng điền đầy đủ thông tin.' });
   }
 
   if (!/^\S+@\S+\.\S+$/.test(email)) {
     return res.status(400).json({ message: 'Email không hợp lệ.' });
-  }
-  if (registrationMethod === 'phone' && !/^[a-z0-9._%+-]+@gmail\.com$/i.test(email)) {
-    return res.status(400).json({ message: 'Vui lòng nhập địa chỉ Gmail hợp lệ để nhận mã OTP.' });
   }
 
   if (username.length < 3 || username.length > 40) {
@@ -302,23 +280,20 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
   }
   const botGate = await verifyBotGate(req.body.turnstileToken, req);
   if (!botGate.ok) return rejectBotGate(res, botGate);
-  if ((requireEmailVerification || registrationMethod === 'phone') && !emailDeliveryConfigured) {
+  if (requireEmailVerification && !emailDeliveryConfigured) {
     return res.status(503).json({ message: 'Gửi email xác nhận chưa được cấu hình.' });
   }
 
   try {
     const existingUser = await prisma.user.findFirst({
       where: {
-        OR: [{ email }, { username }, ...(phone ? [{ phone }] : [])],
+        OR: [{ email }, { username }],
       },
     });
 
     if (existingUser) {
-      const matchesPendingAccount = registrationMethod === 'phone'
-        ? existingUser.email === email && existingUser.phone === phone
-        : existingUser.email === email;
-      if ((requireEmailVerification || registrationMethod === 'phone') && matchesPendingAccount && !existingUser.isVerified) {
-        const verification = registrationMethod === 'phone' ? createRegistrationOtp() : createActionToken();
+      if (requireEmailVerification && existingUser.email === email && !existingUser.isVerified) {
+        const verification = createActionToken();
         await prisma.user.update({
           where: { id: existingUser.id },
           data: {
@@ -328,11 +303,7 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
         });
 
         try {
-          if (registrationMethod === 'phone' && 'otp' in verification) {
-            await sendOtpEmail({ to: existingUser.email, username: existingUser.username, otp: verification.otp });
-          } else if ('token' in verification) {
-            await sendVerificationEmail(req, existingUser, verification.token);
-          }
+          await sendVerificationEmail(req, existingUser, verification.token);
         } catch (emailError) {
           console.error('Verification email resend failed.', emailError);
           return res.status(503).json({ message: 'Không thể gửi lại email xác nhận. Vui lòng thử sau.' });
@@ -341,8 +312,6 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
         return res.json({
           message: 'Tài khoản đang chờ xác nhận. Email xác nhận mới đã được gửi lại.',
           requiresVerification: true,
-          verificationType: registrationMethod === 'phone' ? 'otp' : 'email-link',
-          email,
         });
       }
 
@@ -359,14 +328,11 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const verification = registrationMethod === 'phone'
-      ? createRegistrationOtp()
-      : requireEmailVerification ? createActionToken() : null;
+    const verification = requireEmailVerification ? createActionToken() : null;
 
     const user = await prisma.user.create({
       data: {
         email,
-        phone: phone || null,
         username,
         password: hashedPassword,
         roleId: userRole.id,
@@ -379,11 +345,7 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
 
     if (verification) {
       try {
-        if (registrationMethod === 'phone' && 'otp' in verification) {
-          await sendOtpEmail({ to: user.email, username: user.username, otp: verification.otp });
-        } else if ('token' in verification) {
-          await sendVerificationEmail(req, user, verification.token);
-        }
+        await sendVerificationEmail(req, user, verification.token);
       } catch (emailError) {
         console.error('Verification email delivery failed.', emailError);
         await prisma.user.delete({ where: { id: user.id } });
@@ -393,8 +355,6 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
       return res.status(201).json({
         message: 'Đăng ký thành công. Hãy kiểm tra email để xác nhận tài khoản.',
         requiresVerification: true,
-        verificationType: registrationMethod === 'phone' ? 'otp' : 'email-link',
-        email,
       });
     }
 
@@ -412,14 +372,10 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
 };
 
 export const login = async (req: AuthenticatedRequest, res: Response) => {
-  const identifier = typeof req.body.identifier === 'string'
-    ? req.body.identifier.trim()
-    : typeof req.body.email === 'string' ? req.body.email.trim() : '';
-  const email = identifier.toLowerCase();
-  const phone = normalizePhone(identifier);
+  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
   const { password } = req.body;
 
-  if (!identifier || !password) {
+  if (!email || !password) {
     return res.status(400).json({ message: 'Vui lòng nhập email và mật khẩu.' });
   }
 
@@ -427,8 +383,8 @@ export const login = async (req: AuthenticatedRequest, res: Response) => {
   if (!botGate.ok) return rejectBotGate(res, botGate);
 
   try {
-    const user = await prisma.user.findFirst({
-      where: phone ? { phone } : { email },
+    const user = await prisma.user.findUnique({
+      where: { email },
       include: { role: true },
     });
 
@@ -440,7 +396,7 @@ export const login = async (req: AuthenticatedRequest, res: Response) => {
       return res.status(403).json({ message: 'Tài khoản đã bị khóa. Vui lòng liên hệ hỗ trợ.' });
     }
 
-    if ((requireEmailVerification || Boolean(user.phone)) && !user.isVerified) {
+    if (requireEmailVerification && !user.isVerified) {
       return res.status(403).json({
         message: 'Tài khoản chưa được xác nhận. Hãy kiểm tra email đăng ký.',
         code: 'EMAIL_NOT_VERIFIED',
@@ -460,36 +416,6 @@ export const login = async (req: AuthenticatedRequest, res: Response) => {
     }, session.refreshToken));
   } catch (error: any) {
     return internalError(res, 'Máy chủ đang gặp sự cố. Vui lòng thử lại sau.', error);
-  }
-};
-
-export const verifyRegistrationOtp = async (req: AuthenticatedRequest, res: Response) => {
-  const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
-  const otp = typeof req.body.otp === 'string' ? req.body.otp.replace(/\D/g, '') : '';
-  if (!email || !/^\d{6}$/.test(otp)) {
-    return res.status(400).json({ message: 'Vui lòng nhập đầy đủ mã OTP gồm 6 chữ số.' });
-  }
-
-  try {
-    const user = await prisma.user.findFirst({
-      where: {
-        email,
-        phone: { not: null },
-        isVerified: false,
-        emailVerificationToken: hashToken(otp),
-        emailVerificationExpires: { gt: new Date() },
-      },
-      select: { id: true },
-    });
-    if (!user) return res.status(400).json({ message: 'Mã OTP không đúng hoặc đã hết hạn.' });
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { isVerified: true, emailVerificationToken: null, emailVerificationExpires: null },
-    });
-    return res.json({ message: 'Xác nhận OTP thành công. Bạn có thể đăng nhập bằng số điện thoại.', verified: true });
-  } catch (error) {
-    return internalError(res, 'Không thể xác nhận mã OTP. Vui lòng thử lại.', error);
   }
 };
 

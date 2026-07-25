@@ -55,20 +55,11 @@ export interface VipOrder {
 }
 
 export const accountApi = {
-  async login(identifier: string, password: string) {
-    return (await apiClient.post<AuthSession>('/auth/login', { identifier, password })).data;
+  async login(email: string, password: string) {
+    return (await apiClient.post<AuthSession>('/auth/login', { email, password })).data;
   },
-  async register(email: string, username: string, password: string, phone?: string) {
-    return (await apiClient.post<AuthSession & { requiresVerification?: boolean; verificationType?: 'otp' | 'email-link'; email?: string; message?: string }>('/auth/register', {
-      email,
-      username,
-      password,
-      registrationMethod: phone ? 'phone' : 'email',
-      phone,
-    })).data;
-  },
-  async verifyRegistrationOtp(email: string, otp: string) {
-    return (await apiClient.post<{ message: string; verified: boolean }>('/auth/verify-registration-otp', { email, otp })).data;
+  async register(email: string, username: string, password: string) {
+    return (await apiClient.post<AuthSession & { requiresVerification?: boolean }>('/auth/register', { email, username, password })).data;
   },
   async google(credential: string, avatar?: string | null) {
     return (await apiClient.post<AuthSession>('/auth/google', {

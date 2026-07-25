@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from '@/components/ui/ResilientImage';
 import { useRouter } from 'next/navigation';
 import type { AxiosError } from 'axios';
-import { User, Lock, Mail, Phone, Eye, EyeOff, Heart, History, Play, Bookmark, Trash2, LogOut, Check, Save, Crown, Upload, SlidersHorizontal, Trophy, Clock3, Flame } from 'lucide-react';
+import { User, Lock, Mail, Eye, EyeOff, Heart, History, Play, Bookmark, Trash2, LogOut, Check, Save, Crown, Upload, SlidersHorizontal, Trophy, Clock3, Flame } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 import { loadFavorites } from '../../lib/user-library';
@@ -48,11 +48,6 @@ export default function AccountPage() {
   // Form States
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [registrationMethod, setRegistrationMethod] = useState<'email' | 'phone'>('email');
-  const [otpEmail, setOtpEmail] = useState('');
-  const [otp, setOtp] = useState('');
-  const [awaitingOtp, setAwaitingOtp] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -150,27 +145,10 @@ export default function AccountPage() {
       const endpoint = isLogin ? '/auth/login' : '/auth/register';
       const normalizedEmail = normalizeEmail(email);
       const payload = isLogin
-        ? {
-            identifier: /^\+?[\d\s().-]{9,}$/.test(email.trim()) ? email.trim() : normalizedEmail,
-            password,
-            turnstileToken,
-          }
-        : {
-            email: normalizedEmail,
-            phone: registrationMethod === 'phone' ? phone.trim() : undefined,
-            registrationMethod,
-            username: username.trim(),
-            password,
-            turnstileToken,
-          };
+        ? { email: normalizedEmail, password, turnstileToken }
+        : { email: normalizedEmail, username: username.trim(), password, turnstileToken };
       const res = await axios.post(endpoint, payload);
       if (res.data.requiresVerification) {
-        if (res.data.verificationType === 'otp') {
-          setOtpEmail(res.data.email || normalizedEmail);
-          setAwaitingOtp(true);
-          setAuthNotice(res.data.message || 'Mã OTP đã được gửi đến Gmail của bạn.');
-          return;
-        }
         setIsLogin(true);
         setPassword('');
         setAuthNotice(res.data.message || 'Hãy kiểm tra email để xác nhận tài khoản.');
@@ -193,28 +171,6 @@ export default function AccountPage() {
     } finally {
       setTurnstileToken('');
       setTurnstileKey((value) => value + 1);
-      submittingRef.current = false;
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleOtpSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (submittingRef.current) return;
-    submittingRef.current = true;
-    setIsSubmitting(true);
-    setErrorMsg('');
-    try {
-      const response = await axios.post('/auth/verify-registration-otp', { email: otpEmail, otp });
-      setAwaitingOtp(false);
-      setIsLogin(true);
-      setEmail(phone);
-      setOtp('');
-      setPassword('');
-      setAuthNotice(response.data.message || 'Xác nhận OTP thành công. Bạn có thể đăng nhập bằng số điện thoại.');
-    } catch (error) {
-      setErrorMsg(requestMessage(error, 'Không thể xác nhận mã OTP. Vui lòng thử lại.'));
-    } finally {
       submittingRef.current = false;
       setIsSubmitting(false);
     }
@@ -438,7 +394,7 @@ export default function AccountPage() {
             <div className="space-y-4 p-5 text-left sm:p-7">
               <div className="space-y-1">
                 <h2 className="text-xl font-black tracking-wide text-white sm:text-2xl">
-                  {awaitingOtp ? 'Xác nhận mã OTP' : recoveryMode === 'forgot' ? 'Quên mật khẩu' : recoveryMode === 'reset' ? 'Đặt lại mật khẩu' : isLogin ? 'Đăng nhập' : 'Tạo tài khoản'}
+                  {recoveryMode === 'forgot' ? 'Quên mật khẩu' : recoveryMode === 'reset' ? 'Đặt lại mật khẩu' : isLogin ? 'Đăng nhập' : 'Tạo tài khoản'}
                 </h2>
                 <p className="text-xs text-slate-500">
                   {showQr ? 'Dùng email, mạng xã hội hoặc quét QR bằng app.' : 'Trải nghiệm rạp chiếu phim 3D của CINE3D.'}
@@ -456,7 +412,7 @@ export default function AccountPage() {
                 </div>
               )}
 
-              {recoveryMode === 'none' && !awaitingOtp && (
+              {recoveryMode === 'none' && (
                 <div className="space-y-2.5">
                   <GoogleSignInButton onCredential={handleGoogleCredential} />
                   <FacebookSignInButton onAccessToken={handleFacebookAccessToken} />
@@ -468,33 +424,7 @@ export default function AccountPage() {
                 </div>
               )}
 
-              {awaitingOtp ? (
-                <form onSubmit={handleOtpSubmit} className="space-y-3">
-                  <p className="text-xs leading-relaxed text-slate-400">
-                    Mã gồm 6 chữ số đã được gửi đến <strong className="text-slate-200">{otpEmail}</strong>.
-                  </p>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      required
-                      maxLength={6}
-                      value={otp}
-                      onChange={(event) => setOtp(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder="Nhập mã OTP"
-                      className="w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 pr-4 text-center text-lg font-black tracking-[0.35em] text-white outline-none focus:border-red-500"
-                    />
-                    <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-                  </div>
-                  <button type="submit" disabled={isSubmitting || otp.length !== 6} className="w-full rounded-xl bg-gradient-to-r from-red-600 to-red-500 py-3 text-sm font-black text-white disabled:opacity-60">
-                    {isSubmitting ? 'Đang xác nhận...' : 'Xác nhận OTP'}
-                  </button>
-                  <button type="button" onClick={() => { setAwaitingOtp(false); setOtp(''); setErrorMsg(''); setAuthNotice(''); }} className="w-full text-xs text-slate-400 transition hover:text-white">
-                    Quay lại để gửi lại mã
-                  </button>
-                </form>
-              ) : recoveryMode !== 'none' ? (
+              {recoveryMode !== 'none' ? (
                 <form onSubmit={handleRecoverySubmit} className="space-y-3">
                   {recoveryMode === 'forgot' ? (
                     <div className="relative">
@@ -549,32 +479,6 @@ export default function AccountPage() {
                 </form>
               ) : (
                 <form onSubmit={handleAuthSubmit} className="space-y-3">
-                  {!isLogin && (
-                    <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-950/70 p-1">
-                      <button type="button" onClick={() => setRegistrationMethod('email')} className={`rounded-lg py-2 text-xs font-bold transition ${registrationMethod === 'email' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'}`}>
-                        Đăng ký bằng email
-                      </button>
-                      <button type="button" onClick={() => setRegistrationMethod('phone')} className={`rounded-lg py-2 text-xs font-bold transition ${registrationMethod === 'phone' ? 'bg-red-600 text-white' : 'text-slate-400 hover:text-white'}`}>
-                        Đăng ký bằng SĐT
-                      </button>
-                    </div>
-                  )}
-                  {!isLogin && registrationMethod === 'phone' && (
-                    <div className="relative">
-                      <input
-                        type="tel"
-                        name="phone"
-                        inputMode="tel"
-                        autoComplete="tel"
-                        required
-                        value={phone}
-                        onChange={(event) => setPhone(event.target.value)}
-                        placeholder="Số điện thoại (VD: 0912345678)"
-                        className="w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 pr-4 text-sm text-white outline-none focus:border-red-500"
-                      />
-                      <Phone className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-                    </div>
-                  )}
                   <div className="relative">
                     <input
                       type="text"
@@ -586,11 +490,11 @@ export default function AccountPage() {
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder={isLogin ? 'Email hoặc số điện thoại' : registrationMethod === 'phone' ? 'Gmail nhận mã OTP' : 'ten.email'}
+                      placeholder="ten.email"
                       className={`w-full rounded-xl border border-white/10 bg-slate-900 py-3 pl-10 text-sm text-white outline-none focus:border-red-500 ${email.includes('@') ? 'pr-4' : 'pr-28'}`}
                     />
                     <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-                    {!isLogin && !email.includes('@') && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-500">@gmail.com</span>}
+                    {!email.includes('@') && <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-500">@gmail.com</span>}
                   </div>
 
                   {!isLogin && (
@@ -645,7 +549,7 @@ export default function AccountPage() {
                 </form>
               )}
 
-              {recoveryMode === 'none' && !awaitingOtp && (
+              {recoveryMode === 'none' && (
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
                   {isLogin ? (
                     <button type="button" onClick={() => { setRecoveryMode('forgot'); setErrorMsg(''); setAuthNotice(''); setTurnstileToken(''); setTurnstileKey((value) => value + 1); }} className="text-slate-500 transition hover:text-amber-300">

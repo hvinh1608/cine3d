@@ -11,7 +11,7 @@ import { validateAuthForm, validateEmail, validatePassword } from '@/features/ac
 import { useAppStore } from '@/state/app-store';
 import { colors, radius, spacing } from '@/theme';
 
-type Mode = 'login' | 'register' | 'forgot' | 'reset' | 'verify' | 'otp';
+type Mode = 'login' | 'register' | 'forgot' | 'reset' | 'verify';
 
 function authError(error: unknown) {
   if (error instanceof ApiError) {
@@ -30,10 +30,6 @@ export default function AuthRoute() {
   const initial = params.resetToken ? 'reset' : params.verificationToken ? 'verify' : 'login';
   const [mode, setMode] = useState<Mode>(initial);
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [registrationMethod, setRegistrationMethod] = useState<'email' | 'phone'>('email');
-  const [otp, setOtp] = useState('');
-  const [otpEmail, setOtpEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -63,18 +59,8 @@ export default function AuthRoute() {
     } else if (mode === 'reset') {
       const issue = validatePassword(password);
       if (issue || password !== confirmPassword) return setErrors({ password: issue, confirmPassword: password !== confirmPassword ? 'Mật khẩu xác nhận không khớp.' : undefined });
-    } else if (mode === 'otp') {
-      if (!/^\d{6}$/.test(otp)) return setErrors({ otp: 'Mã OTP phải gồm 6 chữ số.' });
     } else if (mode !== 'verify') {
-      if (mode === 'register' && registrationMethod === 'phone' && !/^(\+?84|0)\d{9}$/.test(phone.replace(/\s/g, ''))) {
-        return setErrors({ phone: 'Số điện thoại không hợp lệ.' });
-      }
-      const loginWithPhone = mode === 'login' && /^(\+?84|0)\d{9}$/.test(email.replace(/\s/g, ''));
-      const issues = validateAuthForm({
-        email: loginWithPhone ? 'phone@cine3d.invalid' : email,
-        password,
-        ...(mode === 'register' ? { username, confirmPassword } : {}),
-      });
+      const issues = validateAuthForm({ email, password, ...(mode === 'register' ? { username, confirmPassword } : {}) });
       setErrors(issues);
       if (Object.keys(issues).length) return;
     }
@@ -82,20 +68,9 @@ export default function AuthRoute() {
     try {
       if (mode === 'login') await complete(await accountApi.login(email, password));
       if (mode === 'register') {
-        const result = await accountApi.register(email, username, password, registrationMethod === 'phone' ? phone : undefined);
-        if (result.requiresVerification && result.verificationType === 'otp') {
-          setOtpEmail(result.email || email);
-          setMode('otp');
-          setMessage(result.message || 'Mã OTP đã được gửi đến Gmail của bạn.');
-        } else if (result.requiresVerification) setMessage(result.message || 'Hãy kiểm tra email để xác nhận tài khoản.');
+        const result = await accountApi.register(email, username, password);
+        if (result.requiresVerification) setMessage(result.message || 'Hãy kiểm tra email để xác nhận tài khoản.');
         else await complete(result);
-      }
-      if (mode === 'otp') {
-        setMessage((await accountApi.verifyRegistrationOtp(otpEmail, otp)).message);
-        setEmail(phone);
-        setPassword('');
-        setOtp('');
-        setMode('login');
       }
       if (mode === 'forgot') setMessage((await accountApi.forgotPassword(email)).message);
       if (mode === 'reset') {
@@ -111,7 +86,7 @@ export default function AuthRoute() {
 
   const title = useMemo(() => ({
     login: 'Đăng nhập CINE3D', register: 'Tạo tài khoản', forgot: 'Khôi phục mật khẩu',
-    reset: 'Đặt lại mật khẩu', verify: 'Xác nhận email', otp: 'Xác nhận mã OTP',
+    reset: 'Đặt lại mật khẩu', verify: 'Xác nhận email',
   })[mode], [mode]);
 
   return (
@@ -123,14 +98,7 @@ export default function AuthRoute() {
             { value: 'login', label: 'Đăng nhập' }, { value: 'register', label: 'Đăng ký' },
           ]} />
         ) : null}
-        {mode === 'register' ? (
-          <SegmentedButtons value={registrationMethod} onValueChange={(value) => setRegistrationMethod(value as 'email' | 'phone')} buttons={[
-            { value: 'email', label: 'Bằng email' }, { value: 'phone', label: 'Bằng SĐT' },
-          ]} />
-        ) : null}
-        {mode === 'register' && registrationMethod === 'phone' ? <TextInput label="Số điện thoại" value={phone} keyboardType="phone-pad" onChangeText={setPhone} error={Boolean(errors.phone)} /> : null}
-        {errors.phone ? <Text style={styles.error}>{errors.phone}</Text> : null}
-        {mode !== 'reset' && mode !== 'verify' && mode !== 'otp' ? <TextInput testID="auth-email" label={mode === 'login' ? 'Email hoặc số điện thoại' : registrationMethod === 'phone' ? 'Gmail nhận mã OTP' : 'Email'} value={email} autoCapitalize="none" keyboardType={mode === 'login' ? 'default' : 'email-address'} onChangeText={setEmail} error={Boolean(errors.email)} /> : null}
+        {mode !== 'reset' && mode !== 'verify' ? <TextInput testID="auth-email" label="Email" value={email} autoCapitalize="none" keyboardType="email-address" onChangeText={setEmail} error={Boolean(errors.email)} /> : null}
         {errors.email ? <Text style={styles.error}>{errors.email}</Text> : null}
         {mode === 'register' ? <TextInput label="Tên hiển thị" value={username} onChangeText={setUsername} error={Boolean(errors.username)} /> : null}
         {errors.username ? <Text style={styles.error}>{errors.username}</Text> : null}
@@ -138,13 +106,10 @@ export default function AuthRoute() {
         {errors.password ? <Text style={styles.error}>{errors.password}</Text> : null}
         {mode === 'register' || mode === 'reset' ? <PasswordInput label="Nhập lại mật khẩu" value={confirmPassword} onChangeText={setConfirmPassword} error={Boolean(errors.confirmPassword)} /> : null}
         {errors.confirmPassword ? <Text style={styles.error}>{errors.confirmPassword}</Text> : null}
-        {mode === 'otp' ? <TextInput label={`Mã OTP gửi đến ${otpEmail}`} value={otp} keyboardType="number-pad" maxLength={6} onChangeText={(value) => setOtp(value.replace(/\D/g, ''))} error={Boolean(errors.otp)} /> : null}
-        {errors.otp ? <Text style={styles.error}>{errors.otp}</Text> : null}
         {message ? <Text style={styles.message}>{message}</Text> : null}
         <Button testID="auth-submit" mode="contained" loading={busy} disabled={busy} onPress={() => void submit()}>{title}</Button>
         {mode === 'login' ? <Button onPress={() => setMode('forgot')}>Quên mật khẩu?</Button> : null}
         {mode === 'forgot' ? <Button onPress={() => setMode('login')}>Quay lại đăng nhập</Button> : null}
-        {mode === 'otp' ? <Button onPress={() => setMode('register')}>Quay lại để gửi lại mã</Button> : null}
         {mode === 'login' || mode === 'register' ? <OAuthButtons onSession={complete} onError={setMessage} /> : null}
       </View>
     </ScrollView>
