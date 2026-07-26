@@ -8,6 +8,9 @@ const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL 
 export type CatalogKind = 'genre' | 'country' | 'year';
 
 const paths: Record<CatalogKind, string> = { genre: 'the-loai', country: 'quoc-gia', year: 'nam' };
+const virtualGenres: Record<string, { label: string; type: string }> = {
+  'hoat-hinh': { label: 'Hoạt Hình', type: 'hoathinh' },
+};
 
 async function fetchJson(path: string, revalidate = 300) {
   const response = await fetch(`${API_URL}${path}`, { next: { revalidate } });
@@ -21,6 +24,7 @@ async function resolveLabel(kind: CatalogKind, value: string) {
     const maxYear = new Date().getFullYear() + 1;
     return Number.isInteger(year) && year >= 1900 && year <= maxYear ? `Năm ${year}` : null;
   }
+  if (kind === 'genre' && virtualGenres[value]) return virtualGenres[value].label;
   const items = await fetchJson(kind === 'genre' ? '/genres' : '/countries', 3600) as MetaItem[];
   return items.find((item) => item.slug === value)?.name || null;
 }
@@ -42,7 +46,10 @@ export async function catalogMetadata(kind: CatalogKind, value: string, page: nu
 export async function SeoCatalogPage({ kind, value, page }: { kind: CatalogKind; value: string; page: number }) {
   const label = await resolveLabel(kind, value).catch(() => null);
   if (!label) notFound();
-  const filter = { [kind]: value, page: String(page), limit: '24' };
+  const virtualGenre = kind === 'genre' ? virtualGenres[value] : undefined;
+  const filter = virtualGenre
+    ? { type: virtualGenre.type, page: String(page), limit: '24' }
+    : { [kind]: value, page: String(page), limit: '24' };
   const [movieResult, genreResult, countryResult] = await Promise.allSettled([
     fetchJson(`/movies?${new URLSearchParams(filter)}`, 60),
     fetchJson('/genres', 3600),
@@ -57,7 +64,7 @@ export async function SeoCatalogPage({ kind, value, page }: { kind: CatalogKind;
     totalPages: Math.max(1, Number(movieData.totalPages) || 1),
     totalResults: Number(movieData.total) || movies.length,
     loadError: movieResult.status === 'rejected' ? 'Không thể tải danh sách phim lúc này.' : '',
-    initialFilters: { [kind]: value, page },
+    initialFilters: virtualGenre ? { type: virtualGenre.type, page } : { [kind]: value, page },
     seoBasePath: `/${paths[kind]}/${encodeURIComponent(value)}`,
   };
   const siteUrl = getSiteUrl();

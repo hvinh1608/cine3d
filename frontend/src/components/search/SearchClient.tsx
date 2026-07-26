@@ -58,7 +58,7 @@ export type SearchInitialData = {
   totalPages: number;
   totalResults: number;
   loadError?: string;
-  initialFilters?: { genre?: string; country?: string; year?: string; page?: number };
+  initialFilters?: { genre?: string; country?: string; year?: string; type?: string; page?: number };
   seoBasePath?: string;
 };
 
@@ -86,7 +86,7 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
   const [selectedGenre, setSelectedGenre] = useState(searchParams.get('genre') || initialData.initialFilters?.genre || '');
   const [selectedCountry, setSelectedCountry] = useState(searchParams.get('country') || initialData.initialFilters?.country || '');
   const [selectedYear, setSelectedYear] = useState(searchParams.get('year') || initialData.initialFilters?.year || '');
-  const [selectedType, setSelectedType] = useState(searchParams.get('type') || '');
+  const [selectedType, setSelectedType] = useState(searchParams.get('type') || initialData.initialFilters?.type || '');
   const [sortBy, setSortBy] = useState(searchParams.get('sortBy') || 'createdAt');
   const [selectedStatus, setSelectedStatus] = useState(searchParams.get('status') || '');
   const [selectedVip, setSelectedVip] = useState(searchParams.get('vip') || '');
@@ -116,6 +116,7 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
       if (initialData.initialFilters?.genre) params.set('genre', initialData.initialFilters.genre);
       if (initialData.initialFilters?.country) params.set('country', initialData.initialFilters.country);
       if (initialData.initialFilters?.year) params.set('year', initialData.initialFilters.year);
+      if (initialData.initialFilters?.type) params.set('type', initialData.initialFilters.type);
     }
     Object.entries(updates).forEach(([key, value]) => {
       if (!value || (key === 'sortBy' && value === 'createdAt')) params.delete(key);
