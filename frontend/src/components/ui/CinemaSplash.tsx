@@ -29,7 +29,7 @@ export default function CinemaSplash() {
       <div className="relative flex flex-col items-center px-6">
         <div className="splash-logo relative">
           <div className="absolute inset-3 rounded-full bg-red-500/20 blur-3xl" />
-          <Image src="/cine3d-logo-v2.png" alt="CINE3D" width={260} height={92} priority unoptimized className="relative h-auto w-[210px] drop-shadow-[0_0_28px_rgba(239,68,68,0.28)] sm:w-[260px]" />
+          <Image src="/cine3d-logo-v2.webp" alt="CINE3D" width={260} height={53} loading="eager" unoptimized className="relative h-auto w-[210px] drop-shadow-[0_0_28px_rgba(239,68,68,0.28)] sm:w-[260px]" />
         </div>
         <p className="mt-5 text-[9px] font-black uppercase tracking-[0.48em] text-slate-500 sm:text-[10px]">Không gian điện ảnh của bạn</p>
         <div className="mt-8 h-[2px] w-44 overflow-hidden rounded-full bg-white/10">

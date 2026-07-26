@@ -99,6 +99,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
   const { favoriteIds, user, watchHistory, setWatchHistory, selectedProfileId, showToast } = useStore();
   const favorites = useMemo(() => new Set(favoriteIds), [favoriteIds]);
   const [heroIndex, setHeroIndex] = useState(0);
+  const [loadDeferredHeroThumbnails, setLoadDeferredHeroThumbnails] = useState(false);
   const fallback = initialData.movies[0] || initialData.proposed[0] || initialData.trending[0];
   const heroes = useMemo(() => initialData.banners.length ? initialData.banners.slice(0, 6) : fallback ? [{ id: fallback.id, title: fallback.title, description: fallback.description || '', imageUrl: fallback.backdropUrl, movie: fallback }] : [], [fallback, initialData.banners]);
   const active = heroes[heroIndex];
@@ -108,6 +109,16 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
     const timer = window.setInterval(() => setHeroIndex((index) => (index + 1) % heroes.length), 8000);
     return () => window.clearInterval(timer);
   }, [heroes.length]);
+
+  useEffect(() => {
+    const loadDeferred = () => setLoadDeferredHeroThumbnails(true);
+    if (document.readyState === 'complete') {
+      const timer = window.setTimeout(loadDeferred, 1500);
+      return () => window.clearTimeout(timer);
+    }
+    window.addEventListener('load', loadDeferred, { once: true });
+    return () => window.removeEventListener('load', loadDeferred);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -131,7 +142,16 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
 
   return <main className="-mt-20 min-h-screen bg-[#171820] pb-20 text-white">
     {active && <section data-hero-parallax className="relative min-h-[650px] overflow-hidden md:min-h-[760px]">
-      <Image src={active.imageUrl || active.movie.posterUrl} alt={active.title} fill priority sizes="100vw" className="hero-parallax-layer object-cover object-center" />
+      <Image
+        src={active.imageUrl || active.movie.posterUrl}
+        alt={active.title}
+        fill
+        loading="eager"
+        fetchPriority={heroIndex === 0 ? 'high' : 'auto'}
+        decoding="async"
+        sizes="100vw"
+        className="hero-parallax-layer object-cover object-center"
+      />
       <div className="absolute inset-0 bg-[linear-gradient(90deg,#171820_0%,rgba(23,24,32,.78)_30%,rgba(23,24,32,.12)_72%)]" />
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(23,24,32,.15)_0%,rgba(23,24,32,0)_46%,#171820_100%)]" />
       <div className="relative mx-auto flex min-h-[650px] max-w-[1440px] items-end px-4 pb-28 pt-32 md:min-h-[760px] md:px-8 md:pb-36">
@@ -144,7 +164,12 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
           <div className="mt-7 flex items-center gap-3"><Link href={`/watch/${active.movie.slug}`} className="flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-200 to-amber-400 px-7 py-3.5 text-sm font-black text-black shadow-[0_10px_30px_rgba(251,191,36,.2)] hover:brightness-110"><Play className="h-5 w-5 fill-current" /> Xem ngay</Link><Link href={`/movies/${active.movie.slug}`} className="grid h-12 w-12 place-items-center rounded-full bg-white/15 backdrop-blur hover:bg-white/25"><Info className="h-5 w-5" /></Link><button onClick={() => void toggleFavorite(active.movie.id, active.movie)} className="grid h-12 w-12 place-items-center rounded-full bg-white/15 backdrop-blur hover:bg-white/25"><Plus className="h-5 w-5" /></button></div>
         </div>
       </div>
-      {heroes.length > 1 && <div className="absolute bottom-11 right-4 hidden max-w-[48%] gap-3 md:flex lg:right-10">{heroes.map((banner, index) => <button key={banner.id} onClick={() => setHeroIndex(index)} className={`relative aspect-video w-28 overflow-hidden rounded-lg border-2 transition lg:w-36 ${index === heroIndex ? 'border-amber-300 opacity-100' : 'border-transparent opacity-55 hover:opacity-100'}`}><Image src={banner.imageUrl || banner.movie.posterUrl} alt={banner.title} fill sizes="144px" className="object-cover" /></button>)}</div>}
+      {heroes.length > 1 && <div className="absolute bottom-11 right-4 hidden max-w-[48%] gap-3 md:flex lg:right-10">{heroes.map((banner, index) => {
+        const shouldLoadThumbnail = loadDeferredHeroThumbnails || index === heroIndex || index === (heroIndex + 1) % heroes.length;
+        return <button key={banner.id} onClick={() => setHeroIndex(index)} aria-label={`Chiếu banner ${banner.title}`} className={`relative aspect-video w-28 overflow-hidden rounded-lg border-2 bg-[#252735] transition lg:w-36 ${index === heroIndex ? 'border-amber-300 opacity-100' : 'border-transparent opacity-55 hover:opacity-100'}`}>
+          {shouldLoadThumbnail && <Image src={banner.imageUrl || banner.movie.posterUrl} alt="" fill loading="lazy" decoding="async" sizes="144px" className="object-cover" />}
+        </button>;
+      })}</div>}
     </section>}
 
     {initialData.loadError && <div className="mx-auto max-w-[1440px] px-4 md:px-8"><p className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm text-amber-200">{initialData.loadError}</p></div>}

@@ -393,11 +393,11 @@ export default function Navbar() {
         {/* LOGO */}
         <Link href="/" className="group flex shrink-0 items-center" aria-label="CINE3D - Trang chủ">
           <Image
-            src="/cine3d-logo-v2.png"
+            src="/cine3d-logo-v2.webp"
             alt="CINE3D"
-            width={174}
-            height={48}
-            priority
+            width={200}
+            height={41}
+            preload
             className="h-8 w-auto object-contain transition-transform duration-300 group-hover:scale-[1.03] 2xl:h-9"
           />
         </Link>

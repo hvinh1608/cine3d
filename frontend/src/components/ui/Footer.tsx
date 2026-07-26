@@ -32,10 +32,10 @@ export default function Footer() {
           <div className="flex flex-wrap items-center gap-5 sm:gap-7">
             <Link href="/" aria-label="Về trang chủ CINE3D" className="group block">
               <Image
-                src="/cine3d-logo-v2.png"
+                src="/cine3d-logo-v2.webp"
                 alt="CINE3D"
-                width={278}
-                height={57}
+                width={250}
+                height={51}
                 className="h-auto w-[210px] transition group-hover:brightness-110 sm:w-[250px]"
               />
             </Link>
