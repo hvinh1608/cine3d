@@ -19,6 +19,12 @@ import {
   isNativeClient,
   sessionResponse,
 } from '../lib/native-client';
+import {
+  hashPassword,
+  PASSWORD_HISTORY_LIMIT,
+  passwordMatchesAny,
+  passwordValidationError,
+} from '../lib/password-security';
 
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
@@ -275,9 +281,8 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
     return res.status(400).json({ message: 'Tên tài khoản phải từ 3 đến 40 ký tự.' });
   }
 
-  if (typeof password !== 'string' || password.length < 8) {
-    return res.status(400).json({ message: 'Mật khẩu phải có ít nhất 8 ký tự.' });
-  }
+  const passwordError = passwordValidationError(password);
+  if (passwordError) return res.status(400).json({ message: passwordError });
   const botGate = await verifyBotGate(req.body.turnstileToken, req);
   if (!botGate.ok) return rejectBotGate(res, botGate);
   if (requireEmailVerification && !emailDeliveryConfigured) {
@@ -327,7 +332,7 @@ export const register = async (req: AuthenticatedRequest, res: Response) => {
       userRole = await prisma.role.create({ data: { name: 'USER' } });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await hashPassword(password);
     const verification = requireEmailVerification ? createActionToken() : null;
 
     const user = await prisma.user.create({
@@ -511,7 +516,7 @@ export const googleLogin = async (req: AuthenticatedRequest, res: Response) => {
         create: { name: 'USER' },
       });
       const username = await createAvailableUsername(payload.name || '', email);
-      const password = await bcrypt.hash(crypto.randomBytes(48).toString('hex'), 10);
+      const password = await hashPassword(crypto.randomBytes(48).toString('hex'));
 
       user = await prisma.user.create({
         data: {
@@ -604,7 +609,7 @@ export const facebookLogin = async (req: AuthenticatedRequest, res: Response) =>
     } else {
       const role = await prisma.role.upsert({ where: { name: 'USER' }, update: {}, create: { name: 'USER' } });
       const username = await createAvailableUsername(profile.name || '', email);
-      const password = await bcrypt.hash(crypto.randomBytes(48).toString('hex'), 10);
+      const password = await hashPassword(crypto.randomBytes(48).toString('hex'));
       user = await prisma.user.create({
         data: { facebookId, email, username, password, avatar, isVerified: true, roleId: role.id },
         include: { role: true },
@@ -797,9 +802,8 @@ export const resetPassword = async (req: AuthenticatedRequest, res: Response) =>
     return res.status(400).json({ message: 'Thiếu mã đặt lại mật khẩu hoặc mật khẩu mới.' });
   }
 
-  if (typeof newPassword !== 'string' || newPassword.length < 8) {
-    return res.status(400).json({ message: 'Mật khẩu phải có ít nhất 8 ký tự.' });
-  }
+  const passwordError = passwordValidationError(newPassword);
+  if (passwordError) return res.status(400).json({ message: passwordError });
 
   try {
     const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
@@ -808,23 +812,57 @@ export const resetPassword = async (req: AuthenticatedRequest, res: Response) =>
         passwordResetToken: hashedToken,
         passwordResetExpires: { gt: new Date() },
       },
+      include: {
+        passwordHistory: {
+          orderBy: { createdAt: 'desc' },
+          take: PASSWORD_HISTORY_LIMIT,
+          select: { passwordHash: true },
+        },
+      },
     });
 
     if (!user) {
       return res.status(400).json({ message: 'Liên kết đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.' });
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        password: hashedPassword,
-        passwordResetToken: null,
-        passwordResetExpires: null,
-      },
-    });
+    const reused = await passwordMatchesAny(newPassword, [
+      user.password,
+      ...user.passwordHistory.map((entry) => entry.passwordHash),
+    ]);
+    if (reused) {
+      return res.status(400).json({
+        message: `Không thể dùng lại mật khẩu hiện tại hoặc ${PASSWORD_HISTORY_LIMIT} mật khẩu gần nhất.`,
+        code: 'PASSWORD_REUSED',
+      });
+    }
 
-    await prisma.refreshToken.deleteMany({ where: { userId: user.id } });
+    const hashedPassword = await hashPassword(newPassword);
+    await prisma.$transaction(async (tx) => {
+      await tx.passwordHistory.create({
+        data: { userId: user.id, passwordHash: user.password },
+      });
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          password: hashedPassword,
+          passwordResetToken: null,
+          passwordResetExpires: null,
+        },
+      });
+      await tx.refreshToken.deleteMany({ where: { userId: user.id } });
+
+      const expiredHistory = await tx.passwordHistory.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: 'desc' },
+        skip: PASSWORD_HISTORY_LIMIT,
+        select: { id: true },
+      });
+      if (expiredHistory.length) {
+        await tx.passwordHistory.deleteMany({
+          where: { id: { in: expiredHistory.map((entry) => entry.id) } },
+        });
+      }
+    });
 
     return res.json({ message: 'Đã cập nhật mật khẩu.' });
   } catch (error: any) {

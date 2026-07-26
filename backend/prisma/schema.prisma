@@ -46,6 +46,7 @@ model User {
   notifications      Notification[]
   reports            Report[]
   refreshTokens      RefreshToken[]
+  passwordHistory    PasswordHistory[]
   qrLoginSessions    QrLoginSession[]
   vipOrders          VipOrder[]         @relation("VipOrderUser")
   confirmedVipOrders VipOrder[]         @relation("VipOrderConfirmer")
@@ -69,6 +70,16 @@ model User {
   @@index([roleId])
   @@index([isVip])
   @@index([vipExpiresAt])
+}
+
+model PasswordHistory {
+  id           String   @id @default(uuid())
+  userId       String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 model Feedback {
