@@ -25,6 +25,7 @@ import {
   passwordMatchesAny,
   passwordValidationError,
 } from '../lib/password-security';
+import { passwordResetPageUrl } from '../lib/web-url';
 
 const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
@@ -787,7 +788,7 @@ export const forgotPassword = async (req: AuthenticatedRequest, res: Response) =
       heading: 'Khôi phục mật khẩu',
       message: 'Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn.',
       actionLabel: 'Đặt lại mật khẩu',
-      actionUrl: `${process.env.PASSWORD_RESET_URL || `${clientUrl}/account`}?resetToken=${encodeURIComponent(reset.token)}`,
+      actionUrl: `${passwordResetPageUrl()}?resetToken=${encodeURIComponent(reset.token)}`,
     });
 
     return res.json({ message: genericMessage });
