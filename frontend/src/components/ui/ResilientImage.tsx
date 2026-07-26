@@ -3,8 +3,11 @@
 import NextImage, { type ImageProps } from 'next/image';
 import { useState } from 'react';
 
-const FALLBACK_HOSTS = new Set(['phimimg.com', 'img.phimapi.com']);
+const PROXY_FALLBACK_HOSTS = new Set(['img.phimapi.com']);
 const ATOM_EVE_IMAGE_PATH = '/invincible-atom-eve-poster.jpg';
+const MOVIE_PLACEHOLDER_PATH = '/movie-placeholder.svg';
+const failedSources = new Set<string>();
+const failedProxySources = new Set<string>();
 
 function knownLocalReplacement(src: ImageProps['src']): string | null {
   if (typeof src !== 'string') return null;
@@ -19,10 +22,10 @@ function knownLocalReplacement(src: ImageProps['src']): string | null {
   return null;
 }
 
-function canFallbackToSource(src: ImageProps['src']): src is string {
+function canFallbackToProxy(src: ImageProps['src']): src is string {
   if (typeof src !== 'string') return false;
   try {
-    return FALLBACK_HOSTS.has(new URL(src).hostname);
+    return PROXY_FALLBACK_HOSTS.has(new URL(src).hostname);
   } catch {
     return false;
   }
@@ -30,21 +33,34 @@ function canFallbackToSource(src: ImageProps['src']): src is string {
 
 /** Retry supported movie artwork directly when an optimized CDN request fails. */
 export default function ResilientImage({ src, onError, unoptimized, ...props }: ImageProps) {
-  const [failedSource, setFailedSource] = useState<string | null>(null);
   const source = typeof src === 'string' ? src : null;
-  const useSourceFallback = source !== null && failedSource === source;
-  const resolvedSource = knownLocalReplacement(src) || (useSourceFallback
-    ? `/api/image-proxy?url=${encodeURIComponent(source)}`
-    : src);
+  const [failedSource, setFailedSource] = useState<string | null>(() =>
+    source && failedSources.has(source) ? source : null
+  );
+  const [, forceFallbackRender] = useState(0);
+  const sourceFailed = source !== null && failedSource === source;
+  const useProxyFallback = sourceFailed && canFallbackToProxy(src) && !failedProxySources.has(source);
+  const resolvedSource = knownLocalReplacement(src)
+    || (sourceFailed
+      ? useProxyFallback
+        ? `/api/image-proxy?url=${encodeURIComponent(source)}`
+        : MOVIE_PLACEHOLDER_PATH
+      : src);
 
   return (
     <NextImage
       {...props}
       src={resolvedSource}
-      unoptimized={unoptimized || useSourceFallback}
+      unoptimized={unoptimized || sourceFailed}
       onError={(event) => {
         onError?.(event);
-        if (!useSourceFallback && canFallbackToSource(src)) setFailedSource(src);
+        if (!sourceFailed && source) {
+          failedSources.add(source);
+          setFailedSource(source);
+        } else if (useProxyFallback) {
+          failedProxySources.add(source);
+          forceFallbackRender((version) => version + 1);
+        }
       }}
     />
   );

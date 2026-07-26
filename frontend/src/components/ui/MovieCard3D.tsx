@@ -24,6 +24,9 @@ export default function MovieCard3D({ movie, onToggleFavorite, isFavorited = fal
   const [previewAnchor, setPreviewAnchor] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
   const openTimerRef = useRef<number | null>(null);
   const closeTimerRef = useRef<number | null>(null);
+  const pointerFrameRef = useRef<number | null>(null);
+  const cardBoundsRef = useRef<DOMRect | null>(null);
+  const pendingPointerRef = useRef<{ x: number; y: number } | null>(null);
   
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -56,35 +59,31 @@ export default function MovieCard3D({ movie, onToggleFavorite, isFavorited = fal
     };
   }, [previewAnchor]);
 
-  useEffect(() => () => clearPreviewTimers(), []);
+  useEffect(() => () => {
+    clearPreviewTimers();
+    if (pointerFrameRef.current !== null) window.cancelAnimationFrame(pointerFrameRef.current);
+  }, []);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (reduceMotion || !cardRef.current) return;
-    const card = cardRef.current;
-    const rect = card.getBoundingClientRect();
-    
-    // Mouse coords inside the card
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const width = rect.width;
-    const height = rect.height;
-
-    // Calculate rotation limits (-15 to 15 deg)
-    const rotX = -((y - height / 2) / (height / 2)) * 12;
-    const rotY = ((x - width / 2) / (width / 2)) * 12;
-
-    setRotateX(rotX);
-    setRotateY(rotY);
-
-    // Glare position percentage
-    const glareX = (x / width) * 100;
-    const glareY = (y / height) * 100;
-    setGlarePos({ x: glareX, y: glareY });
+    if (reduceMotion) return;
+    pendingPointerRef.current = { x: e.clientX, y: e.clientY };
+    if (pointerFrameRef.current !== null) return;
+    pointerFrameRef.current = window.requestAnimationFrame(() => {
+      pointerFrameRef.current = null;
+      const rect = cardBoundsRef.current;
+      const pointer = pendingPointerRef.current;
+      if (!rect || !pointer) return;
+      const x = pointer.x - rect.left;
+      const y = pointer.y - rect.top;
+      setRotateX(-((y - rect.height / 2) / (rect.height / 2)) * 12);
+      setRotateY(((x - rect.width / 2) / (rect.width / 2)) * 12);
+      setGlarePos({ x: (x / rect.width) * 100, y: (y / rect.height) * 100 });
+    });
   };
 
   const handleMouseEnter = () => {
     setHovered(true);
+    cardBoundsRef.current = cardRef.current?.getBoundingClientRect() || null;
     keepPreviewOpen();
     if (reduceMotion || !window.matchMedia('(hover: hover) and (pointer: fine) and (min-width: 1024px)').matches) return;
     openTimerRef.current = window.setTimeout(() => {
@@ -95,6 +94,8 @@ export default function MovieCard3D({ movie, onToggleFavorite, isFavorited = fal
 
   const handleMouseLeave = () => {
     setHovered(false);
+    cardBoundsRef.current = null;
+    pendingPointerRef.current = null;
     setRotateX(0);
     setRotateY(0);
     schedulePreviewClose();

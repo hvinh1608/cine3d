@@ -30,17 +30,22 @@ export default function ScrollReveal() {
       threshold: 0.08,
     });
 
-    const register = () => {
+    const register = (root: Document | HTMLElement = document) => {
       const viewportHeight = window.innerHeight;
-      document.querySelectorAll<HTMLElement>(REVEAL_SELECTOR).forEach((element) => {
-        if (observed.has(element) || element.closest('[data-scroll-reveal="off"]')) return;
+      const candidates = [
+        ...(root instanceof HTMLElement && root.matches(REVEAL_SELECTOR) ? [root] : []),
+        ...root.querySelectorAll<HTMLElement>(REVEAL_SELECTOR),
+      ].filter((element) => {
+        if (observed.has(element) || element.closest('[data-scroll-reveal="off"]')) return false;
         observed.add(element);
+        return true;
+      });
 
-        const bounds = element.getBoundingClientRect();
-        if (bounds.top < viewportHeight * 0.92) {
-          return;
-        }
-
+      // Read all geometry before mutating classes/styles to avoid layout thrashing.
+      const belowFold = candidates.filter((element) =>
+        element.getBoundingClientRect().top >= viewportHeight * 0.92
+      );
+      belowFold.forEach((element) => {
         const siblings = element.parentElement
           ? Array.from(element.parentElement.children).filter((child) => child.matches('article'))
           : [];
@@ -71,7 +76,19 @@ export default function ScrollReveal() {
     window.addEventListener('scroll', requestParallaxUpdate, { passive: true });
     window.addEventListener('resize', requestParallaxUpdate);
 
-    const mutationObserver = new MutationObserver(register);
+    let mutationFrame = 0;
+    const pendingRoots = new Set<HTMLElement>();
+    const mutationObserver = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => mutation.addedNodes.forEach((node) => {
+        if (node instanceof HTMLElement) pendingRoots.add(node);
+      }));
+      if (mutationFrame || pendingRoots.size === 0) return;
+      mutationFrame = window.requestAnimationFrame(() => {
+        mutationFrame = 0;
+        pendingRoots.forEach((root) => register(root));
+        pendingRoots.clear();
+      });
+    });
     const contentRoot = document.querySelector('body > main') || document.body;
     mutationObserver.observe(contentRoot, { childList: true, subtree: true });
 
@@ -81,6 +98,7 @@ export default function ScrollReveal() {
       window.removeEventListener('scroll', requestParallaxUpdate);
       window.removeEventListener('resize', requestParallaxUpdate);
       if (parallaxFrame) window.cancelAnimationFrame(parallaxFrame);
+      if (mutationFrame) window.cancelAnimationFrame(mutationFrame);
       cleanupTimers.forEach((timer) => window.clearTimeout(timer));
     };
   }, []);
