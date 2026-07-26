@@ -7,9 +7,10 @@ type TurnstileApi = {
   render: (container: HTMLElement, options: {
     sitekey: string;
     theme?: 'light' | 'dark' | 'auto';
+    retry?: 'auto' | 'never';
     callback: (token: string) => void;
     'expired-callback': () => void;
-    'error-callback': () => void;
+    'error-callback': (errorCode: string) => boolean;
   }) => string;
   remove: (widgetId: string) => void;
 };
@@ -26,6 +27,7 @@ export default function TurnstileWidget({ onToken }: { onToken: (token: string) 
   const containerRef = useRef<HTMLDivElement>(null);
   const widgetIdRef = useRef<string | undefined>(undefined);
   const [scriptReady, setScriptReady] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     if (!siteKey || !scriptReady || !window.turnstile || !containerRef.current || widgetIdRef.current) return;
@@ -33,9 +35,19 @@ export default function TurnstileWidget({ onToken }: { onToken: (token: string) 
     widgetIdRef.current = window.turnstile.render(containerRef.current, {
       sitekey: siteKey,
       theme: 'dark',
-      callback: onToken,
+      retry: 'never',
+      callback: (token) => {
+        setErrorMessage('');
+        onToken(token);
+      },
       'expired-callback': () => onToken(''),
-      'error-callback': () => onToken(''),
+      'error-callback': (errorCode) => {
+        onToken('');
+        setErrorMessage(errorCode === '110200'
+          ? 'Xác minh bảo mật chưa được cấp phép cho tên miền này. Vui lòng liên hệ quản trị viên.'
+          : 'Không thể tải xác minh bảo mật. Vui lòng tải lại trang và thử lại.');
+        return true;
+      },
     });
 
     return () => {
@@ -54,6 +66,7 @@ export default function TurnstileWidget({ onToken }: { onToken: (token: string) 
         onReady={() => setScriptReady(true)}
       />
       <div ref={containerRef} className="flex justify-center" />
+      {errorMessage && <p role="alert" className="mt-2 text-center text-xs leading-5 text-red-300">{errorMessage}</p>}
     </>
   );
 }
