@@ -5,6 +5,7 @@ import { mapMovieDetail, AppMovie } from './kkphim.mapper';
 
 const MOVIE_SYNC_TTL_MS = Number(process.env.MOVIE_SYNC_TTL_MS) || 15 * 60 * 1000;
 const pendingSyncs = new Map<string, Promise<AppMovie>>();
+let lastStoredFallbackWarningAt = 0;
 const movieInclude = {
   country: true,
   movieGenres: { include: { genre: true } },
@@ -133,7 +134,11 @@ async function syncMovie(slug: string): Promise<AppMovie> {
     // A stored movie remains usable when KKPhim is temporarily unavailable.
     // This also prevents the detail controller from fetching the same slug again.
     if (existing) {
-      console.warn(`KKPhim sync failed for ${slug}; serving stored movie.`);
+      const now = Date.now();
+      if (now - lastStoredFallbackWarningAt >= 60_000) {
+        lastStoredFallbackWarningAt = now;
+        console.warn('KKPhim sync unavailable; serving stored movie details.');
+      }
       return mapStoredMovie(existing);
     }
     throw error;

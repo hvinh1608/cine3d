@@ -29,6 +29,14 @@ const storedListInclude = {
   movieActors: { include: { actor: true } },
   movieDirectors: { include: { director: true } },
 };
+let lastCatalogFallbackWarningAt = 0;
+
+function warnCatalogFallback() {
+  const now = Date.now();
+  if (now - lastCatalogFallbackWarningAt < 60_000) return;
+  lastCatalogFallbackWarningAt = now;
+  console.warn('KKPhim unavailable; serving catalog data from database.');
+}
 
 async function getStoredMoviePage(query: Request['query']) {
   const page = Math.max(1, parseInt(String(query.page || '1'), 10) || 1);
@@ -203,7 +211,7 @@ export const getMovies = async (req: Request, res: Response) => {
   } catch (error: any) {
     if (error instanceof KkphimError) {
       try {
-        console.warn('KKPhim catalog unavailable; serving movies from database.');
+        warnCatalogFallback();
         return res.json(await getStoredMoviePage(req.query));
       } catch (fallbackError) {
         console.error('Database movie fallback failed.', fallbackError);
@@ -501,7 +509,7 @@ export const getHome = async (_req: Request, res: Response) => {
         const byViews = [...movies].sort((a, b) => Number(b.views) - Number(a.views));
         const byRating = [...movies].sort((a, b) => Number(b.ratingAvg) - Number(a.ratingAvg));
         const countryMovies = (slug: string) => movies.filter((movie) => movie.country?.slug === slug).slice(0, 12);
-        console.warn('KKPhim home unavailable; serving home payload from database.');
+        warnCatalogFallback();
         res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=30, stale-while-revalidate=300');
         return res.json({
           banners: movies.slice(0, 8).map((movie, index) => ({

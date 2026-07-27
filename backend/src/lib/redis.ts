@@ -5,12 +5,20 @@ const memory = new Map<string, MemoryEntry>();
 let client: RedisClientType | null = null;
 let connecting: Promise<RedisClientType | null> | null = null;
 let retryAfter = 0;
+let lastQuotaWarningAt = 0;
 
 function suspendRedis(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   const quotaExceeded = /max requests limit exceeded/i.test(message);
   retryAfter = Date.now() + (quotaExceeded ? 6 * 60 * 60 * 1000 : 30_000);
   return quotaExceeded;
+}
+
+function warnQuotaOnce() {
+  const now = Date.now();
+  if (now - lastQuotaWarningAt < 60 * 60 * 1000) return;
+  lastQuotaWarningAt = now;
+  console.warn('Redis request quota exceeded; using in-memory fallback for 6 hours.');
 }
 
 export async function getRedisClient() {
@@ -24,14 +32,15 @@ export async function getRedisClient() {
       const next = createClient({ url, socket: { connectTimeout: 5_000, reconnectStrategy: (retries) => Math.min(retries * 250, 3_000) } });
       next.on('error', (error) => {
         const quotaExceeded = suspendRedis(error);
-        console.warn(quotaExceeded
-          ? 'Redis request quota exceeded; using in-memory fallback for 6 hours.'
-          : `Redis connection error: ${error.message}`);
+        if (quotaExceeded) warnQuotaOnce();
+        else console.warn(`Redis connection error: ${error.message}`);
       });
       await next.connect();
       client = next as RedisClientType;
       console.log('Redis connected.');
-      retryAfter = 0;
+      // An Upstash quota error can arrive during connect. Do not clear the
+      // suspension that the error handler has just established.
+      if (retryAfter <= Date.now()) retryAfter = 0;
       return client;
     } catch (error) {
       console.warn('Redis unavailable; using in-memory fallback.', error);
@@ -55,8 +64,9 @@ export async function cacheGet<T>(key: string): Promise<T | null> {
     const raw = redis ? await redis.get(key) : readMemory(key);
     return raw ? JSON.parse(raw) as T : null;
   } catch (error) {
-    suspendRedis(error);
-    console.warn(`Cache read failed for ${key}.`, error);
+    const quotaExceeded = suspendRedis(error);
+    if (quotaExceeded) warnQuotaOnce();
+    else console.warn(`Cache read failed for ${key}.`, error);
     const raw = readMemory(key);
     return raw ? JSON.parse(raw) as T : null;
   }
@@ -67,8 +77,9 @@ export async function cacheSet(key: string, value: unknown, ttlMs: number) {
   memory.set(key, { value: raw, expiresAt: Date.now() + ttlMs });
   try { const redis = await getRedisClient(); if (redis) await redis.set(key, raw, { PX: ttlMs }); }
   catch (error) {
-    suspendRedis(error);
-    console.warn(`Cache write failed for ${key}; memory fallback remains active.`, error);
+    const quotaExceeded = suspendRedis(error);
+    if (quotaExceeded) warnQuotaOnce();
+    else console.warn(`Cache write failed for ${key}; memory fallback remains active.`, error);
   }
 }
 
@@ -76,8 +87,9 @@ export async function cacheDelete(key: string) {
   memory.delete(key);
   try { const redis = await getRedisClient(); if (redis) await redis.del(key); }
   catch (error) {
-    suspendRedis(error);
-    console.warn(`Cache delete failed for ${key}.`, error);
+    const quotaExceeded = suspendRedis(error);
+    if (quotaExceeded) warnQuotaOnce();
+    else console.warn(`Cache delete failed for ${key}.`, error);
   }
 }
 
