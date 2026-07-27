@@ -250,9 +250,28 @@ router.post('/reports', rateLimit(60 * 60 * 1000, 10), authenticateToken as any,
 // --- Helper Filter Routes ---
 router.get('/genres', async (_req: Request, res: Response) => {
   try {
+    const stored = await prisma.genre.findMany({
+      orderBy: { name: 'asc' },
+      select: { name: true, slug: true },
+    });
+    if (stored.length) {
+      res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400');
+      return res.json(stored);
+    }
     const raw = await fetchGenres();
     return res.json(extractMetaItems(raw));
   } catch (error: any) {
+    if (error instanceof KkphimError) {
+      try {
+        const stored = await prisma.genre.findMany({
+          orderBy: { name: 'asc' },
+          select: { name: true, slug: true },
+        });
+        return res.json(stored);
+      } catch (fallbackError) {
+        console.error('Database genre fallback failed.', fallbackError);
+      }
+    }
     const status = error instanceof KkphimError ? error.status : 500;
     return internalError(res, 'Error retrieving genres.', error, status);
   }
@@ -260,9 +279,28 @@ router.get('/genres', async (_req: Request, res: Response) => {
 
 router.get('/countries', async (_req: Request, res: Response) => {
   try {
+    const stored = await prisma.country.findMany({
+      orderBy: { name: 'asc' },
+      select: { name: true, slug: true },
+    });
+    if (stored.length) {
+      res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400');
+      return res.json(stored);
+    }
     const raw = await fetchCountries();
     return res.json(extractMetaItems(raw));
   } catch (error: any) {
+    if (error instanceof KkphimError) {
+      try {
+        const stored = await prisma.country.findMany({
+          orderBy: { name: 'asc' },
+          select: { name: true, slug: true },
+        });
+        return res.json(stored);
+      } catch (fallbackError) {
+        console.error('Database country fallback failed.', fallbackError);
+      }
+    }
     const status = error instanceof KkphimError ? error.status : 500;
     return internalError(res, 'Error retrieving countries.', error, status);
   }
