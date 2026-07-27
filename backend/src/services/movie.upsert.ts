@@ -17,16 +17,20 @@ const movieInclude = {
 };
 
 export function mapStoredMovie(movie: any): AppMovie {
+  const movieGenres = movie.movieGenres || [];
+  const movieActors = movie.movieActors || [];
+  const movieDirectors = movie.movieDirectors || [];
+  const episodes = movie.episodes || [];
   return {
     ...movie,
-    episodeCount: movie.episodes?.length || movie.episodeCount || 1,
+    episodeCount: episodes.length || movie.episodeCount || 1,
     country: movie.country ? { name: movie.country.name, slug: movie.country.slug } : null,
-    movieGenres: movie.movieGenres.map((item: any) => ({
+    movieGenres: movieGenres.map((item: any) => ({
       genre: { name: item.genre.name, slug: item.genre.slug },
     })),
-    movieActors: movie.movieActors.map((item: any) => ({ actor: { name: item.actor.name } })),
-    movieDirectors: movie.movieDirectors.map((item: any) => ({ director: { name: item.director.name } })),
-    episodes: movie.episodes.map((episode: any) => ({
+    movieActors: movieActors.map((item: any) => ({ actor: { name: item.actor.name } })),
+    movieDirectors: movieDirectors.map((item: any) => ({ director: { name: item.director.name } })),
+    episodes: episodes.map((episode: any) => ({
       id: episode.id,
       title: episode.title,
       episodeOrder: episode.episodeOrder,

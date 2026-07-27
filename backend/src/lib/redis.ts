@@ -6,6 +6,13 @@ let client: RedisClientType | null = null;
 let connecting: Promise<RedisClientType | null> | null = null;
 let retryAfter = 0;
 
+function suspendRedis(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  const quotaExceeded = /max requests limit exceeded/i.test(message);
+  retryAfter = Date.now() + (quotaExceeded ? 6 * 60 * 60 * 1000 : 30_000);
+  return quotaExceeded;
+}
+
 export async function getRedisClient() {
   const url = process.env.REDIS_URL?.trim();
   if (!url) return null;
@@ -15,7 +22,12 @@ export async function getRedisClient() {
   connecting = (async () => {
     try {
       const next = createClient({ url, socket: { connectTimeout: 5_000, reconnectStrategy: (retries) => Math.min(retries * 250, 3_000) } });
-      next.on('error', (error) => console.warn('Redis connection error:', error.message));
+      next.on('error', (error) => {
+        const quotaExceeded = suspendRedis(error);
+        console.warn(quotaExceeded
+          ? 'Redis request quota exceeded; using in-memory fallback for 6 hours.'
+          : `Redis connection error: ${error.message}`);
+      });
       await next.connect();
       client = next as RedisClientType;
       console.log('Redis connected.');
@@ -23,7 +35,7 @@ export async function getRedisClient() {
       return client;
     } catch (error) {
       console.warn('Redis unavailable; using in-memory fallback.', error);
-      retryAfter = Date.now() + 30_000;
+      suspendRedis(error);
       return null;
     } finally { connecting = null; }
   })();
@@ -43,6 +55,7 @@ export async function cacheGet<T>(key: string): Promise<T | null> {
     const raw = redis ? await redis.get(key) : readMemory(key);
     return raw ? JSON.parse(raw) as T : null;
   } catch (error) {
+    suspendRedis(error);
     console.warn(`Cache read failed for ${key}.`, error);
     const raw = readMemory(key);
     return raw ? JSON.parse(raw) as T : null;
@@ -53,13 +66,19 @@ export async function cacheSet(key: string, value: unknown, ttlMs: number) {
   const raw = JSON.stringify(value);
   memory.set(key, { value: raw, expiresAt: Date.now() + ttlMs });
   try { const redis = await getRedisClient(); if (redis) await redis.set(key, raw, { PX: ttlMs }); }
-  catch (error) { console.warn(`Cache write failed for ${key}; memory fallback remains active.`, error); }
+  catch (error) {
+    suspendRedis(error);
+    console.warn(`Cache write failed for ${key}; memory fallback remains active.`, error);
+  }
 }
 
 export async function cacheDelete(key: string) {
   memory.delete(key);
   try { const redis = await getRedisClient(); if (redis) await redis.del(key); }
-  catch (error) { console.warn(`Cache delete failed for ${key}.`, error); }
+  catch (error) {
+    suspendRedis(error);
+    console.warn(`Cache delete failed for ${key}.`, error);
+  }
 }
 
 export async function redisStatus() {

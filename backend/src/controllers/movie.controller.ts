@@ -8,7 +8,7 @@ import {
   KkphimError,
 } from '../services/kkphim.client';
 import { mapListItem, mapMovieDetail, extractListPagination } from '../services/kkphim.mapper';
-import { ensureMovieInDb } from '../services/movie.upsert';
+import { ensureMovieInDb, mapStoredMovie } from '../services/movie.upsert';
 import { internalError } from '../lib/http-error';
 import { hasVipAccess } from '../lib/vip';
 import { shapeMovieForViewer } from '../lib/vip-content';
@@ -21,6 +21,68 @@ function resolveTypeList(type?: string): string {
   if (type === 'hoathinh' || type === 'anime') return 'hoat-hinh';
   if (type === 'tvshows' || type === 'tv') return 'tv-shows';
   return 'phim-le';
+}
+
+const storedListInclude = {
+  country: true,
+  movieGenres: { include: { genre: true } },
+  movieActors: { include: { actor: true } },
+  movieDirectors: { include: { director: true } },
+};
+
+async function getStoredMoviePage(query: Request['query']) {
+  const page = Math.max(1, parseInt(String(query.page || '1'), 10) || 1);
+  const limit = Math.min(64, Math.max(1, parseInt(String(query.limit || '24'), 10) || 24));
+  const search = String(query.search || '').trim();
+  const type = String(query.type || '');
+  const genre = String(query.genre || '');
+  const country = String(query.country || '');
+  const year = parseInt(String(query.year || ''), 10);
+  const status = String(query.status || '');
+  const where: any = {};
+
+  if (search) where.OR = [
+    { title: { contains: search, mode: 'insensitive' } },
+    { englishTitle: { contains: search, mode: 'insensitive' } },
+    { slug: { contains: search, mode: 'insensitive' } },
+    { movieActors: { some: { actor: { name: { contains: search, mode: 'insensitive' } } } } },
+    { movieDirectors: { some: { director: { name: { contains: search, mode: 'insensitive' } } } } },
+  ];
+  const requestedGenre = genre || ((type === 'hoathinh' || type === 'anime') ? 'hoat-hinh' : '');
+  if (requestedGenre) where.movieGenres = { some: { genre: { slug: requestedGenre } } };
+  if (country) where.country = { slug: country };
+  if (Number.isFinite(year)) where.releaseYear = year;
+  if (type === 'series') where.isSeries = true;
+  if (type === 'movie') where.isSeries = false;
+  if (status) where.status = { equals: status, mode: 'insensitive' };
+  if (query.vip === 'true') where.isVip = true;
+  if (query.vip === 'false') where.isVip = false;
+  if (query.dubbed === 'true') where.isDubbed = true;
+
+  const orderBy = query.sortBy === 'views'
+    ? { views: 'desc' as const }
+    : query.sortBy === 'ratingAvg'
+      ? { ratingAvg: 'desc' as const }
+      : { updatedAt: 'desc' as const };
+  const [total, stored] = await prisma.$transaction([
+    prisma.movie.count({ where }),
+    prisma.movie.findMany({
+      where,
+      orderBy,
+      skip: (page - 1) * limit,
+      take: limit,
+      include: storedListInclude,
+    }),
+  ]);
+  return {
+    total,
+    page,
+    limit,
+    totalPages: Math.max(1, Math.ceil(total / limit)),
+    movies: stored.map(mapStoredMovie),
+    partial: true,
+    source: 'database',
+  };
 }
 
 async function viewerCanAccessVip(req: Request): Promise<boolean> {
@@ -139,6 +201,14 @@ export const getMovies = async (req: Request, res: Response) => {
       movies,
     });
   } catch (error: any) {
+    if (error instanceof KkphimError) {
+      try {
+        console.warn('KKPhim catalog unavailable; serving movies from database.');
+        return res.json(await getStoredMoviePage(req.query));
+      } catch (fallbackError) {
+        console.error('Database movie fallback failed.', fallbackError);
+      }
+    }
     const status = error instanceof KkphimError ? error.status : 500;
     return internalError(res, 'Error retrieving movies.', error, status);
   }
@@ -420,6 +490,48 @@ export const getHome = async (_req: Request, res: Response) => {
       partial: failures.length > 0,
     });
   } catch (error: any) {
+    if (error instanceof KkphimError) {
+      try {
+        const stored = await prisma.movie.findMany({
+          orderBy: { updatedAt: 'desc' },
+          take: 48,
+          include: storedListInclude,
+        });
+        const movies = stored.map(mapStoredMovie);
+        const byViews = [...movies].sort((a, b) => Number(b.views) - Number(a.views));
+        const byRating = [...movies].sort((a, b) => Number(b.ratingAvg) - Number(a.ratingAvg));
+        const countryMovies = (slug: string) => movies.filter((movie) => movie.country?.slug === slug).slice(0, 12);
+        console.warn('KKPhim home unavailable; serving home payload from database.');
+        res.setHeader('Cache-Control', 'public, max-age=30, s-maxage=30, stale-while-revalidate=300');
+        return res.json({
+          banners: movies.slice(0, 8).map((movie, index) => ({
+            id: `db-banner-${movie.slug}`,
+            title: movie.title,
+            description: movie.description || movie.englishTitle || movie.title,
+            imageUrl: movie.backdropUrl || movie.posterUrl,
+            order: index,
+            isActive: true,
+            movie,
+          })),
+          trending: byViews.slice(0, 12).map((movie, index) => ({
+            ...movie,
+            isTrending: true,
+            isFeatured: index < 3,
+          })),
+          proposed: byRating.slice(0, 12).map((movie) => ({ ...movie, isProposed: true })),
+          movies: movies.slice(0, 24),
+          countries: {
+            china: countryMovies('trung-quoc'),
+            korea: countryMovies('han-quoc'),
+            vietnam: countryMovies('viet-nam'),
+          },
+          partial: true,
+          source: 'database',
+        });
+      } catch (fallbackError) {
+        console.error('Database home fallback failed.', fallbackError);
+      }
+    }
     res.setHeader('Cache-Control', 'no-store');
     const status = error instanceof KkphimError ? error.status : 500;
     return internalError(res, 'Error retrieving home movies.', error, status);
