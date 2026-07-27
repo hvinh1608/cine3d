@@ -157,7 +157,11 @@ export const getMovies = async (req: Request, res: Response) => {
           sort_field: sortBy === 'views' ? 'view' : sortBy === 'ratingAvg' ? 'tmdb.vote_average' : 'modified.time',
           sort_type: 'desc',
         });
-      } catch {
+      } catch (error) {
+        if (error instanceof KkphimError) {
+          warnCatalogFallback();
+          return res.json(await getStoredMoviePage(req.query));
+        }
         raw = null;
       }
     } else if (genre || country || year || type) {
