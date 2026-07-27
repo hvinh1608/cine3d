@@ -122,7 +122,18 @@ async function syncMovie(slug: string): Promise<AppMovie> {
     return mapStoredMovie(existing);
   }
 
-  const raw = await fetchMovieDetail(slug);
+  let raw;
+  try {
+    raw = await fetchMovieDetail(slug);
+  } catch (error) {
+    // A stored movie remains usable when KKPhim is temporarily unavailable.
+    // This also prevents the detail controller from fetching the same slug again.
+    if (existing) {
+      console.warn(`KKPhim sync failed for ${slug}; serving stored movie.`);
+      return mapStoredMovie(existing);
+    }
+    throw error;
+  }
   if (!raw?.status || !raw?.movie) {
     throw new Error(`Movie not found on KKPhim: ${slug}`);
   }

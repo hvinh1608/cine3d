@@ -214,6 +214,11 @@ export const getMovieBySlug = async (req: Request, res: Response) => {
         // Continue to the normal upstream fallback and preserve the original 404.
       }
     }
+    // ensureMovieInDb already requested this slug. Retrying the identical
+    // upstream call here doubles traffic during a KKPhim outage.
+    if (error instanceof KkphimError) {
+      return internalError(res, 'Error retrieving movie details.', error, error.status);
+    }
     // Fallback: return KKPhim detail without DB if upsert fails
     try {
       const raw = await fetchMovieDetail(slug);
