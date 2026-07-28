@@ -5,6 +5,7 @@ process.env.KKPHIM_CACHE_TTL_MS = '1';
 process.env.KKPHIM_STALE_CACHE_TTL_MS = '1000';
 process.env.KKPHIM_RETRY_BASE_DELAY_MS = '1';
 process.env.KKPHIM_CIRCUIT_FAILURE_THRESHOLD = '100';
+process.env.POSTGRES_CACHE_ENABLED = 'false';
 
 test('searchMovies forwards filters and serves stale data during an upstream outage', async () => {
   const originalFetch = global.fetch;

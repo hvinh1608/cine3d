@@ -7,6 +7,15 @@ generator client {
   provider = "prisma-client-js"
 }
 
+model CacheEntry {
+  key       String   @id
+  value     Json
+  expiresAt DateTime
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+}
+
 model Role {
   id        String   @id @default(uuid())
   name      String   @unique // e.g. "USER", "ADMIN"

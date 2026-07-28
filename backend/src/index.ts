@@ -13,7 +13,7 @@ import { sendPushToUsers } from './services/push.service';
 import { checkDueVideoSources } from './services/source-health.service';
 import { decodeAccessToken } from './middleware/auth';
 import { hasVipAccess } from './lib/vip';
-import { cacheDelete, cacheSet, closeRedis, redisStatus } from './lib/redis';
+import { cacheDelete, cacheSet, cacheStatus } from './lib/cache';
 import { issueRoomAccessToken, verifyRoomAccessToken } from './lib/watch-room-token';
 import { ensureAppVersionPolicies } from './lib/app-version-policy';
 
@@ -82,7 +82,7 @@ app.use('/api', apiRouter);
 app.get('/health', async (_req, res) => {
   try {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ status: 'OK', database: 'connected', redis: await redisStatus(), timestamp: new Date() });
+    res.json({ status: 'OK', database: 'connected', cache: cacheStatus(), timestamp: new Date() });
   } catch (error) {
     console.error('Database health check failed.', error);
     res.status(503).json({ status: 'ERROR', database: 'unavailable', timestamp: new Date() });
@@ -367,8 +367,7 @@ async function shutdown(signal: string) {
   hostTransferTimers.clear();
   server.close(async () => {
     io.close();
-    await closeRedis();
-    await prisma.$disconnect();
+  await prisma.$disconnect();
     process.exit(0);
   });
   setTimeout(() => process.exit(1), 10_000).unref();

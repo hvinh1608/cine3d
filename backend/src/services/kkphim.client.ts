@@ -1,4 +1,4 @@
-import { cacheGet, cacheSet } from '../lib/redis';
+import { cacheGet, cacheSet } from '../lib/cache';
 
 const BASE_URL = (process.env.KKPHIM_API_URL || 'https://phimapi.com').replace(/\/$/, '');
 const DEFAULT_CDN = 'https://phimimg.com';
