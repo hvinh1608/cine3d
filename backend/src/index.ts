@@ -30,6 +30,7 @@ const allowedOrigins = new Set([
     .map((origin) => origin.trim())
     .filter(Boolean),
 ]);
+class CorsOriginError extends Error {}
 
 // Global Middlewares
 app.use(helmet());
@@ -39,7 +40,7 @@ app.use(
     origin(origin, callback) {
       // Requests without an Origin are server-to-server/health checks.
       if (!origin || allowedOrigins.has(origin)) return callback(null, true);
-      return callback(new Error(`Origin ${origin} is not allowed by CORS.`));
+      return callback(new CorsOriginError(`Origin ${origin} is not allowed by CORS.`));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -95,6 +96,9 @@ app.use((req, res) => {
 
 // Error handling middleware
 app.use((err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  if (err instanceof CorsOriginError) {
+    return res.status(403).json({ message: 'Origin is not allowed by CORS.' });
+  }
   console.error('Unhandled error:', err);
   const details = err instanceof Error ? err.message : String(err);
   res.status(500).json({

@@ -73,8 +73,9 @@ export default function QrLoginPanel({ compact = false }: { compact?: boolean })
   }, [cancelCurrent]);
 
   useEffect(() => {
-    void createSession();
+    const timer = window.setTimeout(() => void createSession(), 0);
     return () => {
+      window.clearTimeout(timer);
       void cancelCurrent();
     };
   }, [cancelCurrent, createSession]);

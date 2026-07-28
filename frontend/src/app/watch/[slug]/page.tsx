@@ -118,7 +118,10 @@ function WatchPageContent() {
   const autoplayAttemptedSourceRef = useRef<string | null>(null);
   const historyResumedEpisodeRef = useRef<string | null>(null);
   const dataSaverRef = useRef(dataSaver);
-  dataSaverRef.current = dataSaver;
+
+  useEffect(() => {
+    dataSaverRef.current = dataSaver;
+  }, [dataSaver]);
 
   useEffect(() => {
     try {
@@ -457,7 +460,7 @@ function WatchPageContent() {
     if (!dataSaver) return;
     const lowest = qualities.reduce((best, level) => (level.bitrate < best.bitrate ? level : best), qualities[0]);
     hls.currentLevel = lowest.index;
-    setCurrentQualityIndex(lowest.index);
+    queueMicrotask(() => setCurrentQualityIndex(lowest.index));
   }, [dataSaver, qualities]);
   const nextEpisode = movie?.episodes
     ?.filter((episode) => episode.episodeOrder > (activeEpisode?.episodeOrder || 0))

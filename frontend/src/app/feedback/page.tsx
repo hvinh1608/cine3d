@@ -26,7 +26,7 @@ export default function FeedbackPage() {
       const urlParams = new URLSearchParams(window.location.search);
       const catParam = urlParams.get('category');
       if (catParam && categories.some(([val]) => val === catParam)) {
-        setCategory(catParam);
+        queueMicrotask(() => setCategory(catParam));
       }
     }
   }, []);

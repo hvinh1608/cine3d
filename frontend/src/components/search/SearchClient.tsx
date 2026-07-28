@@ -78,7 +78,7 @@ function SearchPageRoute({ initialData }: { initialData: SearchInitialData }) {
 function SearchPageContent({ initialData }: { initialData: SearchInitialData }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { favoriteIds, user, showToast } = useStore();
+  const { favoriteIds } = useStore();
 
   const initialQuery = searchParams.get('q') || '';
   const [draftQuery, setDraftQuery] = useState(initialQuery);
