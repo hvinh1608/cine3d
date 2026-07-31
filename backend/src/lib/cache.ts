@@ -4,7 +4,10 @@ import { prisma } from './prisma';
 type MemoryEntry = { value: unknown; expiresAt: number };
 const memory = new Map<string, MemoryEntry>();
 const MAX_MEMORY_ENTRIES = 500;
-const databaseCacheEnabled = process.env.POSTGRES_CACHE_ENABLED !== 'false';
+// Shared cache payloads can grow quickly and are disposable. Keep them in
+// process memory by default so small/free PostgreSQL instances are reserved
+// for durable application data. Deployments can opt in explicitly.
+const databaseCacheEnabled = process.env.POSTGRES_CACHE_ENABLED === 'true';
 let nextCleanupAt = 0;
 let lastWarningAt = 0;
 

@@ -2,6 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 test('PostgreSQL cache keeps hot values in memory and honors TTL', async () => {
+  const previousCacheSetting = process.env.POSTGRES_CACHE_ENABLED;
+  process.env.POSTGRES_CACHE_ENABLED = 'true';
   const { prisma } = require('../dist/lib/prisma');
   const delegate = prisma.cacheEntry;
   const originals = {
@@ -44,5 +46,7 @@ test('PostgreSQL cache keeps hot values in memory and honors TTL', async () => {
     assert.equal(await cacheGet('test:ttl'), null);
   } finally {
     Object.assign(delegate, originals);
+    if (previousCacheSetting === undefined) delete process.env.POSTGRES_CACHE_ENABLED;
+    else process.env.POSTGRES_CACHE_ENABLED = previousCacheSetting;
   }
 });
