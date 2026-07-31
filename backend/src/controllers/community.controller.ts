@@ -4,7 +4,7 @@ import { AuthenticatedRequest } from '../middleware/auth';
 import { internalError } from '../lib/http-error';
 import { hasVipAccess } from '../lib/vip';
 
-function publicCommentUser(user: { id: string; username: string; avatar: string | null; isVip: boolean; vipExpiresAt: Date | null; role?: { name: string } | string }) {
+function publicCommentUser(user: { id: string; username: string; avatar: string | null; isVip: boolean; vipStartsAt?: Date | null; vipExpiresAt: Date | null; role?: { name: string } | string }) {
   return { id: user.id, username: user.username, avatar: user.avatar, isVip: hasVipAccess(user) };
 }
 
@@ -16,7 +16,7 @@ export const getCommunityHome = async (_req: AuthenticatedRequest, res: Response
         orderBy: [{ commentLikes: { _count: 'desc' } }, { createdAt: 'desc' }],
         take: 8,
         include: {
-          user: { select: { id: true, username: true, avatar: true, isVip: true, vipExpiresAt: true } },
+          user: { select: { id: true, username: true, avatar: true, isVip: true, vipStartsAt: true, vipExpiresAt: true } },
           commentLikes: { select: { id: true } },
         },
       }),
@@ -25,7 +25,7 @@ export const getCommunityHome = async (_req: AuthenticatedRequest, res: Response
         orderBy: { createdAt: 'desc' },
         take: 6,
         include: {
-          user: { select: { id: true, username: true, avatar: true, isVip: true, vipExpiresAt: true } },
+          user: { select: { id: true, username: true, avatar: true, isVip: true, vipStartsAt: true, vipExpiresAt: true } },
           commentLikes: { select: { id: true } },
         },
       }),
@@ -78,12 +78,12 @@ export const getComments = async (req: AuthenticatedRequest, res: Response) => {
       take: 50,
       include: {
         user: {
-          select: { id: true, username: true, avatar: true, isVip: true, vipExpiresAt: true, role: { select: { name: true } } },
+          select: { id: true, username: true, avatar: true, isVip: true, vipStartsAt: true, vipExpiresAt: true, role: { select: { name: true } } },
         },
         replies: {
           include: {
             user: {
-              select: { id: true, username: true, avatar: true, isVip: true, vipExpiresAt: true, role: { select: { name: true } } },
+              select: { id: true, username: true, avatar: true, isVip: true, vipStartsAt: true, vipExpiresAt: true, role: { select: { name: true } } },
             },
             commentLikes: { select: { userId: true } },
           },
@@ -178,7 +178,7 @@ export const createComment = async (req: AuthenticatedRequest, res: Response) =>
       },
       include: {
         user: {
-          select: { id: true, username: true, avatar: true, isVip: true, vipExpiresAt: true, role: { select: { name: true } } },
+          select: { id: true, username: true, avatar: true, isVip: true, vipStartsAt: true, vipExpiresAt: true, role: { select: { name: true } } },
         },
       },
     });

@@ -88,7 +88,7 @@ async function persistVerifiedPurchase(userId: string, verified: VerifiedPlayPur
       const user = await tx.user.findUnique({ where: { id: userId }, select: { vipExpiresAt: true } });
       if (!user) throw new Error('USER_NOT_FOUND');
       const vipExpiresAt = mergeVipExpiry(user.vipExpiresAt, verified.expiryTime);
-      await tx.user.update({ where: { id: userId }, data: { vipExpiresAt } });
+      await tx.user.update({ where: { id: userId }, data: { vipStartsAt: null, vipExpiresAt } });
     }
     return purchase;
   });

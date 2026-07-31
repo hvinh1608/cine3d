@@ -114,7 +114,7 @@ io.use(async (socket, next) => {
   if (!token) return next(new Error('AUTH_REQUIRED'));
   try {
     const decoded = decodeAccessToken(token);
-    const user = await prisma.user.findUnique({ where: { id: decoded.id }, select: { id: true, username: true, isVip: true, vipExpiresAt: true, isLocked: true, role: { select: { name: true } } } });
+    const user = await prisma.user.findUnique({ where: { id: decoded.id }, select: { id: true, username: true, isVip: true, vipStartsAt: true, vipExpiresAt: true, isLocked: true, role: { select: { name: true } } } });
     if (!user || user.isLocked) return next(new Error('ACCOUNT_UNAVAILABLE'));
     socket.data.user = { id: user.id, username: user.username, canAccessVip: hasVipAccess(user) };
     return next();

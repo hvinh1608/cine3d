@@ -584,6 +584,7 @@ export const getUsers = async (req: Request, res: Response) => {
         isVerified: true,
         isLocked: true,
         isVip: true,
+        vipStartsAt: true,
         vipExpiresAt: true,
         createdAt: true,
         updatedAt: true,
@@ -632,14 +633,34 @@ export const toggleUserVip = async (req: Request, res: Response) => {
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) return res.status(404).json({ message: 'User not found.' });
 
+    const mode = req.body?.mode;
+    let data: { isVip: boolean; vipStartsAt: Date | null; vipExpiresAt: Date | null };
+    if (mode === 'scheduled') {
+      const vipStartsAt = new Date(req.body.startsAt);
+      const vipExpiresAt = new Date(req.body.expiresAt);
+      if (Number.isNaN(vipStartsAt.getTime()) || Number.isNaN(vipExpiresAt.getTime()) || vipExpiresAt <= vipStartsAt) {
+        return res.status(400).json({ message: 'Thời gian VIP không hợp lệ; ngày kết thúc phải sau ngày bắt đầu.' });
+      }
+      data = { isVip: false, vipStartsAt, vipExpiresAt };
+    } else if (mode === 'permanent') {
+      data = { isVip: true, vipStartsAt: null, vipExpiresAt: null };
+    } else if (mode === 'none') {
+      data = { isVip: false, vipStartsAt: null, vipExpiresAt: null };
+    } else {
+      // Backward compatibility for older admin clients.
+      data = user.isVip || user.vipExpiresAt
+        ? { isVip: false, vipStartsAt: null, vipExpiresAt: null }
+        : { isVip: true, vipStartsAt: null, vipExpiresAt: null };
+    }
     const updatedUser = await prisma.user.update({
       where: { id },
-      data: { isVip: !user.isVip },
+      data,
+      select: { id: true, isVip: true, vipStartsAt: true, vipExpiresAt: true },
     });
 
     return res.json({
-      message: updatedUser.isVip ? 'User upgraded to VIP successfully.' : 'User downgraded from VIP successfully.',
-      isVip: updatedUser.isVip,
+      message: mode === 'scheduled' ? 'Đã lưu thời gian VIP.' : mode === 'permanent' ? 'Đã cấp VIP vĩnh viễn.' : mode === 'none' ? 'Đã gỡ VIP.' : updatedUser.isVip ? 'User upgraded to VIP successfully.' : 'User downgraded from VIP successfully.',
+      user: updatedUser,
     });
   } catch (error: any) {
     return internalError(res, 'Error toggling user VIP status.', error);

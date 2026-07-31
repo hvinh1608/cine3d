@@ -35,6 +35,7 @@ model User {
   isVerified               Boolean   @default(false)
   isLocked                 Boolean   @default(false)
   isVip                    Boolean   @default(false)
+  vipStartsAt              DateTime?
   vipExpiresAt             DateTime?
   playerPreferences        Json?
   passwordResetToken       String?
@@ -78,6 +79,7 @@ model User {
   @@index([emailVerificationToken])
   @@index([roleId])
   @@index([isVip])
+  @@index([vipStartsAt])
   @@index([vipExpiresAt])
 }
 

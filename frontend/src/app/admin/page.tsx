@@ -19,7 +19,7 @@ type AdminMovie = {
   isFeatured: boolean; isTrending: boolean; isProposed: boolean; isVip: boolean; vipEarlyAccessUntil?: string | null; episodeCount: number;
   episodes: AdminEpisode[]; movieGenres: { genreId: string }[];
 };
-type AdminUser = { id: string; email: string; username: string; isLocked: boolean; isVip: boolean; vipExpiresAt?: string | null; role?: { name: string } };
+type AdminUser = { id: string; email: string; username: string; isLocked: boolean; isVip: boolean; vipStartsAt?: string | null; vipExpiresAt?: string | null; role?: { name: string } };
 type AdminReport = { id: string; type: string; content: string; status: string; createdAt: string; user?: { username: string }; movie?: { title: string } | null };
 type AdminVipOrder = { id: string; orderCode: string; status: string; amount: number; durationDays: number; createdAt: string; paidAt?: string | null; user?: { username: string; email: string }; plan?: { name: string } };
 type AdminFeedback = { id: string; category: string; subject: string; content: string; status: string; adminReply?: string | null; createdAt: string; user?: { username: string; email: string } };
@@ -39,7 +39,12 @@ type AppVersionPolicy = {
   updatedAt?: string;
 };
 
-const isUserVipActive = (user: AdminUser) => Boolean(user.isVip || (user.vipExpiresAt && new Date(user.vipExpiresAt).getTime() > Date.now()));
+const isUserVipActive = (user: AdminUser) => {
+  const now = Date.now();
+  if (user.vipStartsAt && new Date(user.vipStartsAt).getTime() > now) return false;
+  return user.vipExpiresAt ? new Date(user.vipExpiresAt).getTime() > now : user.isVip;
+};
+const localDateTime = (value?: string | null) => value ? new Date(value).toISOString().slice(0, 16) : '';
 const requestMessage = (error: unknown, fallback: string) =>
   localizeApiMessage((error as AxiosError<{ message?: string }>).response?.data?.message || fallback, fallback);
 
@@ -137,6 +142,7 @@ export default function AdminPage() {
   const [movieTotal, setMovieTotal] = useState(0);
   const [movieTotalPages, setMovieTotalPages] = useState(1);
   const [users, setUsers] = useState<AdminUser[]>([]);
+  const [vipEditor, setVipEditor] = useState<{ user: AdminUser; mode: 'none' | 'scheduled' | 'permanent'; startsAt: string; expiresAt: string } | null>(null);
   const [reports, setReports] = useState<AdminReport[]>([]);
   const [vipOrders, setVipOrders] = useState<AdminVipOrder[]>([]);
   const [feedback, setFeedback] = useState<AdminFeedback[]>([]);
@@ -568,13 +574,23 @@ export default function AdminPage() {
     }
   };
 
-  const handleToggleVip = async (userId: string) => {
+  const openVipEditor = (target: AdminUser) => {
+    const mode = target.isVip && !target.vipExpiresAt ? 'permanent' : target.vipExpiresAt ? 'scheduled' : 'none';
+    setVipEditor({ user: target, mode, startsAt: localDateTime(target.vipStartsAt) || localDateTime(new Date().toISOString()), expiresAt: localDateTime(target.vipExpiresAt) });
+  };
+
+  const handleSaveVip = async () => {
+    if (!vipEditor) return;
     try {
-      const res = await axios.put(`${API_URL}/admin/users/${userId}/vip`, {}, {
+      const payload = vipEditor.mode === 'scheduled'
+        ? { mode: vipEditor.mode, startsAt: new Date(vipEditor.startsAt).toISOString(), expiresAt: new Date(vipEditor.expiresAt).toISOString() }
+        : { mode: vipEditor.mode };
+      const res = await axios.put(`${API_URL}/admin/users/${vipEditor.user.id}/vip`, payload, {
         headers: { Authorization: `Bearer ${accessToken}` }
       });
       showToast(res.data.message, 'success');
-      loadAdminData();
+      setVipEditor(null);
+      await loadAdminData();
     } catch (error) {
       showToast(requestMessage(error, 'Không thể thay đổi trạng thái VIP.'), 'error');
     }
@@ -649,6 +665,35 @@ export default function AdminPage() {
 
   return (
     <div className="flex-grow w-full max-w-7xl mx-auto px-4 md:px-8 py-10 flex flex-col md:flex-row gap-8 text-slate-100 select-none text-left">
+      {vipEditor && (
+        <div className="fixed inset-0 z-[100] grid place-items-center bg-black/75 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-white/10 bg-[#20222d] p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div><h2 className="text-lg font-black text-amber-300">Quản lý VIP</h2><p className="mt-1 text-xs text-slate-400">{vipEditor.user.username} · {vipEditor.user.email}</p></div>
+              <button type="button" onClick={() => setVipEditor(null)} className="rounded-lg p-2 hover:bg-white/10"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="mt-5 grid grid-cols-3 gap-2">
+              {([['none', 'Tài khoản thường'], ['scheduled', 'Theo thời gian'], ['permanent', 'Vĩnh viễn']] as const).map(([mode, label]) => (
+                <button key={mode} type="button" onClick={() => setVipEditor((current) => current ? { ...current, mode } : current)} className={`rounded-xl border px-2 py-2 text-[11px] font-bold ${vipEditor.mode === mode ? 'border-amber-300 bg-amber-300/15 text-amber-200' : 'border-white/10 text-slate-400'}`}>{label}</button>
+              ))}
+            </div>
+            {vipEditor.mode === 'scheduled' && (
+              <div className="mt-5 grid gap-4 sm:grid-cols-2">
+                <label className="text-xs font-bold text-slate-300">Bắt đầu
+                  <input type="datetime-local" value={vipEditor.startsAt} onChange={(event) => setVipEditor((current) => current ? { ...current, startsAt: event.target.value } : current)} className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-xs outline-none focus:border-amber-300" />
+                </label>
+                <label className="text-xs font-bold text-slate-300">Kết thúc
+                  <input type="datetime-local" value={vipEditor.expiresAt} onChange={(event) => setVipEditor((current) => current ? { ...current, expiresAt: event.target.value } : current)} className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-xs outline-none focus:border-amber-300" />
+                </label>
+              </div>
+            )}
+            <div className="mt-6 flex justify-end gap-2">
+              <button type="button" onClick={() => setVipEditor(null)} className="rounded-xl border border-white/10 px-4 py-2 text-xs font-bold text-slate-400">Hủy</button>
+              <button type="button" onClick={() => void handleSaveVip()} disabled={vipEditor.mode === 'scheduled' && (!vipEditor.startsAt || !vipEditor.expiresAt)} className="rounded-xl bg-amber-300 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-40">Lưu VIP</button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Sidebar Navigation */}
       <div className="w-full md:w-64 shrink-0 flex flex-col space-y-2">
@@ -1596,7 +1641,7 @@ export default function AdminPage() {
                         {u.role?.name !== 'ADMIN' ? (
                           <>
                             <button
-                              onClick={() => handleToggleVip(u.id)}
+                              onClick={() => openVipEditor(u)}
                               className={`px-3 py-1 rounded-lg text-xs font-black transition-colors cursor-pointer ${
                                 isUserVipActive(u)
                                   ? 'bg-amber-500/20 text-amber-500 border border-amber-500/20 hover:bg-amber-500 hover:text-white'
@@ -1606,7 +1651,8 @@ export default function AdminPage() {
                               <Star className="w-3 h-3 inline mr-1" />
                               {isUserVipActive(u) ? 'VIP' : 'Thường'}
                             </button>
-                            {u.vipExpiresAt && <span className="ml-2 text-[9px] text-slate-500">đến {new Date(u.vipExpiresAt).toLocaleDateString('vi-VN')}</span>}
+                            {u.vipStartsAt && new Date(u.vipStartsAt).getTime() > Date.now() && <span className="ml-2 text-[9px] text-cyan-400">từ {new Date(u.vipStartsAt).toLocaleString('vi-VN')}</span>}
+                            {u.vipExpiresAt && <span className="ml-2 text-[9px] text-slate-500">đến {new Date(u.vipExpiresAt).toLocaleString('vi-VN')}</span>}
                           </>
                         ) : (
                           <span className="text-[10px] text-amber-400 font-extrabold uppercase flex items-center">

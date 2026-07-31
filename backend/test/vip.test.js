@@ -11,6 +11,13 @@ test('hasVipAccess supports permanent and time-limited VIP while denying locked 
   assert.equal(hasVipAccess({ isVip: true, vipExpiresAt: null, isLocked: true }, now), false);
 });
 
+test('hasVipAccess honors scheduled VIP start and expiry', () => {
+  const now = new Date('2026-08-01T12:00:00.000Z');
+  assert.equal(hasVipAccess({ isVip: false, vipStartsAt: new Date('2026-08-02T00:00:00.000Z'), vipExpiresAt: new Date('2026-08-10T00:00:00.000Z') }, now), false);
+  assert.equal(hasVipAccess({ isVip: false, vipStartsAt: new Date('2026-08-01T00:00:00.000Z'), vipExpiresAt: new Date('2026-08-10T00:00:00.000Z') }, now), true);
+  assert.equal(hasVipAccess({ isVip: true, vipStartsAt: null, vipExpiresAt: new Date('2026-07-31T00:00:00.000Z') }, now), false);
+});
+
 test('extendVipExpiry stacks new time on an active subscription', () => {
   const now = new Date('2026-07-14T00:00:00.000Z');
   const current = new Date('2026-08-13T00:00:00.000Z');

@@ -1,5 +1,6 @@
 export type VipAccessUser = {
   isVip: boolean;
+  vipStartsAt?: Date | null;
   vipExpiresAt: Date | null;
   isLocked?: boolean;
   role?: { name: string } | string;
@@ -9,7 +10,9 @@ export function hasVipAccess(user: VipAccessUser | null | undefined, now = new D
   if (!user || user.isLocked) return false;
   const roleName = typeof user.role === 'object' ? user.role?.name : user.role;
   if (roleName === 'ADMIN') return true;
-  return user.isVip || (user.vipExpiresAt !== null && user.vipExpiresAt.getTime() > now.getTime());
+  if (user.vipStartsAt && user.vipStartsAt.getTime() > now.getTime()) return false;
+  if (user.vipExpiresAt) return user.vipExpiresAt.getTime() > now.getTime();
+  return user.isVip;
 }
 
 export function extendVipExpiry(currentExpiry: Date | null, durationDays: number, now = new Date()): Date {

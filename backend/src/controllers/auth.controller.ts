@@ -132,6 +132,7 @@ type SessionUser = {
   username: string;
   avatar: string | null;
   isVip: boolean;
+  vipStartsAt: Date | null;
   vipExpiresAt: Date | null;
   role: { name: string };
 };
@@ -194,6 +195,7 @@ async function createSession(user: SessionUser, req: AuthenticatedRequest) {
       ...payload,
       avatar: user.avatar,
       isVip: hasVipAccess(user),
+      vipStartsAt: user.vipStartsAt,
       vipExpiresAt: user.vipExpiresAt,
     },
   };
@@ -689,6 +691,7 @@ export const refresh = async (req: AuthenticatedRequest, res: Response) => {
         avatar: storedToken.user.avatar,
         role: storedToken.user.role.name,
         isVip: hasVipAccess(storedToken.user),
+        vipStartsAt: storedToken.user.vipStartsAt,
         vipExpiresAt: storedToken.user.vipExpiresAt,
       },
     }, refreshToken));
@@ -727,6 +730,7 @@ export const getProfile = async (req: AuthenticatedRequest, res: Response) => {
         avatar: true,
         isVerified: true,
         isVip: true,
+        vipStartsAt: true,
         vipExpiresAt: true,
         role: { select: { name: true } },
       },
@@ -744,6 +748,7 @@ export const getProfile = async (req: AuthenticatedRequest, res: Response) => {
         avatar: user.avatar,
         isVerified: user.isVerified,
         isVip: hasVipAccess(user),
+        vipStartsAt: user.vipStartsAt,
         vipExpiresAt: user.vipExpiresAt,
         role: user.role.name,
       },

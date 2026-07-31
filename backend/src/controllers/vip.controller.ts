@@ -136,7 +136,7 @@ export const getMyVipOrders = async (req: AuthenticatedRequest, res: Response) =
       }),
       prisma.user.findUnique({
         where: { id: req.user.id },
-        select: { isVip: true, vipExpiresAt: true, isLocked: true, role: { select: { name: true } } },
+        select: { isVip: true, vipStartsAt: true, vipExpiresAt: true, isLocked: true, role: { select: { name: true } } },
       }),
     ]);
     return res.json({
@@ -208,7 +208,7 @@ export const confirmVipOrder = async (req: AuthenticatedRequest, res: Response) 
       if (!order) return { changed: false, order: null, vipExpiresAt: null as Date | null };
 
       const vipExpiresAt = extendVipExpiry(order.user.vipExpiresAt, order.durationDays, now);
-      await tx.user.update({ where: { id: order.userId }, data: { vipExpiresAt } });
+      await tx.user.update({ where: { id: order.userId }, data: { vipStartsAt: null, vipExpiresAt } });
       await tx.notification.create({
         data: {
           userId: order.userId,
@@ -268,7 +268,7 @@ export const handlePayosWebhook = async (req: AuthenticatedRequest, res: Respons
       });
       if (!claimed.count) return;
       const vipExpiresAt = extendVipExpiry(order.user.vipExpiresAt, order.durationDays, now);
-      await tx.user.update({ where: { id: order.userId }, data: { vipExpiresAt } });
+      await tx.user.update({ where: { id: order.userId }, data: { vipStartsAt: null, vipExpiresAt } });
       await tx.notification.create({
         data: { userId: order.userId, title: 'Nâng cấp VIP thành công', message: `Thanh toán ${order.orderCode} đã được xác nhận tự động qua payOS.`, url: '/vip' },
       });

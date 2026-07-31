@@ -127,7 +127,7 @@ export const createDownloadEntitlement = async (req: AuthenticatedRequest, res: 
     const [user, source] = await Promise.all([
       prisma.user.findUnique({
         where: { id: req.user.id },
-        select: { isVip: true, vipExpiresAt: true, isLocked: true, role: { select: { name: true } } },
+        select: { isVip: true, vipStartsAt: true, vipExpiresAt: true, isLocked: true, role: { select: { name: true } } },
       }),
       prisma.videoSource.findFirst({
         where: { id: sourceId, episodeId },
