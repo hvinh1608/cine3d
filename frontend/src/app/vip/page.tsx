@@ -297,7 +297,9 @@ export default function VipPage() {
         {user?.isVip && (
           <div className="relative z-10 mt-7 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
             <ShieldCheck className="h-4 w-4" />
-            VIP đang hoạt động{vipExpiresAt ? ` đến ${new Date(vipExpiresAt).toLocaleDateString('vi-VN')}` : ' vĩnh viễn'}
+            {user.role === 'ADMIN'
+              ? 'Quyền Premium dành cho Admin'
+              : `VIP đang hoạt động${vipExpiresAt ? ` đến ${new Date(vipExpiresAt).toLocaleDateString('vi-VN')}` : ' vĩnh viễn'}`}
           </div>
         )}
       </section>
