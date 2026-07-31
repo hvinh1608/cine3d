@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { fetchMovieDetail } from './kkphim.client';
-import { mapMovieDetail, AppMovie } from './kkphim.mapper';
+import { mapMovieDetail, inferSeasonNumber, AppMovie } from './kkphim.mapper';
 
 const MOVIE_SYNC_TTL_MS = Number(process.env.MOVIE_SYNC_TTL_MS) || 15 * 60 * 1000;
 const pendingSyncs = new Map<string, Promise<AppMovie>>();
@@ -22,6 +22,7 @@ export function mapStoredMovie(movie: any): AppMovie {
   const movieActors = movie.movieActors || [];
   const movieDirectors = movie.movieDirectors || [];
   const episodes = movie.episodes || [];
+  const inferredSeasonNumber = inferSeasonNumber(movie.slug, movie.title, movie.englishTitle);
   return {
     ...movie,
     episodeCount: episodes.length || movie.episodeCount || 1,
@@ -35,6 +36,7 @@ export function mapStoredMovie(movie: any): AppMovie {
       id: episode.id,
       title: episode.title,
       episodeOrder: episode.episodeOrder,
+      seasonNumber: episode.seasonNumber > 1 ? episode.seasonNumber : inferredSeasonNumber,
       videoSources: episode.videoSources.map((source: any) => ({
         id: source.id,
         server: source.server,
@@ -89,11 +91,12 @@ async function syncEpisodes(db: Prisma.TransactionClient, movieId: string, episo
   for (const ep of episodes) {
     const stored = await db.episode.upsert({
       where: { movieId_episodeOrder: { movieId, episodeOrder: ep.episodeOrder } },
-      update: { title: ep.title },
+      update: { title: ep.title, seasonNumber: ep.seasonNumber || 1 },
       create: {
         movieId,
         title: ep.title,
         episodeOrder: ep.episodeOrder,
+        seasonNumber: ep.seasonNumber || 1,
       },
     });
 

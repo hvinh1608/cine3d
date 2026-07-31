@@ -13,6 +13,7 @@ export type AppEpisode = {
   id: string;
   title: string;
   episodeOrder: number;
+  seasonNumber?: number;
   videoSources: AppVideoSource[];
   subtitles?: { id: string; language: string; url: string }[];
 };
@@ -89,6 +90,18 @@ function parseEpisodeOrder(name: string, index: number): number {
   const match = name.match(/(\d+)/);
   if (match) return parseInt(match[1], 10);
   return index + 1;
+}
+
+export function inferSeasonNumber(...values: Array<string | null | undefined>): number {
+  for (const value of values) {
+    const normalized = (value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
+    const match = normalized.match(/(?:^|[\s([_-])(?:phan|mua|season)[\s._-]*(\d+)(?:$|[\s)\]_-])/);
+    if (match) return Math.max(1, parseInt(match[1], 10));
+  }
+  return 1;
 }
 
 function resolveCdn(cdn?: string | null): string {
@@ -177,7 +190,9 @@ export function mapMovieDetail(payload: any, cdn?: string): AppMovie {
   const movie = payload.movie || payload;
   const imgCdn = resolveCdn(cdn);
   const base = mapListItem(movie, imgCdn);
-  const episodes = mapEpisodes(payload.episodes || [], movie.quality || 'FHD');
+  const seasonNumber = inferSeasonNumber(movie.slug, movie.name, movie.origin_name);
+  const episodes = mapEpisodes(payload.episodes || [], movie.quality || 'FHD')
+    .map((episode) => ({ ...episode, seasonNumber }));
 
   return {
     ...base,

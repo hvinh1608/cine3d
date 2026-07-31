@@ -4,11 +4,19 @@ const {
   parseDuration,
   mapEpisodes,
   extractListPagination,
+  inferSeasonNumber,
 } = require('../dist/services/kkphim.mapper');
 
 test('parseDuration extracts minutes safely', () => {
   assert.equal(parseDuration('45 phút/tập'), 45);
   assert.equal(parseDuration(null), 0);
+});
+
+test('inferSeasonNumber reads Vietnamese and English season labels', () => {
+  assert.equal(inferSeasonNumber('ho-so-tuyet-mat-phan-11'), 11);
+  assert.equal(inferSeasonNumber('Tên phim (Phần 2)'), 2);
+  assert.equal(inferSeasonNumber('Example Season 3'), 3);
+  assert.equal(inferSeasonNumber('phim-khong-co-so-phan'), 1);
 });
 
 test('mapEpisodes merges matching episodes from multiple servers', () => {
