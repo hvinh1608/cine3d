@@ -3,10 +3,13 @@ const { readdirSync } = require('node:fs');
 const { join } = require('node:path');
 
 function runPrisma(args, allowFailure = false) {
-  const command = process.platform === 'win32' ? 'npx.cmd' : 'npx';
-  const result = spawnSync(command, ['prisma', ...args], {
+  const prismaCli = require.resolve('prisma/build/index.js');
+  const result = spawnSync(process.execPath, [prismaCli, ...args], {
     encoding: 'utf8',
-    env: process.env,
+    // Neon/PgBouncer can retain Prisma's session-level advisory lock after a
+    // deploy process exits. Render runs one migration process at startup, so
+    // disabling this lock avoids a permanent P1002 restart loop.
+    env: { ...process.env, PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK: '1' },
     stdio: allowFailure ? 'pipe' : 'inherit',
   });
 
