@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Clapperboard, Download, Flag, HelpCircle, Mail, ScanLine, ShieldCheck, Smartphone } from 'lucide-react';
 import BrandedQrCode from './BrandedQrCode';
 import { ANDROID_APK_URL } from '../../lib/android-app';
+import { useLanguage } from '../../lib/i18n';
 
 const footerLinks = [
   { href: '/feedback', label: 'Hỏi đáp' },
@@ -14,6 +15,11 @@ const footerLinks = [
   { href: '/data-deletion', label: 'Quản lý dữ liệu' },
   { href: 'mailto:hvinh.job@gmail.com', label: 'Liên hệ' },
 ] as const;
+
+const footerLinkEnglish: Record<(typeof footerLinks)[number]['href'], string> = {
+  '/feedback': 'Help & feedback', '/privacy': 'Privacy policy', '/terms': 'Terms of use',
+  '/data-deletion': 'Data management', 'mailto:hvinh.job@gmail.com': 'Contact',
+};
 
 const CURSOR_PREFERENCE_KEY = 'cine3d-cursor-style';
 const CURSOR_PREFERENCE_EVENT = 'cine3d-cursor-preference-change';
@@ -32,6 +38,7 @@ function getCursorPreference() {
 }
 
 export default function Footer() {
+  const { locale } = useLanguage();
   const cinemaCursor = useSyncExternalStore(subscribeToCursorPreference, getCursorPreference, () => true);
 
   useEffect(() => {
@@ -55,7 +62,7 @@ export default function Footer() {
             <span className="grid h-6 w-6 place-items-center rounded-full bg-red-600 text-yellow-300" aria-hidden>
               ★
             </span>
-            Hoàng Sa và Trường Sa là của Việt Nam!
+            {locale === 'en' ? 'Hoang Sa and Truong Sa belong to Vietnam!' : 'Hoàng Sa và Trường Sa là của Việt Nam!'}
           </div>
 
           <div className="flex flex-wrap items-center gap-5 sm:gap-7">
@@ -89,27 +96,27 @@ export default function Footer() {
 
           <nav aria-label="Liên kết chân trang" className="mt-8 flex flex-wrap gap-x-7 gap-y-3 text-sm font-semibold text-slate-200">
             {footerLinks.map((item) => item.href.startsWith('mailto:') ? (
-              <a key={item.href} href={item.href} className="transition hover:text-amber-300">{item.label}</a>
+              <a key={item.href} href={item.href} className="transition hover:text-amber-300">{locale === 'en' ? footerLinkEnglish[item.href] : item.label}</a>
             ) : (
-              <Link key={item.href} href={item.href} className="transition hover:text-amber-300">{item.label}</Link>
+              <Link key={item.href} href={item.href} className="transition hover:text-amber-300">{locale === 'en' ? footerLinkEnglish[item.href] : item.label}</Link>
             ))}
           </nav>
 
           <div className="mt-7 max-w-3xl space-y-4 text-sm leading-7 text-slate-500 sm:text-[15px]">
             <p>
-              <strong className="font-bold text-slate-300">CINE3D</strong> là không gian xem phim trực tuyến dành cho người yêu điện ảnh, với kho phim Vietsub và thuyết minh đa dạng, chất lượng hình ảnh sắc nét cùng trải nghiệm tối ưu trên web và Android.
+              {locale === 'en' ? <><strong className="font-bold text-slate-300">CINE3D</strong> is an online cinema for movie lovers, offering a diverse subtitled and dubbed library with sharp visuals and an optimized experience on web and Android.</> : <><strong className="font-bold text-slate-300">CINE3D</strong> là không gian xem phim trực tuyến dành cho người yêu điện ảnh, với kho phim Vietsub và thuyết minh đa dạng, chất lượng hình ảnh sắc nét cùng trải nghiệm tối ưu trên web và Android.</>}
             </p>
             <p>
-              Nội dung được cập nhật thường xuyên với phim lẻ, phim bộ và nhiều thể loại từ Việt Nam, Hàn Quốc, Trung Quốc, Nhật Bản, Thái Lan, Âu Mỹ và nhiều quốc gia khác.
+              {locale === 'en' ? 'Content is updated regularly with movies, series, and genres from Vietnam, Korea, China, Japan, Thailand, Europe, the United States, and more.' : 'Nội dung được cập nhật thường xuyên với phim lẻ, phim bộ và nhiều thể loại từ Việt Nam, Hàn Quốc, Trung Quốc, Nhật Bản, Thái Lan, Âu Mỹ và nhiều quốc gia khác.'}
             </p>
           </div>
 
           <div className="mt-8 flex flex-wrap gap-3 text-xs text-slate-500">
             <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] px-3 py-2">
-              <ShieldCheck className="h-4 w-4 text-emerald-400" /> Kết nối bảo mật
+              <ShieldCheck className="h-4 w-4 text-emerald-400" /> {locale === 'en' ? 'Secure connection' : 'Kết nối bảo mật'}
             </span>
             <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] px-3 py-2">
-              <Flag className="h-4 w-4 text-red-400" /> Phát triển tại Việt Nam
+              <Flag className="h-4 w-4 text-red-400" /> {locale === 'en' ? 'Built in Vietnam' : 'Phát triển tại Việt Nam'}
             </span>
             <button
               type="button"
@@ -118,14 +125,14 @@ export default function Footer() {
               className="group inline-flex h-10 items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.035] px-3.5 text-slate-400 shadow-sm transition hover:border-amber-400/25 hover:bg-white/[0.06] hover:text-slate-200"
             >
               <Clapperboard className={`h-4 w-4 transition ${cinemaCursor ? 'text-amber-400' : 'text-slate-600 group-hover:text-slate-400'}`} />
-              <span className="font-semibold">Con trỏ điện ảnh</span>
+              <span className="font-semibold">{locale === 'en' ? 'Cinema cursor' : 'Con trỏ điện ảnh'}</span>
               <span className={`relative ml-1 h-5 w-9 shrink-0 rounded-full border transition-colors ${cinemaCursor ? 'border-amber-300/50 bg-amber-400' : 'border-white/10 bg-slate-800'}`} aria-hidden>
                 <span className={`absolute left-[3px] top-[3px] h-3 w-3 rounded-full shadow-sm transition-transform duration-200 ${cinemaCursor ? 'translate-x-4 bg-slate-950' : 'translate-x-0 bg-slate-400'}`} />
               </span>
             </button>
           </div>
 
-          <p className="mt-10 text-xs text-slate-600">© 2026 CINE3D. Trải nghiệm điện ảnh theo cách của bạn.</p>
+          <p className="mt-10 text-xs text-slate-600">© 2026 CINE3D. {locale === 'en' ? 'Cinema, your way.' : 'Trải nghiệm điện ảnh theo cách của bạn.'}</p>
         </section>
 
         <section className="self-start rounded-3xl border border-white/10 bg-white/[0.035] p-5 shadow-[0_28px_80px_rgba(0,0,0,0.3)] sm:p-7">
@@ -134,9 +141,9 @@ export default function Footer() {
               <Smartphone className="h-5 w-5" />
             </span>
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-400">CINE3D cho Android</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-400">CINE3D {locale === 'en' ? 'for Android' : 'cho Android'}</p>
               <h2 className="mt-1 text-xl font-black leading-snug text-white sm:text-2xl">
-                Xem phim mượt mà hơn trên điện thoại
+                {locale === 'en' ? 'Enjoy smoother streaming on your phone' : 'Xem phim mượt mà hơn trên điện thoại'}
               </h2>
             </div>
           </div>
@@ -144,7 +151,7 @@ export default function Footer() {
           <div className="mt-6 grid items-center gap-5 sm:grid-cols-[1fr_170px]">
             <div className="space-y-4">
               <p className="text-sm leading-6 text-slate-400">
-                Cài ứng dụng CINE3D để xem phim toàn màn hình, quản lý lịch sử và sử dụng cùng tài khoản trên website.
+                {locale === 'en' ? 'Install CINE3D for fullscreen viewing, watch history, and the same account across web and mobile.' : 'Cài ứng dụng CINE3D để xem phim toàn màn hình, quản lý lịch sử và sử dụng cùng tài khoản trên website.'}
               </p>
               <a
                 href={ANDROID_APK_URL}
@@ -152,12 +159,12 @@ export default function Footer() {
               >
                 <Download className="h-5 w-5" />
                 <span className="text-left leading-tight">
-                  <small className="block text-[10px] font-bold uppercase tracking-wider text-white/70">Tải trực tiếp</small>
+                  <small className="block text-[10px] font-bold uppercase tracking-wider text-white/70">{locale === 'en' ? 'Direct download' : 'Tải trực tiếp'}</small>
                   CINE3D APK 1.0.13
                 </span>
               </a>
               <div className="flex items-center gap-2 text-xs text-slate-500">
-                <ShieldCheck className="h-4 w-4 text-emerald-400" /> Android 7.0+ · Tải từ GitHub chính thức
+                <ShieldCheck className="h-4 w-4 text-emerald-400" /> Android 7.0+ · {locale === 'en' ? 'Official GitHub download' : 'Tải từ GitHub chính thức'}
               </div>
             </div>
 
@@ -175,7 +182,7 @@ export default function Footer() {
           </div>
 
           <div className="mt-5 flex items-center justify-center gap-2 border-t border-white/[0.07] pt-4 text-xs text-slate-500">
-            <ScanLine className="h-4 w-4 text-amber-400" /> Quét QR bằng camera điện thoại để tải nhanh
+            <ScanLine className="h-4 w-4 text-amber-400" /> {locale === 'en' ? 'Scan the QR code with your phone camera' : 'Quét QR bằng camera điện thoại để tải nhanh'}
           </div>
         </section>
       </div>

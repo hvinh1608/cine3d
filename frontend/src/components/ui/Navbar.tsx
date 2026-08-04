@@ -10,6 +10,8 @@ import axios from '../../lib/api';
 import type { Movie } from '../../types/movie';
 import BrandedQrCode from './BrandedQrCode';
 import { ANDROID_APK_URL } from '../../lib/android-app';
+import LanguageToggle from './LanguageToggle';
+import { useLanguage } from '../../lib/i18n';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const RECENT_SEARCHES_KEY = 'cine3d-recent-searches';
@@ -29,6 +31,7 @@ export default function Navbar() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const { user, logout, hasHydrated, authReady, accessToken } = useStore();
+  const { locale, t } = useLanguage();
   const authUiReady = hasHydrated || authReady;
 
   const isTabActive = (path: string) => {
@@ -313,11 +316,11 @@ export default function Navbar() {
           <div className="p-1">
             <div className="flex items-center justify-between px-2 py-2">
               <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">
-                <History className="h-3.5 w-3.5" /> Tìm kiếm gần đây
+                <History className="h-3.5 w-3.5" /> {t('recentSearches')}
               </span>
               {recentSearches.length > 0 && (
                 <button type="button" onClick={clearRecentSearches} className="flex items-center gap-1 text-[10px] font-bold text-slate-500 transition hover:text-red-400">
-                  <Trash2 className="h-3 w-3" /> Xóa
+                  <Trash2 className="h-3 w-3" /> {t('clear')}
                 </button>
               )}
             </div>
@@ -333,26 +336,26 @@ export default function Navbar() {
             ) : (
               <div className="px-3 py-5 text-center">
                 <Search className="mx-auto h-6 w-6 text-slate-700" />
-                <p className="mt-2 text-xs font-bold text-slate-400">Nhập ít nhất 2 ký tự để tìm phim</p>
-                <p className="mt-1 text-[10px] text-slate-600">Tên phim, tên gốc hoặc từ khóa liên quan</p>
+                <p className="mt-2 text-xs font-bold text-slate-400">{t('searchHint')}</p>
+                <p className="mt-1 text-[10px] text-slate-600">{t('searchHintDetail')}</p>
               </div>
             )}
           </div>
         ) : (
           <>
             <div className="flex items-center justify-between px-2.5 py-2 text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">
-              <span>Gợi ý phim</span>
-              {!mobile && <span>Dùng ↑ ↓ để chọn</span>}
+              <span>{t('suggestions')}</span>
+              {!mobile && <span>{t('keyboardSelect')}</span>}
             </div>
             {suggestionsLoading ? (
-              <div className="space-y-1 px-1 pb-1" aria-label="Đang tìm phim">
+              <div className="space-y-1 px-1 pb-1" aria-label={t('searching')}>
                 {[0, 1, 2].map((item) => <div key={item} className="h-16 animate-pulse rounded-xl bg-white/5" />)}
               </div>
             ) : suggestions.length === 0 ? (
               <div className="px-4 py-6 text-center">
                 <SearchX className="mx-auto h-7 w-7 text-slate-700" />
-                <p className="mt-2 text-xs font-bold text-slate-400">Không tìm thấy phim phù hợp</p>
-                <p className="mt-1 text-[10px] text-slate-600">Thử tên ngắn hơn hoặc kiểm tra lại chính tả</p>
+                <p className="mt-2 text-xs font-bold text-slate-400">{t('noResults')}</p>
+                <p className="mt-1 text-[10px] text-slate-600">{t('noResultsHint')}</p>
               </div>
             ) : suggestions.map((movie, index) => (
               <Link
@@ -366,14 +369,14 @@ export default function Navbar() {
                 <span className="min-w-0 flex-1">
                   <strong className="block truncate text-xs text-white">{movie.title}</strong>
                   {movie.englishTitle && <small className="mt-0.5 block truncate text-[10px] text-slate-500">{movie.englishTitle}</small>}
-                  <small className="mt-1 block text-[10px] text-slate-400">{movie.releaseYear || 'Đang cập nhật'} · {movie.isSeries ? 'Phim bộ' : 'Phim lẻ'}</small>
+                  <small className="mt-1 block text-[10px] text-slate-400">{movie.releaseYear || t('updating')} · {movie.isSeries ? t('series') : t('movies')}</small>
                 </span>
                 <ArrowRight className="h-3.5 w-3.5 shrink-0 text-slate-600" />
               </Link>
             ))}
             {!suggestionsLoading && (
               <button type="submit" className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-xl border-t border-white/5 px-3 py-2.5 text-[11px] font-bold text-yellow-400 transition hover:bg-yellow-400/10">
-                Xem tất cả kết quả <ArrowRight className="h-3.5 w-3.5" />
+                {t('allResults')} <ArrowRight className="h-3.5 w-3.5" />
               </button>
             )}
           </>
@@ -406,21 +409,21 @@ export default function Navbar() {
 
         {/* NAVIGATION LINKS - DESKTOP */}
         <div className="hidden items-center gap-1 text-sm font-semibold text-slate-300 xl:flex">
-          <Link href="/" className={`rounded-full px-3.5 py-2 transition ${isTabActive('/') ? 'bg-white/10 text-white' : 'hover:bg-white/5 hover:text-white'}`}>Trang Chủ</Link>
+          <Link href="/" className={`rounded-full px-3.5 py-2 transition ${isTabActive('/') ? 'bg-white/10 text-white' : 'hover:bg-white/5 hover:text-white'}`}>{t('home')}</Link>
           <div className="relative" ref={discoverRef}>
             <button type="button" onClick={() => setDiscoverOpen((open) => !open)} className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 transition ${pathname?.startsWith('/search') || pathname?.startsWith('/schedule') ? 'bg-white/10 text-white' : 'hover:bg-white/5 hover:text-white'}`} aria-expanded={discoverOpen}>
-              Khám Phá <ChevronDown className={`h-3.5 w-3.5 transition-transform ${discoverOpen ? 'rotate-180' : ''}`} />
+              {t('discover')} <ChevronDown className={`h-3.5 w-3.5 transition-transform ${discoverOpen ? 'rotate-180' : ''}`} />
             </button>
             {discoverOpen && (
               <div className="absolute left-0 top-full mt-3 grid w-56 gap-1 rounded-2xl border border-white/10 bg-[#0b0c12]/95 p-2 shadow-2xl backdrop-blur-xl">
-                <Link href="/search" onClick={() => setDiscoverOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs hover:bg-white/5 hover:text-yellow-400"><Sparkles className="h-4 w-4 text-purple-400" /> Tất cả phim</Link>
-                <Link href="/search?type=series" onClick={() => setDiscoverOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs hover:bg-white/5 hover:text-yellow-400"><Clapperboard className="h-4 w-4 text-sky-400" /> Phim bộ</Link>
-                <Link href="/search?type=movie" onClick={() => setDiscoverOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs hover:bg-white/5 hover:text-yellow-400"><Clapperboard className="h-4 w-4 text-emerald-400" /> Phim lẻ</Link>
-                <Link href="/schedule" onClick={() => setDiscoverOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs hover:bg-white/5 hover:text-yellow-400"><CalendarDays className="h-4 w-4 text-amber-400" /> Lịch chiếu</Link>
+                <Link href="/search" onClick={() => setDiscoverOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs hover:bg-white/5 hover:text-yellow-400"><Sparkles className="h-4 w-4 text-purple-400" /> {t('allMovies')}</Link>
+                <Link href="/search?type=series" onClick={() => setDiscoverOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs hover:bg-white/5 hover:text-yellow-400"><Clapperboard className="h-4 w-4 text-sky-400" /> {t('series')}</Link>
+                <Link href="/search?type=movie" onClick={() => setDiscoverOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs hover:bg-white/5 hover:text-yellow-400"><Clapperboard className="h-4 w-4 text-emerald-400" /> {t('movies')}</Link>
+                <Link href="/schedule" onClick={() => setDiscoverOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs hover:bg-white/5 hover:text-yellow-400"><CalendarDays className="h-4 w-4 text-amber-400" /> {t('schedule')}</Link>
               </div>
             )}
           </div>
-          <Link href="/watch-together/rooms" className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 transition ${isTabActive('/watch-together') ? 'bg-white/10 text-white' : 'hover:bg-white/5 hover:text-white'}`}><Users className="h-4 w-4 text-red-400" /> Xem Chung</Link>
+          <Link href="/watch-together/rooms" className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 transition ${isTabActive('/watch-together') ? 'bg-white/10 text-white' : 'hover:bg-white/5 hover:text-white'}`}><Users className="h-4 w-4 text-red-400" /> {t('watchTogether')}</Link>
           <Link href="/vip" className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 text-amber-400 transition ${isTabActive('/vip') ? 'bg-amber-400/10' : 'hover:bg-amber-400/10 hover:text-amber-300'}`}><Crown className="h-4 w-4" /> VIP</Link>
         </div>
 
@@ -435,12 +438,12 @@ export default function Navbar() {
               onChange={handleSearchChange}
               onFocus={() => setSuggestionsOpen(true)}
               onKeyDown={handleSearchKeyDown}
-              aria-label="Tìm phim"
+              aria-label={t('search')}
               role="combobox"
               aria-expanded={suggestionsOpen}
               aria-controls="desktop-search-suggestions"
               autoComplete="off"
-              placeholder="Tìm nhanh tên phim..."
+              placeholder={t('searchPlaceholder')}
               className="w-56 rounded-full border border-white/10 bg-slate-900/60 py-2.5 pl-4 pr-20 text-xs text-white outline-none backdrop-blur-sm transition hover:border-white/20 focus:border-yellow-500 2xl:w-72"
             />
             <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
@@ -458,11 +461,13 @@ export default function Navbar() {
             {renderSearchDropdown()}
           </form>
 
+          <LanguageToggle />
+
           <div className="group relative">
             <Link
               href="/download"
-              aria-label="Tải ứng dụng CINE3D"
-              title="Tải ứng dụng"
+              aria-label={t('downloadApp')}
+              title={t('downloadApp')}
               className={`grid h-9 w-9 place-items-center rounded-full border transition ${
                 isTabActive('/download')
                   ? 'border-amber-400/40 bg-amber-400/10 text-amber-300'
@@ -478,11 +483,11 @@ export default function Navbar() {
                 <div className="mx-auto w-fit rounded-xl bg-white p-2 shadow-[0_0_28px_rgba(245,158,11,0.12)]">
                   <BrandedQrCode value={ANDROID_APK_URL} size={176} title="Mã QR tải ứng dụng CINE3D cho Android" />
                 </div>
-                <p className="mt-3 text-sm font-black text-white">Quét mã để tải CINE3D</p>
-                <p className="mt-1 text-[11px] leading-4 text-slate-400">Dùng camera điện thoại Android để tải ứng dụng.</p>
+                <p className="mt-3 text-sm font-black text-white">{t('scanDownload')}</p>
+                <p className="mt-1 text-[11px] leading-4 text-slate-400">{t('scanHint')}</p>
                 <a href={ANDROID_APK_URL} className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-amber-400 px-3 py-2 text-xs font-black text-black transition hover:bg-amber-300">
                   <Smartphone className="h-4 w-4" />
-                  Tải APK Android
+                  {t('downloadApk')}
                 </a>
               </div>
             </div>
@@ -511,7 +516,7 @@ export default function Navbar() {
                 {notiOpen && (
                   <div className="absolute right-0 top-full mt-3 w-80 rounded-2xl border border-white/10 bg-slate-950/95 p-4 shadow-2xl backdrop-blur-xl flex flex-col z-50">
                     <div className="flex items-center justify-between pb-2 border-b border-white/5">
-                      <span className="font-black uppercase tracking-wider text-slate-300 text-xs">Thông báo</span>
+                      <span className="font-black uppercase tracking-wider text-slate-300 text-xs">{t('notifications')}</span>
                       {unreadCount > 0 && (
                         <span className="text-[10px] text-yellow-500 font-bold bg-yellow-500/10 px-2 py-0.5 rounded-full">
                           {unreadCount} mới
@@ -533,12 +538,12 @@ export default function Navbar() {
                           <h4 className="font-bold text-xs leading-tight mb-0.5">{n.title}</h4>
                           <p className="text-[10px] text-slate-400 leading-normal line-clamp-2">{n.message}</p>
                           <span className="text-[8px] text-slate-500 font-medium mt-1 block">
-                            {new Date(n.createdAt).toLocaleDateString('vi-VN')}
+                            {new Date(n.createdAt).toLocaleDateString(locale === 'en' ? 'en-US' : 'vi-VN')}
                           </span>
                         </div>
                       ))}
                       {notifications.length === 0 && (
-                        <p className="text-slate-500 text-xs text-center py-6">Chưa có thông báo nào.</p>
+                        <p className="text-slate-500 text-xs text-center py-6">{t('noNotifications')}</p>
                       )}
                     </div>
                   </div>
@@ -560,11 +565,11 @@ export default function Navbar() {
                 </button>
                 {profileOpen && (
                   <div className="absolute right-0 top-full mt-3 w-52 rounded-2xl border border-white/10 bg-[#0b0c12]/95 p-2 text-xs font-semibold text-slate-300 shadow-2xl backdrop-blur-xl">
-                    <Link href="/account" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-white/5 hover:text-white"><User className="h-4 w-4" /> Tài khoản</Link>
+                    <Link href="/account" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-white/5 hover:text-white"><User className="h-4 w-4" /> {t('account')}</Link>
                     {user.role === 'ADMIN' && <Link href="/admin" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-purple-300 transition hover:bg-purple-500/10"><ShieldAlert className="h-4 w-4" /> Quản trị</Link>}
                     <Link href="/feedback" onClick={() => setProfileOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-amber-300 transition hover:bg-amber-500/10"><MessageCircleQuestion className="h-4 w-4" /> Góp ý & hỗ trợ</Link>
                     <div className="my-1 h-px bg-white/5" />
-                    <button type="button" onClick={() => { logout(); setProfileOpen(false); router.push('/account'); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-red-400 transition hover:bg-red-500/10"><LogOut className="h-4 w-4" /> Đăng xuất</button>
+                    <button type="button" onClick={() => { logout(); setProfileOpen(false); router.push('/account'); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-red-400 transition hover:bg-red-500/10"><LogOut className="h-4 w-4" /> {t('logout')}</button>
                   </div>
                 )}
               </div>
@@ -574,13 +579,14 @@ export default function Navbar() {
               href="/account"
               className="bg-yellow-500 text-black text-xs font-black px-5 py-2 rounded-full hover:bg-white hover:text-black transition-all active:scale-95 shadow-[0_0_15px_rgba(234,179,8,0.2)]"
             >
-              Đăng Nhập
+              {t('login')}
             </Link>
           )}
         </div>
 
         {/* MOBILE MENU TOGGLE */}
         <div className="ml-auto flex items-center space-x-2 xl:hidden">
+          <LanguageToggle compact />
           <Link
             href="/download"
             aria-label="Tải ứng dụng CINE3D"
@@ -614,12 +620,12 @@ export default function Navbar() {
               onChange={handleSearchChange}
               onFocus={() => setSuggestionsOpen(true)}
               onKeyDown={handleSearchKeyDown}
-              aria-label="Tìm phim"
+              aria-label={t('search')}
               role="combobox"
               aria-expanded={suggestionsOpen}
               aria-controls="mobile-search-suggestions"
               autoComplete="off"
-              placeholder="Tìm nhanh tên phim..."
+              placeholder={t('searchPlaceholder')}
               className="bg-slate-900 border border-white/10 focus:border-yellow-500 text-white rounded-full pl-4 pr-20 py-2 text-sm w-full outline-none"
             />
             <div className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-2">
@@ -637,25 +643,25 @@ export default function Navbar() {
 
           {/* Links */}
           <div className="flex flex-col space-y-3 font-semibold text-slate-300 text-center">
-            <Link href="/" onClick={() => setMobileMenuOpen(false)} className="hover:text-yellow-500 py-1 border-b border-white/5">Trang Chủ</Link>
-            <Link href="/search?type=series" onClick={() => setMobileMenuOpen(false)} className="hover:text-yellow-500 py-1 border-b border-white/5">Phim Bộ</Link>
-            <Link href="/search?type=movie" onClick={() => setMobileMenuOpen(false)} className="hover:text-yellow-500 py-1 border-b border-white/5">Phim Lẻ</Link>
+            <Link href="/" onClick={() => setMobileMenuOpen(false)} className="hover:text-yellow-500 py-1 border-b border-white/5">{t('home')}</Link>
+            <Link href="/search?type=series" onClick={() => setMobileMenuOpen(false)} className="hover:text-yellow-500 py-1 border-b border-white/5">{t('series')}</Link>
+            <Link href="/search?type=movie" onClick={() => setMobileMenuOpen(false)} className="hover:text-yellow-500 py-1 border-b border-white/5">{t('movies')}</Link>
             <Link href="/search" onClick={() => setMobileMenuOpen(false)} className="hover:text-yellow-500 py-1 border-b border-white/5 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-purple-400 mr-1 animate-pulse" /> Khám Phá
+              <Sparkles className="w-4 h-4 text-purple-400 mr-1 animate-pulse" /> {t('discover')}
             </Link>
             <Link href="/watch-together/rooms" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center border-b border-white/5 py-1 text-red-300 hover:text-red-200">
-              <Users className="mr-1 h-4 w-4" /> Xem Chung
+              <Users className="mr-1 h-4 w-4" /> {t('watchTogether')}
             </Link>
-            <Link href="/schedule" onClick={() => setMobileMenuOpen(false)} className="hover:text-yellow-500 py-1 border-b border-white/5">Lịch Chiếu</Link>
+            <Link href="/schedule" onClick={() => setMobileMenuOpen(false)} className="hover:text-yellow-500 py-1 border-b border-white/5">{t('schedule')}</Link>
             <Link href="/vip" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center border-b border-white/5 py-1 text-amber-400 hover:text-amber-300">
-              <Crown className="mr-1 h-4 w-4" /> Nâng cấp VIP
+              <Crown className="mr-1 h-4 w-4" /> {t('upgradeVip')}
             </Link>
 
             {!authUiReady ? (
               <div className="mx-auto h-10 w-32 animate-pulse rounded-full bg-white/5" />
             ) : user ? (
               <>
-                <Link href="/account" onClick={() => setMobileMenuOpen(false)} className="hover:text-yellow-500 py-1 border-b border-white/5">Tài Khoản</Link>
+                <Link href="/account" onClick={() => setMobileMenuOpen(false)} className="hover:text-yellow-500 py-1 border-b border-white/5">{t('account')}</Link>
                 <Link href="/feedback" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-center gap-1.5 border-b border-white/5 py-1 text-amber-300 hover:text-amber-200"><MessageCircleQuestion className="h-4 w-4" /> Góp ý & hỗ trợ</Link>
                 {user.role === 'ADMIN' && (
                   <Link href="/admin" onClick={() => setMobileMenuOpen(false)} className="text-purple-400 hover:text-purple-300 py-1 border-b border-white/5">Admin Dashboard</Link>
@@ -668,7 +674,7 @@ export default function Navbar() {
                   }}
                   className="text-red-500 flex items-center justify-center space-x-1.5 py-2 cursor-pointer"
                 >
-                  <LogOut className="w-4.5 h-4.5" /> <span>Đăng xuất</span>
+                  <LogOut className="w-4.5 h-4.5" /> <span>{t('logout')}</span>
                 </button>
               </>
             ) : (
@@ -677,7 +683,7 @@ export default function Navbar() {
                 onClick={() => setMobileMenuOpen(false)}
                 className="bg-yellow-500 text-black font-black py-2.5 rounded-full hover:bg-white transition-all text-center w-full block shadow cursor-pointer"
               >
-                Đăng Nhập
+                {t('login')}
               </Link>
             )}
           </div>
@@ -688,15 +694,15 @@ export default function Navbar() {
       <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#020205]/95 border-t border-white/10 backdrop-blur-xl flex justify-around items-center py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
         <Link href="/" className={`flex flex-col items-center gap-0.5 active:scale-95 transition-all ${isTabActive('/') ? 'text-yellow-500 font-bold' : 'text-slate-400 hover:text-white'}`}>
           <Home className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Trang chủ</span>
+          <span className="text-[10px] font-medium">{t('home')}</span>
         </Link>
         <Link href="/search" className={`flex flex-col items-center gap-0.5 active:scale-95 transition-all ${isTabActive('/search') ? 'text-yellow-500 font-bold' : 'text-slate-400 hover:text-white'}`}>
           <Search className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Tìm kiếm</span>
+          <span className="text-[10px] font-medium">{t('search')}</span>
         </Link>
         <Link href="/watch-together/rooms" className={`flex flex-col items-center gap-0.5 active:scale-95 transition-all ${isTabActive('/watch-together') ? 'text-red-400 font-bold' : 'text-slate-400 hover:text-red-300'}`}>
           <Users className="w-5 h-5" />
-          <span className="text-[10px] font-medium">Xem chung</span>
+          <span className="text-[10px] font-medium">{t('watchTogether')}</span>
         </Link>
         <Link href="/vip" className={`flex flex-col items-center gap-0.5 active:scale-95 transition-all ${isTabActive('/vip') ? 'text-amber-500 font-bold' : 'text-slate-400 hover:text-amber-400'}`}>
           <Crown className="w-5 h-5" />
@@ -714,7 +720,7 @@ export default function Navbar() {
           ) : (
             <User className="w-5 h-5" />
           )}
-          <span className="text-[10px] font-medium">Cá nhân</span>
+          <span className="text-[10px] font-medium">{t('profile')}</span>
         </Link>
       </div>
     </nav>
