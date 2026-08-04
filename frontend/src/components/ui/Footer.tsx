@@ -76,20 +76,22 @@ export default function Footer() {
               />
             </Link>
             <div className="hidden h-12 w-px bg-white/10 sm:block" />
-            <div className="flex gap-2">
+            <div className="flex items-center gap-3">
               <Link
                 href="/feedback"
                 aria-label="Góp ý và hỗ trợ"
-                className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.06] text-slate-300 transition hover:border-amber-400/40 hover:bg-amber-400/10 hover:text-amber-300"
+                title={locale === 'en' ? 'Help and feedback' : 'Hỏi đáp và góp ý'}
+                className="group grid h-[58px] w-[58px] place-items-center rounded-full border border-white/[0.12] bg-[#12131a] text-slate-300 shadow-[0_10px_28px_rgba(0,0,0,0.28)] transition duration-200 hover:-translate-y-1 hover:border-amber-400/45 hover:bg-amber-400/10 hover:text-amber-300 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-amber-400"
               >
-                <HelpCircle className="h-5 w-5" />
+                <HelpCircle className="h-6 w-6 transition-transform group-hover:scale-110" strokeWidth={1.8} />
               </Link>
               <a
                 href="mailto:hvinh.job@gmail.com"
                 aria-label="Gửi email cho CINE3D"
-                className="grid h-11 w-11 place-items-center rounded-full border border-white/10 bg-white/[0.06] text-slate-300 transition hover:border-amber-400/40 hover:bg-amber-400/10 hover:text-amber-300"
+                title={locale === 'en' ? 'Email CINE3D' : 'Gửi email cho CINE3D'}
+                className="group grid h-[58px] w-[58px] place-items-center rounded-full border border-white/[0.12] bg-[#12131a] text-slate-300 shadow-[0_10px_28px_rgba(0,0,0,0.28)] transition duration-200 hover:-translate-y-1 hover:border-amber-400/45 hover:bg-amber-400/10 hover:text-amber-300 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-amber-400"
               >
-                <Mail className="h-5 w-5" />
+                <Mail className="h-6 w-6 transition-transform group-hover:scale-110" strokeWidth={1.8} />
               </a>
             </div>
           </div>
