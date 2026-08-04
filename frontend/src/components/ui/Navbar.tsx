@@ -8,6 +8,8 @@ import { ArrowRight, Search, SearchX, LogOut, ShieldAlert, Sparkles, Menu, X, Be
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
 import type { Movie } from '../../types/movie';
+import BrandedQrCode from './BrandedQrCode';
+import { ANDROID_APK_URL } from '../../lib/android-app';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const RECENT_SEARCHES_KEY = 'cine3d-recent-searches';
@@ -456,18 +458,35 @@ export default function Navbar() {
             {renderSearchDropdown()}
           </form>
 
-          <Link
-            href="/download"
-            aria-label="Tải ứng dụng CINE3D"
-            title="Tải ứng dụng"
-            className={`grid h-9 w-9 place-items-center rounded-full border transition ${
-              isTabActive('/download')
-                ? 'border-amber-400/40 bg-amber-400/10 text-amber-300'
-                : 'border-white/10 bg-slate-950/40 text-slate-300 hover:border-amber-400/30 hover:bg-amber-400/10 hover:text-amber-300'
-            }`}
-          >
-            <Smartphone className="h-[18px] w-[18px]" />
-          </Link>
+          <div className="group relative">
+            <Link
+              href="/download"
+              aria-label="Tải ứng dụng CINE3D"
+              title="Tải ứng dụng"
+              className={`grid h-9 w-9 place-items-center rounded-full border transition ${
+                isTabActive('/download')
+                  ? 'border-amber-400/40 bg-amber-400/10 text-amber-300'
+                  : 'border-white/10 bg-slate-950/40 text-slate-300 hover:border-amber-400/30 hover:bg-amber-400/10 hover:text-amber-300'
+              }`}
+            >
+              <Smartphone className="h-[18px] w-[18px]" />
+            </Link>
+
+            <div className="invisible absolute right-0 top-full z-50 w-64 translate-y-1 pt-3 opacity-0 transition duration-200 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100 group-focus-within:visible group-focus-within:translate-y-0 group-focus-within:opacity-100">
+              <div className="relative rounded-2xl border border-white/10 bg-[#11131a]/98 p-4 text-center shadow-[0_22px_60px_rgba(0,0,0,0.55)] backdrop-blur-xl">
+                <span className="absolute -top-1.5 right-3.5 h-3 w-3 rotate-45 border-l border-t border-white/10 bg-[#11131a]" />
+                <div className="mx-auto w-fit rounded-xl bg-white p-2 shadow-[0_0_28px_rgba(245,158,11,0.12)]">
+                  <BrandedQrCode value={ANDROID_APK_URL} size={176} title="Mã QR tải ứng dụng CINE3D cho Android" />
+                </div>
+                <p className="mt-3 text-sm font-black text-white">Quét mã để tải CINE3D</p>
+                <p className="mt-1 text-[11px] leading-4 text-slate-400">Dùng camera điện thoại Android để tải ứng dụng.</p>
+                <a href={ANDROID_APK_URL} className="mt-3 flex items-center justify-center gap-2 rounded-xl bg-amber-400 px-3 py-2 text-xs font-black text-black transition hover:bg-amber-300">
+                  <Smartphone className="h-4 w-4" />
+                  Tải APK Android
+                </a>
+              </div>
+            </div>
+          </div>
 
           {/* User Section */}
           {!authUiReady ? (
