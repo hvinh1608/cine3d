@@ -69,6 +69,11 @@ function TrailerMedia({ movie, className }: { movie: Movie; className: string })
 function TopicCard({ topic, movie }: { topic: (typeof topics)[number]; movie?: Movie }) {
   const [hovered, setHovered] = useState(false);
   const [title, subtitle, gradient, slug] = topic;
+  const fixedPreview = title === 'Marvel'
+    ? 'https://image.tmdb.org/t/p/original/14QbnygCuTO0vl7CAFmPf1fgZfV.jpg'
+    : title === '4K'
+      ? 'https://image.tmdb.org/t/p/original/xOMo8BRK7PfcJv9JCnx7s5hj0PX.jpg'
+      : null;
 
   return <Link
     href={`/the-loai/${slug}`}
@@ -76,8 +81,8 @@ function TopicCard({ topic, movie }: { topic: (typeof topics)[number]; movie?: M
     onMouseLeave={() => setHovered(false)}
     className={`group relative h-28 w-48 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br ${gradient} p-5 shadow-lg transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(0,0,0,.4)] sm:w-56`}
   >
-    {hovered && movie && <>
-      <Image src={movie.backdropUrl || movie.posterUrl} alt="" fill sizes="224px" className="object-cover opacity-55 transition duration-500 starting:scale-110 starting:opacity-0" />
+    {hovered && (fixedPreview || movie) && <>
+      <Image src={fixedPreview || movie!.backdropUrl || movie!.posterUrl} alt="" fill sizes="224px" className="object-cover opacity-55 transition duration-500 starting:scale-110 starting:opacity-0" />
     </>}
     <span className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/25 to-transparent opacity-0 transition group-hover:opacity-100" />
     <b className="relative z-10 block text-xl">{title}</b>
