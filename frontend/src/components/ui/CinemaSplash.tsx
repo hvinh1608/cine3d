@@ -18,12 +18,19 @@ export default function CinemaSplash() {
   }, []);
 
   useEffect(() => {
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    const bodyOverflow = document.body.style.overflow;
+    const htmlOverflow = document.documentElement.style.overflow;
     return () => {
-      document.body.style.overflow = previousOverflow;
+      document.body.style.overflow = bodyOverflow;
+      document.documentElement.style.overflow = htmlOverflow;
     };
   }, []);
+
+  useEffect(() => {
+    const locked = phase === 'welcome' || phase === 'loading';
+    document.body.style.overflow = locked ? 'hidden' : '';
+    document.documentElement.style.overflow = locked ? 'hidden' : '';
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== 'loading') return;
@@ -33,10 +40,6 @@ export default function CinemaSplash() {
       window.clearTimeout(leaveTimer);
       window.clearTimeout(hideTimer);
     };
-  }, [phase]);
-
-  useEffect(() => {
-    if (phase === 'hidden') document.body.style.overflow = '';
   }, [phase]);
 
   if (phase === 'hidden') return null;
