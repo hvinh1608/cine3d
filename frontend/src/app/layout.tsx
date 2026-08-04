@@ -14,6 +14,7 @@ import PwaBootstrap from '../components/pwa/PwaBootstrap';
 import MovieAssistant from '../components/assistant/MovieAssistant';
 import ScrollReveal from '../components/ui/ScrollReveal';
 import PageTransition from '../components/ui/PageTransition';
+import ViewerLanguageBridge from '../components/ui/ViewerLanguageBridge';
 import { getSiteUrl } from '../lib/site';
 
 const siteUrl = getSiteUrl();
@@ -58,6 +59,7 @@ export default function RootLayout({
         <TranslationVoteBanner />
         <MovieAssistant />
         <ScrollReveal />
+        <ViewerLanguageBridge />
         <CinemaBackground />
 
         <Suspense fallback={<div className="fixed top-0 left-0 w-full h-16 bg-black/80" />}>
