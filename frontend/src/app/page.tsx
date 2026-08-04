@@ -5,6 +5,12 @@ import { rewriteImageUrls } from '../lib/image-url';
 
 const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
+// The homepage is intentionally generated at deploy time. Re-generating this
+// large page every minute can exceed the CPU allowance of Workers Free and
+// surface Cloudflare error 1102. Interactive/account data still loads client-side.
+export const dynamic = 'force-static';
+export const revalidate = false;
+
 export const metadata: Metadata = {
   title: 'CINE3D - Xem phim trực tuyến chất lượng cao',
   description: 'CINE3D là không gian xem phim trực tuyến với phim Vietsub, thuyết minh, phim lẻ, phim bộ và trải nghiệm điện ảnh tối ưu trên web lẫn Android.',
@@ -39,11 +45,11 @@ function compactMovieRows(value: unknown, limit: number): HomeInitialData['movie
 
 async function loadHomeData(): Promise<HomeInitialData> {
   const [homeResult, animeResult] = await Promise.allSettled([
-    fetch(`${API_URL}/movies/home`, { next: { revalidate: 60 } }).then(async (response) => {
+    fetch(`${API_URL}/movies/home`, { cache: 'force-cache' }).then(async (response) => {
       if (!response.ok) throw new Error(`Home API returned ${response.status}`);
       return response.json();
     }),
-    fetch(`${API_URL}/movies?type=hoathinh&limit=12`, { next: { revalidate: 60 } }).then(async (response) => {
+    fetch(`${API_URL}/movies?type=hoathinh&limit=12`, { cache: 'force-cache' }).then(async (response) => {
       if (!response.ok) throw new Error(`Anime API returned ${response.status}`);
       return response.json();
     }),
