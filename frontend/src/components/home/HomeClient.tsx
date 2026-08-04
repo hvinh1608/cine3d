@@ -31,6 +31,20 @@ const topics = [
   ['Hoạt hình', 'Cho cả nhà', 'from-emerald-500 to-teal-950', 'hoat-hinh'],
 ] as const;
 
+function youtubeTrailerEmbed(url?: string | null) {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    const id = parsed.hostname.includes('youtu.be')
+      ? parsed.pathname.split('/').filter(Boolean)[0]
+      : parsed.searchParams.get('v') || parsed.pathname.match(/\/(?:embed|shorts)\/([^/?]+)/)?.[1];
+    if (!id) return null;
+    return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?autoplay=1&mute=1&controls=0&loop=1&playlist=${encodeURIComponent(id)}&modestbranding=1&playsinline=1&rel=0`;
+  } catch {
+    return null;
+  }
+}
+
 function MovieCard({ movie, favorite, selected, onSelect }: { movie: Movie; favorite: boolean; selected: boolean; onSelect: () => void }) {
   const [hovered, setHovered] = useState(false);
   return <article
@@ -100,6 +114,22 @@ function MovieRow({ title, movies, href = '/search', favoriteIds, accent = 'text
     <div className="relative">{showPrevious && <button onClick={() => scroll(-1)} aria-label="Phim trước" className="absolute -left-3 top-[38%] z-20 hidden h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-xl hover:bg-amber-300 md:flex"><ChevronLeft /></button>}<div ref={rowRef} onScroll={updatePreviousVisibility} className="movie-row flex gap-4 overflow-x-auto pb-3 md:gap-5">{movies.map((movie) => <MovieCard key={movie.id} movie={movie} favorite={favoriteIds.has(movie.id)} selected={selectedMovie?.id === movie.id} onSelect={() => setSelectedMovie((current) => current?.id === movie.id ? null : movie)} />)}</div><button onClick={() => scroll(1)} aria-label="Phim tiếp theo" className="absolute -right-3 top-[38%] z-20 hidden h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-xl hover:bg-amber-300 md:flex"><ChevronRight /></button></div>
     {selectedMovie && <div className="relative mt-3 min-h-[310px] overflow-hidden rounded-2xl border border-white/10 bg-[#101116] shadow-[0_24px_70px_rgba(0,0,0,.42)] animate-fade-in sm:min-h-[340px]">
       <Image src={selectedMovie.backdropUrl || selectedMovie.posterUrl} alt="" fill sizes="(max-width:768px) 100vw, 1400px" className="object-cover object-center opacity-35" />
+      {youtubeTrailerEmbed(selectedMovie.trailerUrl) ? <iframe
+        key={selectedMovie.id}
+        src={youtubeTrailerEmbed(selectedMovie.trailerUrl)!}
+        title={`Trailer ${selectedMovie.title}`}
+        allow="autoplay; encrypted-media"
+        tabIndex={-1}
+        className="pointer-events-none absolute inset-x-0 top-1/2 hidden aspect-video w-full -translate-y-1/2 border-0 opacity-55 lg:block"
+      /> : selectedMovie.trailerUrl && /\.(?:mp4|webm)(?:\?|$)/i.test(selectedMovie.trailerUrl) ? <video
+        key={selectedMovie.id}
+        src={selectedMovie.trailerUrl}
+        autoPlay
+        muted
+        loop
+        playsInline
+        className="pointer-events-none absolute inset-0 hidden h-full w-full object-cover opacity-55 lg:block"
+      /> : null}
       <div className="absolute inset-0 bg-gradient-to-r from-[#101116] via-[#101116]/90 to-[#101116]/25" />
       <div className="absolute inset-0 bg-gradient-to-t from-[#101116] via-transparent to-black/20" />
       <button type="button" onClick={() => setSelectedMovie(null)} aria-label="Đóng xem nhanh" className="absolute right-3 top-3 z-20 grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-black/40 text-slate-300 backdrop-blur transition hover:bg-red-600 hover:text-white"><X className="h-4 w-4" /></button>
