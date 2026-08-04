@@ -25,7 +25,6 @@ export const metadata: Metadata = {
   description:
     'Website xem phim cao cấp với giao diện 3D có chiều sâu, hỗ trợ phim HLS/MP4, tốc độ tải tối ưu và trải nghiệm điện ảnh sống động.',
   keywords: 'cine3d, xem phim, xem phim online, phim full hd, phim thuyết minh, three.js cinema',
-  alternates: { canonical: '/' },
   openGraph: {
     title: 'CINE3D - Rạp Phim Điện Ảnh 3D',
     description: 'Trải nghiệm giao diện điện ảnh 3D có chiều sâu, độc đáo và cao cấp.',
