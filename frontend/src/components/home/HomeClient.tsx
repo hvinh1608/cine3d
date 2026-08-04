@@ -120,7 +120,7 @@ function MovieRow({ title, movies, href = '/search', favoriteIds, accent = 'text
         title={`Trailer ${selectedMovie.title}`}
         allow="autoplay; encrypted-media"
         tabIndex={-1}
-        className="home-trailer pointer-events-none absolute inset-x-0 top-1/2 hidden aspect-video w-full -translate-y-1/2 border-0 lg:block"
+        className="home-trailer pointer-events-none absolute right-0 top-1/2 hidden aspect-video w-[140%] -translate-y-1/2 border-0 lg:block"
       /> : selectedMovie.trailerUrl && /\.(?:mp4|webm)(?:\?|$)/i.test(selectedMovie.trailerUrl) ? <video
         key={selectedMovie.id}
         src={selectedMovie.trailerUrl}
