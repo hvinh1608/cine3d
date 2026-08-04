@@ -7,6 +7,10 @@ import { viewerEnglish, viewerEnglishFragments, viewerEnglishPatterns } from '..
 
 const TRANSLATED_ATTRIBUTES = ['aria-label', 'title', 'placeholder'] as const;
 
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function translateValue(value: string) {
   const whitespace = value.match(/^\s*/)?.[0] ?? '';
   const trailing = value.match(/\s*$/)?.[0] ?? '';
@@ -20,7 +24,11 @@ function translateValue(value: string) {
   if (normalized.length <= 140 && /[À-ỹĐđ]/u.test(normalized)) {
     let translated = normalized;
     for (const [source, replacement] of viewerEnglishFragments) {
-      translated = translated.replaceAll(source, replacement).replaceAll(source[0].toUpperCase() + source.slice(1), replacement[0].toUpperCase() + replacement.slice(1));
+      translated = translated.replace(new RegExp(escapeRegExp(source), 'giu'), (matched) => {
+        return matched[0] === matched[0].toUpperCase()
+          ? replacement[0].toUpperCase() + replacement.slice(1)
+          : replacement;
+      });
     }
     if (translated !== normalized) return `${whitespace}${translated}${trailing}`;
   }
