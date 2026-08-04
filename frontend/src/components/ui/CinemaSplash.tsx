@@ -4,7 +4,6 @@ import Image from '@/components/ui/ResilientImage';
 import { Play } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
-const tiles = Array.from({ length: 12 }, (_, index) => index);
 const cinemaDust = Array.from({ length: 18 }, (_, index) => ({
   left: `${(index * 37 + 9) % 100}%`,
   size: `${2 + (index % 3)}px`,
@@ -21,12 +20,10 @@ export default function CinemaSplash() {
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    const autoEnter = window.setTimeout(enterCinema, 6500);
     return () => {
-      window.clearTimeout(autoEnter);
       document.body.style.overflow = previousOverflow;
     };
-  }, [enterCinema]);
+  }, []);
 
   useEffect(() => {
     if (phase !== 'loading') return;
@@ -108,26 +105,20 @@ export default function CinemaSplash() {
             <Play className="h-5 w-5 fill-current transition group-hover:scale-110" />
             Bắt đầu xem
           </button>
-          <p className="mt-4 text-xs text-slate-600">Tự động mở sau vài giây</p>
         </div>
 
         <div className="welcome-screen relative z-10 mx-auto w-full max-w-[760px] perspective-[1200px]">
           <div className="relative aspect-[16/10] rotate-y-[-7deg] overflow-hidden rounded-[1.6rem] border border-white/15 bg-[#111] p-2 shadow-[0_35px_100px_rgba(0,0,0,0.9),0_0_60px_rgba(185,28,28,0.12)] sm:p-3">
-            <div className="grid h-full grid-cols-4 grid-rows-3 gap-1.5 overflow-hidden rounded-[1.1rem] bg-black sm:gap-2">
-              {tiles.map((tile) => (
-                <div key={tile} className="relative overflow-hidden bg-slate-900">
-                  <Image
-                    src="/invincible-atom-eve-poster.jpg"
-                    alt=""
-                    fill
-                    priority={tile < 4}
-                    sizes="(max-width: 768px) 25vw, 180px"
-                    className="scale-[1.65] object-cover transition duration-700"
-                    style={{ objectPosition: `${20 + (tile % 4) * 20}% ${16 + Math.floor(tile / 4) * 34}%`, filter: `hue-rotate(${tile * 23}deg) saturate(${0.85 + (tile % 3) * 0.2}) brightness(${0.72 + (tile % 4) * 0.08})` }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" />
-                </div>
-              ))}
+            <div className="relative h-full overflow-hidden rounded-[1.1rem] bg-black">
+              <Image
+                src="/cine3d-welcome-banner.png"
+                alt="Không gian phim điện ảnh CINE3D"
+                fill
+                priority
+                sizes="(max-width: 1024px) 88vw, 760px"
+                className="object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-tr from-black/15 via-transparent to-white/10" />
             </div>
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-black/30 via-transparent to-white/10" />
           </div>
