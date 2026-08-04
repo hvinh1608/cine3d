@@ -4,6 +4,11 @@
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-08-04",
   "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "cine3d.id.vn/*", "zone_name": "cine3d.id.vn" },
+    { "pattern": "www.cine3d.id.vn/*", "zone_name": "cine3d.id.vn" }
+  ],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
