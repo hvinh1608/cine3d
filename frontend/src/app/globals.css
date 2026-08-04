@@ -89,18 +89,8 @@ body {
   to { opacity: 0.8; }
 }
 
-.topic-trailer {
-  animation: topic-trailer-reveal 400ms 1600ms ease-out both;
-}
-
-@keyframes topic-trailer-reveal {
-  from { opacity: 0; }
-  to { opacity: 0.75; }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .home-trailer { animation-delay: 0ms; animation-duration: 1ms; }
-  .topic-trailer { display: none; }
 }
 
 /* Reveal content progressively as it enters the viewport. The ready class is

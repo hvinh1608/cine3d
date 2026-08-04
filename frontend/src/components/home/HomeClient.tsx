@@ -78,7 +78,6 @@ function TopicCard({ topic, movie }: { topic: (typeof topics)[number]; movie?: M
   >
     {hovered && movie && <>
       <Image src={movie.backdropUrl || movie.posterUrl} alt="" fill sizes="224px" className="object-cover opacity-55 transition duration-500 starting:scale-110 starting:opacity-0" />
-      <TrailerMedia movie={movie} className="topic-trailer pointer-events-none absolute left-1/2 top-1/2 aspect-video h-[180%] w-auto -translate-x-1/2 -translate-y-1/2 border-0 object-cover" />
     </>}
     <span className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/25 to-transparent opacity-0 transition group-hover:opacity-100" />
     <b className="relative z-10 block text-xl">{title}</b>
@@ -206,9 +205,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
   const topicMovies = useMemo(() => {
     const pool = [...initialData.trending, ...initialData.proposed, ...initialData.movies, ...initialData.anime, ...initialData.china, ...initialData.korea, ...initialData.vietnam];
     const unique = [...new Map(pool.map((movie) => [movie.id, movie])).values()];
-    const find = (predicate: (movie: Movie) => boolean) => unique.find((movie) => predicate(movie) && movie.trailerUrl)
-      || unique.find(predicate)
-      || unique.find((movie) => movie.trailerUrl);
+    const find = (predicate: (movie: Movie) => boolean) => unique.find(predicate) || unique[0];
     return topics.map(([title, , , slug]) => find((movie) => {
       const genres = movie.movieGenres?.map(({ genre }) => genre.slug) || [];
       if (title === 'Marvel') return /marvel|avengers|spider-man/i.test(`${movie.title} ${movie.englishTitle || ''}`);
