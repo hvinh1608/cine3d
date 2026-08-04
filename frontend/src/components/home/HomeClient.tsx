@@ -45,10 +45,30 @@ function youtubeTrailerEmbed(url?: string | null) {
   }
 }
 
+function TrailerMedia({ movie, className }: { movie: Movie; className: string }) {
+  const youtubeEmbed = youtubeTrailerEmbed(movie.trailerUrl);
+  const directVideo = !!movie.trailerUrl && /\.(?:mp4|webm)(?:\?|$)/i.test(movie.trailerUrl);
+  const [playable, setPlayable] = useState<boolean | null>(directVideo ? true : null);
+
+  useEffect(() => {
+    if (!youtubeEmbed || !movie.trailerUrl) return;
+    const controller = new AbortController();
+    fetch(`/api/trailer-check?url=${encodeURIComponent(movie.trailerUrl)}`, { signal: controller.signal })
+      .then((response) => response.ok ? response.json() : { playable: false })
+      .then((result) => setPlayable(result.playable === true))
+      .catch(() => { if (!controller.signal.aborted) setPlayable(false); });
+    return () => controller.abort();
+  }, [movie.trailerUrl, youtubeEmbed]);
+
+  if (!playable) return null;
+  if (youtubeEmbed) return <iframe src={youtubeEmbed} title={`Trailer ${movie.title}`} allow="autoplay; encrypted-media" tabIndex={-1} className={className} />;
+  if (directVideo) return <video src={movie.trailerUrl!} autoPlay muted loop playsInline onError={() => setPlayable(false)} className={className} />;
+  return null;
+}
+
 function TopicCard({ topic, movie }: { topic: (typeof topics)[number]; movie?: Movie }) {
   const [hovered, setHovered] = useState(false);
   const [title, subtitle, gradient, slug] = topic;
-  const youtubeEmbed = youtubeTrailerEmbed(movie?.trailerUrl);
 
   return <Link
     href={`/the-loai/${slug}`}
@@ -58,13 +78,7 @@ function TopicCard({ topic, movie }: { topic: (typeof topics)[number]; movie?: M
   >
     {hovered && movie && <>
       <Image src={movie.backdropUrl || movie.posterUrl} alt="" fill sizes="224px" className="object-cover opacity-55 transition duration-500 starting:scale-110 starting:opacity-0" />
-      {youtubeEmbed ? <iframe
-        src={youtubeEmbed}
-        title={`Trailer ${movie.title}`}
-        allow="autoplay; encrypted-media"
-        tabIndex={-1}
-        className="topic-trailer pointer-events-none absolute left-1/2 top-1/2 aspect-video h-[180%] w-auto -translate-x-1/2 -translate-y-1/2 border-0"
-      /> : movie.trailerUrl && /\.(?:mp4|webm)(?:\?|$)/i.test(movie.trailerUrl) ? <video src={movie.trailerUrl} autoPlay muted loop playsInline className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-75" /> : null}
+      <TrailerMedia movie={movie} className="topic-trailer pointer-events-none absolute left-1/2 top-1/2 aspect-video h-[180%] w-auto -translate-x-1/2 -translate-y-1/2 border-0 object-cover" />
     </>}
     <span className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/25 to-transparent opacity-0 transition group-hover:opacity-100" />
     <b className="relative z-10 block text-xl">{title}</b>
@@ -143,22 +157,7 @@ function MovieRow({ title, movies, href = '/search', favoriteIds, accent = 'text
     <div className="relative">{showPrevious && <button onClick={() => scroll(-1)} aria-label="Phim trước" className="absolute -left-3 top-[38%] z-20 hidden h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-xl hover:bg-amber-300 md:flex"><ChevronLeft /></button>}<div ref={rowRef} onScroll={updatePreviousVisibility} className="movie-row flex gap-4 overflow-x-auto pb-3 md:gap-5">{movies.map((movie) => <MovieCard key={movie.id} movie={movie} favorite={favoriteIds.has(movie.id)} selected={selectedMovie?.id === movie.id} onSelect={() => setSelectedMovie((current) => current?.id === movie.id ? null : movie)} />)}</div><button onClick={() => scroll(1)} aria-label="Phim tiếp theo" className="absolute -right-3 top-[38%] z-20 hidden h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-xl hover:bg-amber-300 md:flex"><ChevronRight /></button></div>
     {selectedMovie && <div className="relative mt-3 min-h-[310px] overflow-hidden rounded-2xl border border-white/10 bg-[#101116] shadow-[0_24px_70px_rgba(0,0,0,.42)] animate-fade-in sm:min-h-[340px]">
       <Image src={selectedMovie.backdropUrl || selectedMovie.posterUrl} alt="" fill sizes="(max-width:768px) 100vw, 1400px" className="object-cover object-center opacity-35" />
-      {youtubeTrailerEmbed(selectedMovie.trailerUrl) ? <iframe
-        key={selectedMovie.id}
-        src={youtubeTrailerEmbed(selectedMovie.trailerUrl)!}
-        title={`Trailer ${selectedMovie.title}`}
-        allow="autoplay; encrypted-media"
-        tabIndex={-1}
-        className="home-trailer pointer-events-none absolute inset-x-0 top-1/2 hidden aspect-video w-full -translate-y-1/2 border-0 lg:block"
-      /> : selectedMovie.trailerUrl && /\.(?:mp4|webm)(?:\?|$)/i.test(selectedMovie.trailerUrl) ? <video
-        key={selectedMovie.id}
-        src={selectedMovie.trailerUrl}
-        autoPlay
-        muted
-        loop
-        playsInline
-        className="pointer-events-none absolute inset-0 hidden h-full w-full object-cover opacity-80 lg:block"
-      /> : null}
+      <TrailerMedia key={selectedMovie.id} movie={selectedMovie} className="home-trailer pointer-events-none absolute inset-x-0 top-1/2 hidden aspect-video w-full -translate-y-1/2 border-0 object-cover lg:block" />
       <div className="absolute inset-0 bg-gradient-to-r from-[#101116] via-[#101116]/75 to-transparent" />
       <div className="absolute inset-0 bg-gradient-to-t from-[#101116]/85 via-transparent to-black/10" />
       <button type="button" onClick={() => setSelectedMovie(null)} aria-label="Đóng xem nhanh" className="absolute right-3 top-3 z-20 grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-black/40 text-slate-300 backdrop-blur transition hover:bg-red-600 hover:text-white"><X className="h-4 w-4" /></button>
