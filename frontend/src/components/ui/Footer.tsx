@@ -115,12 +115,12 @@ export default function Footer() {
               type="button"
               onClick={toggleCursor}
               aria-pressed={cinemaCursor}
-              className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] px-3 py-2 transition hover:border-amber-400/30 hover:text-amber-300"
+              className="group inline-flex h-10 items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.035] px-3.5 text-slate-400 shadow-sm transition hover:border-amber-400/25 hover:bg-white/[0.06] hover:text-slate-200"
             >
-              <Clapperboard className="h-4 w-4 text-amber-400" />
-              Con trỏ điện ảnh
-              <span className={`relative h-5 w-9 rounded-full transition ${cinemaCursor ? 'bg-amber-400' : 'bg-slate-700'}`} aria-hidden>
-                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${cinemaCursor ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+              <Clapperboard className={`h-4 w-4 transition ${cinemaCursor ? 'text-amber-400' : 'text-slate-600 group-hover:text-slate-400'}`} />
+              <span className="font-semibold">Con trỏ điện ảnh</span>
+              <span className={`relative ml-1 h-5 w-9 shrink-0 rounded-full border transition-colors ${cinemaCursor ? 'border-amber-300/50 bg-amber-400' : 'border-white/10 bg-slate-800'}`} aria-hidden>
+                <span className={`absolute left-[3px] top-[3px] h-3 w-3 rounded-full shadow-sm transition-transform duration-200 ${cinemaCursor ? 'translate-x-4 bg-slate-950' : 'translate-x-0 bg-slate-400'}`} />
               </span>
             </button>
           </div>
