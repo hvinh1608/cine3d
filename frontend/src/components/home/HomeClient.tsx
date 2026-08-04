@@ -120,7 +120,7 @@ function MovieRow({ title, movies, href = '/search', favoriteIds, accent = 'text
         title={`Trailer ${selectedMovie.title}`}
         allow="autoplay; encrypted-media"
         tabIndex={-1}
-        className="pointer-events-none absolute inset-x-0 top-1/2 hidden aspect-video w-full -translate-y-1/2 border-0 opacity-55 lg:block"
+        className="pointer-events-none absolute inset-x-0 top-1/2 hidden aspect-video w-full -translate-y-1/2 border-0 opacity-80 lg:block"
       /> : selectedMovie.trailerUrl && /\.(?:mp4|webm)(?:\?|$)/i.test(selectedMovie.trailerUrl) ? <video
         key={selectedMovie.id}
         src={selectedMovie.trailerUrl}
@@ -128,10 +128,10 @@ function MovieRow({ title, movies, href = '/search', favoriteIds, accent = 'text
         muted
         loop
         playsInline
-        className="pointer-events-none absolute inset-0 hidden h-full w-full object-cover opacity-55 lg:block"
+        className="pointer-events-none absolute inset-0 hidden h-full w-full object-cover opacity-80 lg:block"
       /> : null}
-      <div className="absolute inset-0 bg-gradient-to-r from-[#101116] via-[#101116]/90 to-[#101116]/25" />
-      <div className="absolute inset-0 bg-gradient-to-t from-[#101116] via-transparent to-black/20" />
+      <div className="absolute inset-0 bg-gradient-to-r from-[#101116] via-[#101116]/75 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#101116]/85 via-transparent to-black/10" />
       <button type="button" onClick={() => setSelectedMovie(null)} aria-label="Đóng xem nhanh" className="absolute right-3 top-3 z-20 grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-black/40 text-slate-300 backdrop-blur transition hover:bg-red-600 hover:text-white"><X className="h-4 w-4" /></button>
       <div className="relative z-10 flex min-h-[310px] items-center gap-5 p-5 sm:min-h-[340px] sm:gap-7 sm:p-7">
         <div className="relative hidden aspect-[2/3] h-[250px] shrink-0 overflow-hidden rounded-xl border border-white/15 shadow-2xl sm:block"><Image src={selectedMovie.posterUrl} alt={selectedMovie.title} fill sizes="170px" className="object-cover" /></div>
