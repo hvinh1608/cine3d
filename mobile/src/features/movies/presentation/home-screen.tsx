@@ -149,7 +149,7 @@ function HeroCarousel({ banners }: { banners: Banner[] }) {
               <View style={styles.heroScrimOpaque} />
             ) : (
               <LinearGradient
-                colors={['rgba(9,9,11,0.25)', 'rgba(9,9,11,0)', 'rgba(9,9,11,0.55)', colors.background]}
+                colors={['rgba(67,17,29,0.18)', 'rgba(7,9,13,0)', 'rgba(7,9,13,0.52)', colors.background]}
                 locations={[0, 0.35, 0.72, 1]}
                 style={StyleSheet.absoluteFill}
               />
@@ -226,8 +226,8 @@ const styles = StyleSheet.create({
   content: { paddingBottom: spacing.xl },
   hero: { justifyContent: 'flex-end', backgroundColor: colors.surface },
   heroScrimOpaque: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(9, 9, 11, 0.6)' },
-  heroBody: { gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
-  heroTitle: { fontWeight: '900', textShadowColor: 'rgba(0,0,0,0.6)', textShadowRadius: 12, textShadowOffset: { width: 0, height: 2 } },
+  heroBody: { gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },
+  heroTitle: { fontWeight: '900', fontSize: 34, letterSpacing: -1, textShadowColor: 'rgba(0,0,0,0.72)', textShadowRadius: 14, textShadowOffset: { width: 0, height: 2 } },
   heroSubtitle: { color: colors.textMuted, fontSize: 14 },
   heroMetaRow: { flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' },
   heroPill: {

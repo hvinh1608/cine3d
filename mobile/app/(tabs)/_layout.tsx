@@ -1,4 +1,5 @@
 import { Tabs } from 'expo-router';
+import { Platform } from 'react-native';
 import { CircleUserRound, Compass, House, Library, UsersRound } from 'lucide-react-native';
 import { colors } from '@/theme';
 
@@ -11,12 +12,17 @@ export default function TabLayout() {
         headerShadowVisible: false,
         headerTitleStyle: { fontWeight: '800', fontSize: 20 },
         tabBarStyle: {
-          backgroundColor: '#0E0E11',
-          borderTopColor: 'rgba(250, 250, 250, 0.06)',
-          paddingTop: 6,
+          position: 'absolute',
+          backgroundColor: 'rgba(17,21,26,0.98)',
+          borderTopColor: 'rgba(255,255,255,0.08)',
+          borderTopWidth: 1,
+          height: Platform.OS === 'ios' ? 88 : 70,
+          paddingTop: 8,
+          paddingBottom: Platform.OS === 'ios' ? 22 : 8,
+          elevation: 18,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600', marginTop: 2 },
-        tabBarActiveTintColor: colors.primary,
+        tabBarActiveTintColor: colors.primarySoft,
         tabBarInactiveTintColor: colors.textMuted,
       }}
     >

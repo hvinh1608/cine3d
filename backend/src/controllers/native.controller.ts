@@ -103,7 +103,7 @@ export const getAppVersionPolicy = async (req: AuthenticatedRequest, res: Respon
         policy: {
           platform,
           minVersion: '1.0.0',
-          latestVersion: '1.0.13',
+          latestVersion: '1.0.14',
           forceUpdate: false,
           message: 'Đã có bản CINE3D mới. Cập nhật để trải nghiệm ổn định hơn.',
           storeUrl: defaultDownloadUrl(platform as 'android' | 'ios'),

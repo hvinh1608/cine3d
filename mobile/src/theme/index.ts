@@ -1,14 +1,17 @@
 import { MD3DarkTheme, type MD3Theme } from 'react-native-paper';
 
 export const colors = {
-  background: '#09090B',
-  surface: '#151518',
-  surfaceRaised: '#202024',
-  primary: '#E50914',
-  primarySoft: '#FF4D57',
-  text: '#FAFAFA',
-  textMuted: '#A1A1AA',
-  border: '#2D2D32',
+  background: '#07090D',
+  surface: '#11151A',
+  surfaceRaised: '#1B2027',
+  primary: '#D71945',
+  primarySoft: '#FF496F',
+  accent: '#13A6A4',
+  accentSoft: '#62D5CF',
+  burgundy: '#43111D',
+  text: '#F8F7F8',
+  textMuted: '#A8ADB7',
+  border: '#30343C',
   success: '#22C55E',
   warning: '#F59E0B',
 } as const;
@@ -21,7 +24,7 @@ export const spacing = {
   xl: 32,
 } as const;
 
-export const radius = { sm: 8, md: 14, lg: 22 } as const;
+export const radius = { sm: 10, md: 18, lg: 28 } as const;
 
 export const paperTheme: MD3Theme = {
   ...MD3DarkTheme,
@@ -30,11 +33,11 @@ export const paperTheme: MD3Theme = {
     ...MD3DarkTheme.colors,
     primary: colors.primary,
     onPrimary: '#FFFFFF',
-    primaryContainer: '#3D0A0D',
+    primaryContainer: colors.burgundy,
     onPrimaryContainer: '#FFD9DA',
-    secondary: colors.primarySoft,
+    secondary: colors.accent,
     onSecondary: '#FFFFFF',
-    secondaryContainer: colors.surfaceRaised,
+    secondaryContainer: '#0C3E40',
     onSecondaryContainer: colors.text,
     background: colors.background,
     surface: colors.surface,

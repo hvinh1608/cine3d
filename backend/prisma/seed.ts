@@ -141,7 +141,7 @@ async function main() {
     create: {
       platform: 'android',
       minVersion: '1.0.0',
-      latestVersion: '1.0.13',
+      latestVersion: '1.0.14',
       forceUpdate: false,
       message: 'Đã có bản CINE3D mới. Cập nhật để trải nghiệm ổn định hơn.',
       storeUrl: `${downloadBase}/download`,
@@ -153,7 +153,7 @@ async function main() {
     create: {
       platform: 'ios',
       minVersion: '1.0.0',
-      latestVersion: '1.0.13',
+      latestVersion: '1.0.14',
       forceUpdate: false,
       message: 'Đã có bản CINE3D mới. Cập nhật để trải nghiệm ổn định hơn.',
       storeUrl: null,

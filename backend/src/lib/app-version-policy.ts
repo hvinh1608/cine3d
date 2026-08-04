@@ -28,7 +28,7 @@ export async function ensureAppVersionPolicies() {
     {
       platform: 'android',
       minVersion: process.env.APP_ANDROID_MIN_VERSION?.trim() || '1.0.0',
-      latestVersion: process.env.APP_ANDROID_LATEST_VERSION?.trim() || '1.0.13',
+      latestVersion: process.env.APP_ANDROID_LATEST_VERSION?.trim() || '1.0.14',
       forceUpdate: false,
       message: 'Đã có bản CINE3D mới. Cập nhật để trải nghiệm ổn định hơn.',
       storeUrl: defaultDownloadUrl('android'),

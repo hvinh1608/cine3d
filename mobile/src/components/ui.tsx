@@ -14,6 +14,7 @@ import {
 } from 'react';
 import { AccessibilityInfo, Animated, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Image } from 'expo-image';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router';
 import { Button, Card, Snackbar, Text } from 'react-native-paper';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
@@ -27,7 +28,12 @@ export function Screen({
   edges = ['top', 'left', 'right'],
   testID,
 }: PropsWithChildren<{ edges?: Edge[]; testID?: string }>) {
-  return <SafeAreaView testID={testID} style={styles.screen} edges={edges}>{children}</SafeAreaView>;
+  return (
+    <SafeAreaView testID={testID} style={styles.screen} edges={edges}>
+      <LinearGradient pointerEvents="none" colors={['rgba(67,17,29,0.40)', 'rgba(7,9,13,0)', 'rgba(12,62,64,0.30)']} locations={[0, 0.48, 1]} style={StyleSheet.absoluteFill} />
+      {children}
+    </SafeAreaView>
+  );
 }
 
 export function EmptyState({ title, message }: { title: string; message: string }) {
@@ -125,6 +131,7 @@ export const MovieCard = memo(function MovieCard({ movie, layout = 'poster', wid
             cachePolicy="memory-disk"
             recyclingKey={posterSource || movie.slug}
           />
+          <LinearGradient pointerEvents="none" colors={['rgba(7,9,13,0)', 'rgba(7,9,13,0.64)']} style={styles.posterShade} />
           {movie.quality ? (
             <View style={styles.qualityBadge}><Text style={styles.badgeText}>{movie.quality}</Text></View>
           ) : null}
@@ -233,7 +240,7 @@ const styles = StyleSheet.create({
   skeletonRail: { gap: spacing.md, padding: spacing.md },
   skeletonRow: { flexDirection: 'row', gap: spacing.md },
   movieCard: {
-    gap: spacing.xs,
+    gap: spacing.sm,
     minHeight: MIN_TOUCH_TARGET,
     alignSelf: 'flex-start',
     overflow: 'hidden',
@@ -243,6 +250,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     overflow: 'hidden',
     backgroundColor: colors.surfaceRaised,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   listPosterWrap: {
     width: 84,
@@ -253,8 +262,9 @@ const styles = StyleSheet.create({
   },
   listPoster: { width: 84, height: 126 },
   listBody: { flex: 1, gap: spacing.sm, justifyContent: 'center' },
-  posterBody: { gap: 2, paddingHorizontal: 2 },
-  cardTitle: { fontWeight: '600' },
+  posterBody: { gap: 3, paddingHorizontal: 3 },
+  cardTitle: { fontWeight: '700', letterSpacing: 0.1 },
+  posterShade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '34%' },
   qualityBadge: {
     position: 'absolute',
     top: 6,
@@ -285,8 +295,8 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   badgeText: { color: '#FFFFFF', fontSize: 10, fontWeight: '700', letterSpacing: 0.3 },
-  rail: { gap: spacing.sm, paddingTop: spacing.md, paddingBottom: spacing.xs },
-  railTitle: { paddingHorizontal: spacing.md, fontWeight: '800', fontSize: 19 },
+  rail: { gap: spacing.md, paddingTop: spacing.lg, paddingBottom: spacing.xs },
+  railTitle: { paddingHorizontal: spacing.md, fontWeight: '900', fontSize: 20, letterSpacing: -0.3 },
   railContent: { paddingHorizontal: spacing.md, gap: spacing.md },
   boundary: { flex: 1, justifyContent: 'center', padding: spacing.lg, backgroundColor: colors.background },
   opaque: { backgroundColor: colors.border },
