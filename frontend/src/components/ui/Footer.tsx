@@ -1,8 +1,9 @@
 'use client';
 
+import { useEffect, useSyncExternalStore } from 'react';
 import Image from '@/components/ui/ResilientImage';
 import Link from 'next/link';
-import { Download, Flag, HelpCircle, Mail, ScanLine, ShieldCheck, Smartphone } from 'lucide-react';
+import { Clapperboard, Download, Flag, HelpCircle, Mail, ScanLine, ShieldCheck, Smartphone } from 'lucide-react';
 import BrandedQrCode from './BrandedQrCode';
 import { ANDROID_APK_URL } from '../../lib/android-app';
 
@@ -14,7 +15,35 @@ const footerLinks = [
   { href: 'mailto:hvinh.job@gmail.com', label: 'Liên hệ' },
 ] as const;
 
+const CURSOR_PREFERENCE_KEY = 'cine3d-cursor-style';
+const CURSOR_PREFERENCE_EVENT = 'cine3d-cursor-preference-change';
+
+function subscribeToCursorPreference(callback: () => void) {
+  window.addEventListener('storage', callback);
+  window.addEventListener(CURSOR_PREFERENCE_EVENT, callback);
+  return () => {
+    window.removeEventListener('storage', callback);
+    window.removeEventListener(CURSOR_PREFERENCE_EVENT, callback);
+  };
+}
+
+function getCursorPreference() {
+  return localStorage.getItem(CURSOR_PREFERENCE_KEY) !== 'system';
+}
+
 export default function Footer() {
+  const cinemaCursor = useSyncExternalStore(subscribeToCursorPreference, getCursorPreference, () => true);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('system-cursor', !cinemaCursor);
+  }, [cinemaCursor]);
+
+  const toggleCursor = () => {
+    const enabled = !cinemaCursor;
+    localStorage.setItem(CURSOR_PREFERENCE_KEY, enabled ? 'cinema' : 'system');
+    window.dispatchEvent(new Event(CURSOR_PREFERENCE_EVENT));
+  };
+
   return (
     <footer className="relative z-10 mt-auto overflow-hidden border-t border-white/[0.07] bg-[#07070d] text-slate-400">
       <div className="pointer-events-none absolute -left-20 top-0 h-72 w-72 rounded-full bg-amber-500/[0.04] blur-3xl" />
@@ -82,6 +111,18 @@ export default function Footer() {
             <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] px-3 py-2">
               <Flag className="h-4 w-4 text-red-400" /> Phát triển tại Việt Nam
             </span>
+            <button
+              type="button"
+              onClick={toggleCursor}
+              aria-pressed={cinemaCursor}
+              className="inline-flex items-center gap-2 rounded-full border border-white/[0.08] px-3 py-2 transition hover:border-amber-400/30 hover:text-amber-300"
+            >
+              <Clapperboard className="h-4 w-4 text-amber-400" />
+              Con trỏ điện ảnh
+              <span className={`relative h-5 w-9 rounded-full transition ${cinemaCursor ? 'bg-amber-400' : 'bg-slate-700'}`} aria-hidden>
+                <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${cinemaCursor ? 'translate-x-[18px]' : 'translate-x-0.5'}`} />
+              </span>
+            </button>
           </div>
 
           <p className="mt-10 text-xs text-slate-600">© 2026 CINE3D. Trải nghiệm điện ảnh theo cách của bạn.</p>

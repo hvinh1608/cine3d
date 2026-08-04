@@ -32,33 +32,33 @@
 /* CINE3D cursor: a film-strip pointer that becomes a mini clapperboard on
    interactive controls. Keep native cursors for typing and disabled elements. */
 @media (hover: hover) and (pointer: fine) {
-  html,
-  body {
+  html:not(.system-cursor),
+  html:not(.system-cursor) body {
     cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cpath d='M3 2.5v23l6.2-5.7 4.1 9 4.4-2-4.1-8.8 8.5-.5L3 2.5Z' fill='%230b0c12' stroke='%23fbbf24' stroke-width='1.6' stroke-linejoin='round'/%3E%3Cpath d='M5.9 7.2 8.2 9M8.6 9.3l2.4 1.9M11.4 11.6l2.4 1.9' stroke='%23ef233c' stroke-width='1.7' stroke-linecap='round'/%3E%3C/svg%3E") 3 3, auto;
   }
 
-  a,
-  button,
-  summary,
-  label[for],
-  select,
-  [role='button'],
-  [role='link'],
-  [role='menuitem'],
-  input[type='button'],
-  input[type='submit'],
-  input[type='reset'] {
+  html:not(.system-cursor) a,
+  html:not(.system-cursor) button,
+  html:not(.system-cursor) summary,
+  html:not(.system-cursor) label[for],
+  html:not(.system-cursor) select,
+  html:not(.system-cursor) [role='button'],
+  html:not(.system-cursor) [role='link'],
+  html:not(.system-cursor) [role='menuitem'],
+  html:not(.system-cursor) input[type='button'],
+  html:not(.system-cursor) input[type='submit'],
+  html:not(.system-cursor) input[type='reset'] {
     cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg stroke='%23fff' stroke-width='1.2' stroke-linejoin='round'%3E%3Cpath d='M3 6.5 27 3l1 6.5-24 3.5Z' fill='%23ef233c'/%3E%3Cpath d='m7.5 5.8 3.8 5.4m4-6.6 3.8 5.4m4-6.5 3.8 5.4' stroke='%23fbbf24' stroke-width='2'/%3E%3Cpath d='M5 13h22v14H5Z' fill='%230b0c12'/%3E%3Cpath d='M9 18h14M9 22h9' stroke='%23fbbf24' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E") 4 7, pointer;
   }
 
-  input:not([type='button']):not([type='submit']):not([type='reset']),
-  textarea,
-  [contenteditable='true'] {
+  html:not(.system-cursor) input:not([type='button']):not([type='submit']):not([type='reset']),
+  html:not(.system-cursor) textarea,
+  html:not(.system-cursor) [contenteditable='true'] {
     cursor: text;
   }
 
-  [disabled],
-  [aria-disabled='true'] {
+  html:not(.system-cursor) [disabled],
+  html:not(.system-cursor) [aria-disabled='true'] {
     cursor: not-allowed;
   }
 }
