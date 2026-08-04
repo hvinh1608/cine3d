@@ -1,0 +1,21 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "cine3d-web",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-08-04",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "INTERNAL_API_URL": "https://api.cine3d.id.vn/api",
+    "NEXT_PUBLIC_API_URL": "https://api.cine3d.id.vn/api",
+    "NEXT_PUBLIC_SITE_URL": "https://cine3d.id.vn",
+    "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME": "hnlripqh",
+    "NEXT_PUBLIC_USE_IMAGE_PROXY": "false"
+  }
+}
