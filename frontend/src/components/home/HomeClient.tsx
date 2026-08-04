@@ -7,7 +7,6 @@ import { Check, ChevronLeft, ChevronRight, CircleAlert, Info, Play, Plus, Star, 
 import { useStore } from '@/hooks/useStore';
 import { toggleFavorite } from '@/lib/user-library';
 import api from '@/lib/api';
-import MovieCard3D from '@/components/ui/MovieCard3D';
 import CommunityHub from '@/components/home/CommunityHub';
 import type { Banner, Movie } from '@/types/movie';
 
@@ -33,9 +32,35 @@ const topics = [
 ] as const;
 
 function MovieCard({ movie, favorite }: { movie: Movie; favorite: boolean }) {
-  return <article className="group w-[145px] shrink-0 sm:w-[170px] lg:w-[185px]">
-    <MovieCard3D movie={movie} isFavorited={favorite} onToggleFavorite={(id, item) => void toggleFavorite(id, item)} />
-    <div className="mt-3 min-w-0"><Link href={`/movies/${movie.slug}`} className="block truncate text-sm font-bold text-white hover:text-amber-300">{movie.title}</Link><p className="mt-1 truncate text-[10px] text-slate-500">{movie.englishTitle || `${movie.releaseYear} · ${movie.isSeries ? 'Phim bộ' : 'Phim lẻ'}`}</p></div>
+  const [hovered, setHovered] = useState(false);
+  return <article
+    onMouseEnter={() => setHovered(true)}
+    onMouseLeave={() => setHovered(false)}
+    className="group relative h-[250px] w-[145px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-[#242631] shadow-[0_14px_35px_rgba(0,0,0,.28)] transition-[width,transform,border-color,box-shadow] duration-300 ease-out hover:border-amber-300/70 hover:shadow-[0_20px_50px_rgba(0,0,0,.48)] sm:h-[270px] sm:w-[170px] lg:h-[290px] lg:w-[185px] lg:hover:w-[330px]"
+  >
+    <Link href={`/movies/${movie.slug}`} aria-label={movie.title} className="absolute inset-0">
+      <Image src={movie.posterUrl} alt={movie.title} fill sizes="(max-width:640px) 145px, (max-width:1024px) 170px, 330px" className="object-cover transition duration-500 group-hover:scale-105 group-hover:brightness-[.45]" />
+      {hovered && movie.backdropUrl && <Image src={movie.backdropUrl} alt="" fill sizes="330px" className="hidden object-cover opacity-0 transition duration-500 starting:opacity-0 lg:block lg:group-hover:opacity-55" />}
+      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/25 to-transparent lg:opacity-60 lg:group-hover:opacity-100" />
+    </Link>
+
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 p-3.5 transition duration-300 lg:translate-y-10 lg:opacity-0 lg:group-hover:translate-y-0 lg:group-hover:opacity-100">
+      <div className="mb-2 hidden items-center gap-2 text-[10px] font-bold lg:flex">
+        <span className="flex items-center gap-1 rounded-md bg-amber-300 px-2 py-1 text-black"><Star className="h-3 w-3 fill-current" /> {movie.ratingAvg?.toFixed(1) || '0.0'}</span>
+        <span className="rounded-md bg-white/15 px-2 py-1 backdrop-blur">{movie.releaseYear}</span>
+        <span className="rounded-md bg-white/15 px-2 py-1 backdrop-blur">{movie.quality || 'HD'}</span>
+      </div>
+      <Link href={`/movies/${movie.slug}`} className="pointer-events-auto block truncate text-sm font-black text-white hover:text-amber-300 lg:text-lg">{movie.title}</Link>
+      <p className="mt-1 truncate text-[10px] text-slate-300 lg:text-xs">{movie.englishTitle || `${movie.releaseYear} · ${movie.isSeries ? 'Phim bộ' : 'Phim lẻ'}`}</p>
+      <div className="pointer-events-auto mt-3 hidden items-center gap-2 lg:flex">
+        <Link href={`/watch/${movie.slug}`} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-white text-xs font-black text-black transition hover:bg-amber-300"><Play className="h-3.5 w-3.5 fill-current" /> Xem ngay</Link>
+        <button type="button" onClick={() => void toggleFavorite(movie.id, movie)} aria-label={favorite ? 'Xóa yêu thích' : 'Thêm vào yêu thích'} className={`grid h-9 w-9 place-items-center rounded-full border transition ${favorite ? 'border-emerald-400/40 bg-emerald-400/15 text-emerald-300' : 'border-white/25 bg-black/30 text-white hover:bg-white/15'}`}>
+          {favorite ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+        </button>
+      </div>
+    </div>
+
+    <span className="absolute right-2.5 top-2.5 z-10 rounded-md bg-red-600/90 px-2 py-1 text-[9px] font-black shadow-lg">{movie.isSeries ? `${movie.episodeCount} Tập` : movie.quality || 'HD'}</span>
   </article>;
 }
 
