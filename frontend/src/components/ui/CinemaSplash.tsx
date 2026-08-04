@@ -1,83 +1,95 @@
 'use client';
 
 import Image from '@/components/ui/ResilientImage';
-import { useEffect, useState } from 'react';
+import { Play } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 
-const cinemaDust = Array.from({ length: 18 }, (_, index) => ({
-  left: `${(index * 37 + 9) % 100}%`,
-  size: `${2 + (index % 3)}px`,
-  delay: `${(index % 7) * 0.11}s`,
-  duration: `${1.15 + (index % 5) * 0.16}s`,
-}));
+const tiles = Array.from({ length: 12 }, (_, index) => index);
 
 export default function CinemaSplash() {
   const [phase, setPhase] = useState<'show' | 'leave' | 'hidden'>('show');
 
-  useEffect(() => {
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const leaveTimer = window.setTimeout(() => setPhase('leave'), reducedMotion ? 250 : 1550);
-    const hideTimer = window.setTimeout(() => setPhase('hidden'), reducedMotion ? 400 : 2100);
-    return () => {
-      window.clearTimeout(leaveTimer);
-      window.clearTimeout(hideTimer);
-    };
+  const enterCinema = useCallback(() => {
+    setPhase('leave');
+    window.setTimeout(() => setPhase('hidden'), 650);
   }, []);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const autoEnter = window.setTimeout(enterCinema, 6500);
+    return () => {
+      window.clearTimeout(autoEnter);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [enterCinema]);
+
+  useEffect(() => {
+    if (phase === 'hidden') document.body.style.overflow = '';
+  }, [phase]);
 
   if (phase === 'hidden') return null;
 
   return (
-    <div
-      className={`fixed inset-0 z-[9999] grid place-items-center overflow-hidden bg-[#020205] transition duration-500 ${phase === 'leave' ? 'pointer-events-none scale-105 opacity-0' : 'opacity-100'}`}
-      role="status"
-      aria-label="Đang mở CINE3D"
+    <section
+      className={`fixed inset-0 z-[9999] overflow-hidden bg-[#030303] text-white transition-[opacity,transform,filter] duration-700 ${phase === 'leave' ? 'pointer-events-none scale-[1.025] opacity-0 blur-md' : 'opacity-100'}`}
+      aria-label="Chào mừng đến CINE3D"
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(220,38,38,0.18),transparent_42%)]" />
-      <div className="splash-beam absolute left-1/2 top-1/2 h-[140vh] w-20 -translate-x-1/2 -translate-y-1/2 rotate-[28deg] bg-gradient-to-r from-transparent via-red-500/15 to-transparent blur-2xl" />
-      <div className="absolute inset-0" aria-hidden>
-        {cinemaDust.map((particle, index) => (
-          <span
-            key={index}
-            className="splash-dust absolute -bottom-3 rounded-full bg-amber-300 shadow-[0_0_8px_rgba(251,191,36,0.9)]"
-            style={{
-              left: particle.left,
-              width: particle.size,
-              height: particle.size,
-              animationDelay: particle.delay,
-              animationDuration: particle.duration,
-            }}
-          />
-        ))}
-        <span className="splash-film splash-film-one absolute left-[8%] top-[70%] h-10 w-14 rounded-md border border-amber-300/30 bg-black/40 shadow-[0_0_18px_rgba(245,158,11,0.12)]" />
-        <span className="splash-film splash-film-two absolute right-[10%] top-[24%] h-8 w-12 rounded-md border border-red-400/25 bg-black/40 shadow-[0_0_18px_rgba(239,68,68,0.12)]" />
-      </div>
-      <div className="relative flex flex-col items-center px-6">
-        <div className="splash-logo relative">
-          <div className="absolute inset-3 rounded-full bg-red-500/20 blur-3xl" />
-          <Image src="/cine3d-logo-v2.webp" alt="CINE3D" width={260} height={53} loading="eager" unoptimized className="relative h-auto w-[210px] drop-shadow-[0_0_28px_rgba(239,68,68,0.28)] sm:w-[260px]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_48%,rgba(153,27,27,0.17),transparent_42%),radial-gradient(circle_at_18%_70%,rgba(8,145,178,0.09),transparent_35%)]" />
+      <div className="relative mx-auto grid h-full max-w-[1500px] items-center gap-8 px-6 py-10 lg:grid-cols-[0.82fr_1.18fr] lg:px-14 xl:px-20">
+        <div className="welcome-copy relative z-20 flex max-w-xl flex-col items-start">
+          <Image src="/cine3d-logo-v2.webp" alt="CINE3D" width={210} height={43} priority unoptimized className="mb-9 h-auto w-40 opacity-95 sm:w-48" />
+          <h1 className="text-4xl font-semibold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl">
+            Phim không giới hạn,<br />chuyện hay không ngừng.
+          </h1>
+          <p className="mt-6 text-base text-slate-300 sm:text-xl">Xem mọi lúc, trên mọi thiết bị.</p>
+          <button
+            type="button"
+            onClick={enterCinema}
+            className="group mt-9 inline-flex min-h-12 items-center gap-3 rounded-xl bg-gradient-to-r from-red-700 to-rose-600 px-7 py-3.5 text-base font-bold shadow-[0_0_28px_rgba(225,29,72,0.38)] transition hover:-translate-y-0.5 hover:from-red-600 hover:to-rose-500 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-red-400"
+          >
+            <Play className="h-5 w-5 fill-current transition group-hover:scale-110" />
+            Bắt đầu xem
+          </button>
+          <p className="mt-4 text-xs text-slate-600">Tự động mở sau vài giây</p>
         </div>
-        <p className="mt-5 text-[9px] font-black uppercase tracking-[0.48em] text-slate-500 sm:text-[10px]">Không gian điện ảnh của bạn</p>
-        <div className="mt-8 h-[2px] w-44 overflow-hidden rounded-full bg-white/10">
-          <div className="splash-progress h-full rounded-full bg-gradient-to-r from-red-600 via-orange-400 to-purple-500" />
+
+        <div className="welcome-screen relative z-10 mx-auto w-full max-w-[760px] perspective-[1200px]">
+          <div className="relative aspect-[16/10] rotate-y-[-7deg] overflow-hidden rounded-[1.6rem] border border-white/15 bg-[#111] p-2 shadow-[0_35px_100px_rgba(0,0,0,0.9),0_0_60px_rgba(185,28,28,0.12)] sm:p-3">
+            <div className="grid h-full grid-cols-4 grid-rows-3 gap-1.5 overflow-hidden rounded-[1.1rem] bg-black sm:gap-2">
+              {tiles.map((tile) => (
+                <div key={tile} className="relative overflow-hidden bg-slate-900">
+                  <Image
+                    src="/invincible-atom-eve-poster.jpg"
+                    alt=""
+                    fill
+                    priority={tile < 4}
+                    sizes="(max-width: 768px) 25vw, 180px"
+                    className="scale-[1.65] object-cover transition duration-700"
+                    style={{ objectPosition: `${20 + (tile % 4) * 20}% ${16 + Math.floor(tile / 4) * 34}%`, filter: `hue-rotate(${tile * 23}deg) saturate(${0.85 + (tile % 3) * 0.2}) brightness(${0.72 + (tile % 4) * 0.08})` }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" />
+                </div>
+              ))}
+            </div>
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-black/30 via-transparent to-white/10" />
+          </div>
+          <div className="mx-auto h-5 w-[48%] bg-gradient-to-b from-zinc-300 to-zinc-700 [clip-path:polygon(42%_0,58%_0,100%_100%,0_100%)]" />
+          <div className="mx-auto h-2 w-[63%] rounded-[50%] bg-zinc-500 shadow-[0_10px_22px_rgba(0,0,0,0.9)]" />
         </div>
       </div>
+
       <style jsx>{`
-        .splash-logo { animation: splash-logo 1.15s cubic-bezier(.2,.8,.2,1) both; }
-        .splash-progress { animation: splash-progress 1.2s cubic-bezier(.4,0,.2,1) both; }
-        .splash-beam { animation: splash-beam 1.4s ease-in-out both; }
-        .splash-dust { animation: splash-dust linear both; }
-        .splash-film::before, .splash-film::after { content: ''; position: absolute; left: 5px; right: 5px; height: 3px; background: repeating-linear-gradient(90deg, rgba(251,191,36,.55) 0 4px, transparent 4px 9px); }
-        .splash-film::before { top: 4px; }
-        .splash-film::after { bottom: 4px; }
-        .splash-film-one { animation: splash-film-one 1.8s cubic-bezier(.2,.7,.2,1) both; }
-        .splash-film-two { animation: splash-film-two 1.7s .08s cubic-bezier(.2,.7,.2,1) both; }
-        @keyframes splash-logo { from { opacity: 0; transform: scale(.82); filter: blur(10px); } to { opacity: 1; transform: scale(1); filter: blur(0); } }
-        @keyframes splash-progress { from { width: 0; } to { width: 100%; } }
-        @keyframes splash-beam { from { opacity: 0; transform: translate(-50%,-50%) rotate(12deg); } 50% { opacity: 1; } to { opacity: .45; transform: translate(-50%,-50%) rotate(34deg); } }
-        @keyframes splash-dust { 0% { opacity: 0; transform: translate3d(0,0,0) scale(.5); } 25% { opacity: .9; } 100% { opacity: 0; transform: translate3d(18px,-85vh,0) scale(1.4); } }
-        @keyframes splash-film-one { from { opacity: 0; transform: translate3d(-80px,70px,0) rotate(-24deg); } 45% { opacity: .72; } to { opacity: 0; transform: translate3d(120px,-170px,0) rotate(18deg); } }
-        @keyframes splash-film-two { from { opacity: 0; transform: translate3d(70px,-50px,0) rotate(20deg); } 45% { opacity: .62; } to { opacity: 0; transform: translate3d(-100px,150px,0) rotate(-18deg); } }
-        @media (prefers-reduced-motion: reduce) { .splash-logo, .splash-progress, .splash-beam, .splash-dust, .splash-film { animation: none; } .splash-dust, .splash-film { display: none; } }
+        .welcome-copy { animation: welcome-copy 850ms cubic-bezier(.2,.8,.2,1) both; }
+        .welcome-screen { animation: welcome-screen 1100ms 120ms cubic-bezier(.2,.8,.2,1) both; }
+        @keyframes welcome-copy { from { opacity: 0; transform: translate3d(-34px,0,0); } to { opacity: 1; transform: none; } }
+        @keyframes welcome-screen { from { opacity: 0; transform: translate3d(55px,12px,0) scale(.92); filter: blur(9px); } to { opacity: 1; transform: none; filter: none; } }
+        @media (max-width: 1023px) {
+          .welcome-screen { position: absolute; inset: auto -22% 5% 34%; width: 88%; opacity: .48; }
+          .welcome-copy { text-shadow: 0 2px 22px #000; }
+        }
+        @media (prefers-reduced-motion: reduce) { .welcome-copy, .welcome-screen { animation: none; } }
       `}</style>
-    </div>
+    </section>
   );
 }
