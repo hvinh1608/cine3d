@@ -3,7 +3,7 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import Image from '@/components/ui/ResilientImage';
 import Link from 'next/link';
-import { Clapperboard, Download, Flag, HelpCircle, Mail, ScanLine, ShieldCheck, Smartphone } from 'lucide-react';
+import { Clapperboard, Download, Flag, HelpCircle, Mail, MessageCircle, Music2, ScanLine, ShieldCheck, Smartphone } from 'lucide-react';
 import BrandedQrCode from './BrandedQrCode';
 import { ANDROID_APK_URL } from '../../lib/android-app';
 import { useLanguage } from '../../lib/i18n';
@@ -35,6 +35,22 @@ function subscribeToCursorPreference(callback: () => void) {
 
 function getCursorPreference() {
   return localStorage.getItem(CURSOR_PREFERENCE_KEY) !== 'system';
+}
+
+function SocialCard() {
+  return (
+    <div className="footer-social-card" aria-label="Mạng xã hội CINE3D">
+      <span>Social</span>
+      <a className="footer-social-link text-red-500" href="https://www.youtube.com/" target="_blank" rel="noreferrer" aria-label="YouTube">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.6 15.6V8.4l6.3 3.6-6.3 3.6Z" /></svg>
+      </a>
+      <a className="footer-social-link text-white" href="https://www.tiktok.com/" target="_blank" rel="noreferrer" aria-label="TikTok"><Music2 /></a>
+      <a className="footer-social-link text-indigo-400" href="https://discord.com/" target="_blank" rel="noreferrer" aria-label="Discord"><MessageCircle /></a>
+      <a className="footer-social-link text-blue-600" href="https://www.facebook.com/" target="_blank" rel="noreferrer" aria-label="Facebook">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M24 12.1A12 12 0 1 0 10.1 24v-8.4h-3v-3.5h3V9.4c0-3 1.8-4.7 4.6-4.7 1.3 0 2.7.2 2.7.2v3h-1.5c-1.5 0-2 .9-2 1.9v2.3h3.3l-.5 3.5h-2.8V24A12 12 0 0 0 24 12.1Z" /></svg>
+      </a>
+    </div>
+  );
 }
 
 export default function Footer() {
@@ -93,6 +109,7 @@ export default function Footer() {
               >
                 <Mail className="h-6 w-6 transition-transform group-hover:scale-110" strokeWidth={1.8} />
               </a>
+              <SocialCard />
             </div>
           </div>
 

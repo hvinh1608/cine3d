@@ -29,6 +29,84 @@
   --neon-blue: #00f0ff;
 }
 
+/* Expanding social card in the footer. */
+.footer-social-card {
+  position: relative;
+  display: flex;
+  width: 200px;
+  height: 58px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  background: #e7e7e7;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.footer-social-card::before,
+.footer-social-card::after {
+  position: absolute;
+  z-index: 1;
+  width: 50%;
+  height: 100%;
+  content: '';
+  transition: 0.25s linear;
+}
+
+.footer-social-card::before { left: 0; background: #4d60b6; }
+.footer-social-card::after { right: 0; background: #4453a6; }
+.footer-social-card:hover { box-shadow: 0 14px 30px rgba(0, 0, 0, 0.38); }
+.footer-social-card:hover::before { opacity: 0.5; transform: translateY(-100%); }
+.footer-social-card:hover::after { opacity: 0.5; transform: translateY(100%); }
+
+.footer-social-card > span {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  color: whitesmoke;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  transition: opacity 0.25s;
+}
+
+.footer-social-card:hover > span { z-index: -1; opacity: 0; }
+
+.footer-social-link {
+  position: relative;
+  z-index: 0;
+  display: flex;
+  width: 25%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  transition: 0.25s;
+}
+
+.footer-social-link svg { width: 25px; height: 25px; }
+.footer-social-card:hover .footer-social-link { z-index: 3; }
+.footer-social-link:hover { background: rgba(249, 244, 255, 0.82); animation: footer-social-bounce 0.4s linear; }
+
+@keyframes footer-social-bounce {
+  40% { transform: scale(1.4); }
+  60% { transform: scale(0.8); }
+  80% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+@media (max-width: 639px) {
+  .footer-social-card { width: 58px; border-radius: 999px; }
+  .footer-social-card > span { font-size: 0; }
+  .footer-social-card > span::after { content: '●●●'; font-size: 12px; letter-spacing: 2px; }
+  .footer-social-card:hover,
+  .footer-social-card:focus-within { width: 200px; border-radius: 18px; }
+}
+
 /* CINE3D cursor: a film-strip pointer that becomes a mini clapperboard on
    interactive controls. Keep native cursors for typing and disabled elements. */
 @media (hover: hover) and (pointer: fine) {
