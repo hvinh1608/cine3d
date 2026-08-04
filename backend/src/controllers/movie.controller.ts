@@ -473,9 +473,37 @@ export const getHome = async (_req: Request, res: Response) => {
       ? newestMovies
       : (trendingMovies.length > 0 ? trendingMovies : proposed.items.map((item) => mapListItem(item, proposed.cdn)));
 
+    // List responses from KKPhim do not include trailer_url, while the stored
+    // detail record does. Enrich home cards so quick view can autoplay the
+    // same trailer that is available on the movie detail page.
+    const homeSlugs = [...new Set([
+      ...latest.items,
+      ...trending.items,
+      ...distinctProposedItems,
+      ...china.items,
+      ...korea.items,
+      ...vietnam.items,
+    ].map((item) => item.slug).filter(Boolean))];
+    let trailerBySlug = new Map<string, string>();
+    try {
+      const storedTrailers = await prisma.movie.findMany({
+        where: { slug: { in: homeSlugs } },
+        select: { slug: true, trailerUrl: true },
+      });
+      trailerBySlug = new Map(storedTrailers.flatMap((movie) => movie.trailerUrl ? [[movie.slug, movie.trailerUrl]] : []));
+    } catch {
+      // The upstream home payload remains usable when database enrichment fails.
+    }
+    const withTrailer = <T extends { slug: string; trailerUrl?: string | null }>(movie: T): T => ({
+      ...movie,
+      trailerUrl: trailerBySlug.get(movie.slug) || movie.trailerUrl || null,
+    });
+
     res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300');
     return res.json({
-      banners: bannerMovies.slice(0, 8).map((movie, index) => ({
+      banners: bannerMovies.slice(0, 8).map((rawMovie, index) => {
+        const movie = withTrailer(rawMovie);
+        return ({
         id: `kk-banner-${movie.slug}`,
         title: movie.title,
         description: movie.description || movie.englishTitle || movie.title,
@@ -483,21 +511,21 @@ export const getHome = async (_req: Request, res: Response) => {
         order: index,
         isActive: true,
         movie,
-      })),
+      }); }),
       trending: trendingMovies.slice(0, 12).map((movie, index) => ({
-        ...movie,
+        ...withTrailer(movie),
         isTrending: true,
         isFeatured: index < 3,
       })),
       proposed: distinctProposedItems.slice(0, 12).map((item) => ({
-        ...mapListItem(item, proposed.cdn),
+        ...withTrailer(mapListItem(item, proposed.cdn)),
         isProposed: true,
       })),
-      movies: newestMovies,
+      movies: newestMovies.map(withTrailer),
       countries: {
-        china: china.items.map((item) => mapListItem(item, china.cdn)),
-        korea: korea.items.map((item) => mapListItem(item, korea.cdn)),
-        vietnam: vietnam.items.map((item) => mapListItem(item, vietnam.cdn)),
+        china: china.items.map((item) => withTrailer(mapListItem(item, china.cdn))),
+        korea: korea.items.map((item) => withTrailer(mapListItem(item, korea.cdn))),
+        vietnam: vietnam.items.map((item) => withTrailer(mapListItem(item, vietnam.cdn))),
       },
       partial: failures.length > 0,
     });
