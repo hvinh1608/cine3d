@@ -39,7 +39,9 @@ export default function ViewerLanguageBridge() {
   const { locale } = useLanguage();
   const pathname = usePathname();
   const originalText = useRef(new WeakMap<Text, string>());
+  const lastAppliedText = useRef(new WeakMap<Text, string>());
   const originalAttributes = useRef(new WeakMap<Element, Map<string, string>>());
+  const lastAppliedAttributes = useRef(new WeakMap<Element, Map<string, string>>());
 
   useEffect(() => {
     if (pathname?.startsWith('/admin')) return;
@@ -51,27 +53,38 @@ export default function ViewerLanguageBridge() {
           const textNode = node as Text;
           const parent = textNode.parentElement;
           if (!parent || parent.closest('[data-no-ui-translate], script, style, textarea')) continue;
-          if (!originalText.current.has(textNode)) originalText.current.set(textNode, textNode.data);
+          const lastApplied = lastAppliedText.current.get(textNode);
+          if (!originalText.current.has(textNode) || (lastApplied !== undefined && textNode.data !== lastApplied)) {
+            originalText.current.set(textNode, textNode.data);
+          }
           const original = originalText.current.get(textNode)!;
           const next = locale === 'en' ? translateValue(original) : original;
           if (textNode.data !== next) textNode.data = next;
+          lastAppliedText.current.set(textNode, next);
           continue;
         }
         if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.DOCUMENT_NODE) continue;
         if (node instanceof Element) {
           if (node.matches('[data-no-ui-translate], script, style, textarea')) continue;
           let saved = originalAttributes.current.get(node);
+          let applied = lastAppliedAttributes.current.get(node);
           if (!saved) {
             saved = new Map();
             originalAttributes.current.set(node, saved);
           }
+          if (!applied) {
+            applied = new Map();
+            lastAppliedAttributes.current.set(node, applied);
+          }
           for (const attribute of TRANSLATED_ATTRIBUTES) {
             const current = node.getAttribute(attribute);
             if (current === null) continue;
-            if (!saved.has(attribute)) saved.set(attribute, current);
+            const lastApplied = applied.get(attribute);
+            if (!saved.has(attribute) || (lastApplied !== undefined && current !== lastApplied)) saved.set(attribute, current);
             const original = saved.get(attribute)!;
             const next = locale === 'en' ? translateValue(original) : original;
             if (current !== next) node.setAttribute(attribute, next);
+            applied.set(attribute, next);
           }
         }
         for (let child = node.lastChild; child; child = child.previousSibling) nodes.push(child);
