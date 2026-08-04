@@ -45,6 +45,35 @@ function youtubeTrailerEmbed(url?: string | null) {
   }
 }
 
+function TopicCard({ topic, movie }: { topic: (typeof topics)[number]; movie?: Movie }) {
+  const [hovered, setHovered] = useState(false);
+  const [title, subtitle, gradient, slug] = topic;
+  const youtubeEmbed = youtubeTrailerEmbed(movie?.trailerUrl);
+
+  return <Link
+    href={`/the-loai/${slug}`}
+    onMouseEnter={() => setHovered(true)}
+    onMouseLeave={() => setHovered(false)}
+    className={`group relative h-28 w-48 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br ${gradient} p-5 shadow-lg transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(0,0,0,.4)] sm:w-56`}
+  >
+    {hovered && movie && <>
+      <Image src={movie.backdropUrl || movie.posterUrl} alt="" fill sizes="224px" className="object-cover opacity-55 transition duration-500 starting:scale-110 starting:opacity-0" />
+      {youtubeEmbed ? <iframe
+        src={youtubeEmbed}
+        title={`Trailer ${movie.title}`}
+        allow="autoplay; encrypted-media"
+        tabIndex={-1}
+        className="topic-trailer pointer-events-none absolute left-1/2 top-1/2 aspect-video h-[180%] w-auto -translate-x-1/2 -translate-y-1/2 border-0"
+      /> : movie.trailerUrl && /\.(?:mp4|webm)(?:\?|$)/i.test(movie.trailerUrl) ? <video src={movie.trailerUrl} autoPlay muted loop playsInline className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-75" /> : null}
+    </>}
+    <span className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/25 to-transparent opacity-0 transition group-hover:opacity-100" />
+    <b className="relative z-10 block text-xl">{title}</b>
+    <span className="relative z-10 mt-1 block text-xs text-white/65">{subtitle}</span>
+    <ChevronRight className="absolute bottom-4 right-4 z-10 h-5 w-5 text-white/70 transition group-hover:translate-x-1" />
+    <span className="absolute -bottom-12 -right-8 h-28 w-28 rounded-full bg-white/10 transition group-hover:scale-125 group-hover:opacity-0" />
+  </Link>;
+}
+
 function MovieCard({ movie, favorite, selected, onSelect }: { movie: Movie; favorite: boolean; selected: boolean; onSelect: () => void }) {
   const [hovered, setHovered] = useState(false);
   return <article
@@ -175,6 +204,19 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
   const fallback = initialData.movies[0] || initialData.proposed[0] || initialData.trending[0];
   const heroes = useMemo(() => initialData.banners.length ? initialData.banners.slice(0, 6) : fallback ? [{ id: fallback.id, title: fallback.title, description: fallback.description || '', imageUrl: fallback.backdropUrl, movie: fallback }] : [], [fallback, initialData.banners]);
   const active = heroes[heroIndex];
+  const topicMovies = useMemo(() => {
+    const pool = [...initialData.trending, ...initialData.proposed, ...initialData.movies, ...initialData.anime, ...initialData.china, ...initialData.korea, ...initialData.vietnam];
+    const unique = [...new Map(pool.map((movie) => [movie.id, movie])).values()];
+    const find = (predicate: (movie: Movie) => boolean) => unique.find((movie) => predicate(movie) && movie.trailerUrl)
+      || unique.find(predicate)
+      || unique.find((movie) => movie.trailerUrl);
+    return topics.map(([title, , , slug]) => find((movie) => {
+      const genres = movie.movieGenres?.map(({ genre }) => genre.slug) || [];
+      if (title === 'Marvel') return /marvel|avengers|spider-man/i.test(`${movie.title} ${movie.englishTitle || ''}`);
+      if (title === '4K') return /4k|2160/i.test(movie.quality || '');
+      return genres.includes(slug) || (slug === 'hoat-hinh' && initialData.anime.some((anime) => anime.id === movie.id));
+    }));
+  }, [initialData]);
 
   useEffect(() => {
     if (heroes.length < 2) return;
@@ -248,7 +290,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
 
     {user && watchHistory.length > 0 && <ContinueWatching history={watchHistory} onRemove={(id) => void removeHistory(id)} />}
 
-    <section className="relative z-10 mx-auto mt-2 w-full max-w-[1440px] px-4 pt-5 md:px-8"><h2 className="mb-5 text-xl font-black text-amber-300 md:text-2xl">Bạn đang quan tâm gì?</h2><div className="movie-row flex gap-3 overflow-x-auto pb-3">{topics.map(([title, subtitle, gradient, slug]) => <Link key={title} href={`/the-loai/${slug}`} className={`relative h-28 w-48 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br ${gradient} p-5 shadow-lg transition hover:-translate-y-1 sm:w-56`}><b className="block text-xl">{title}</b><span className="mt-1 block text-xs text-white/65">{subtitle}</span><ChevronRight className="absolute bottom-4 right-4 h-5 w-5 text-white/70" /><span className="absolute -bottom-12 -right-8 h-28 w-28 rounded-full bg-white/10" /></Link>)}</div></section>
+    <section className="relative z-10 mx-auto mt-2 w-full max-w-[1440px] px-4 pt-5 md:px-8"><h2 className="mb-5 text-xl font-black text-amber-300 md:text-2xl">Bạn đang quan tâm gì?</h2><div className="movie-row flex gap-3 overflow-x-auto pb-3">{topics.map((topic, index) => <TopicCard key={topic[0]} topic={topic} movie={topicMovies[index]} />)}</div></section>
 
     <MovieRow title="Đề xuất cho bạn" movies={initialData.proposed} favoriteIds={favorites} accent="text-amber-300" />
 
