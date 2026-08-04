@@ -31,18 +31,18 @@ const topics = [
   ['Hoạt hình', 'Cho cả nhà', 'from-emerald-500 to-teal-950', 'hoat-hinh'],
 ] as const;
 
-function MovieCard({ movie, favorite }: { movie: Movie; favorite: boolean }) {
+function MovieCard({ movie, favorite, selected, onSelect }: { movie: Movie; favorite: boolean; selected: boolean; onSelect: () => void }) {
   const [hovered, setHovered] = useState(false);
   return <article
     onMouseEnter={() => setHovered(true)}
     onMouseLeave={() => setHovered(false)}
-    className="group relative h-[250px] w-[145px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-[#242631] shadow-[0_14px_35px_rgba(0,0,0,.28)] transition-[width,transform,border-color,box-shadow] duration-300 ease-out hover:border-amber-300/70 hover:shadow-[0_20px_50px_rgba(0,0,0,.48)] sm:h-[270px] sm:w-[170px] lg:h-[290px] lg:w-[185px] lg:hover:w-[330px]"
+    className={`group relative h-[250px] w-[145px] shrink-0 overflow-hidden rounded-2xl border bg-[#242631] shadow-[0_14px_35px_rgba(0,0,0,.28)] transition-[width,transform,border-color,box-shadow] duration-300 ease-out hover:border-amber-300/70 hover:shadow-[0_20px_50px_rgba(0,0,0,.48)] sm:h-[270px] sm:w-[170px] lg:h-[290px] lg:w-[185px] lg:hover:w-[330px] ${selected ? 'border-amber-300 ring-2 ring-amber-300/20' : 'border-white/10'}`}
   >
-    <Link href={`/movies/${movie.slug}`} aria-label={movie.title} className="absolute inset-0">
+    <button type="button" onClick={onSelect} aria-label={`Xem nhanh ${movie.title}`} aria-expanded={selected} className="absolute inset-0 w-full text-left">
       <Image src={movie.posterUrl} alt={movie.title} fill sizes="(max-width:640px) 145px, (max-width:1024px) 170px, 330px" className="object-cover transition duration-500 group-hover:scale-105 group-hover:brightness-[.45]" />
       {hovered && movie.backdropUrl && <Image src={movie.backdropUrl} alt="" fill sizes="330px" className="hidden object-cover opacity-0 transition duration-500 starting:opacity-0 lg:block lg:group-hover:opacity-55" />}
       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/25 to-transparent lg:opacity-60 lg:group-hover:opacity-100" />
-    </Link>
+    </button>
 
     <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 p-3.5 transition duration-300 lg:translate-y-10 lg:opacity-0 lg:group-hover:translate-y-0 lg:group-hover:opacity-100">
       <div className="mb-2 hidden items-center gap-2 text-[10px] font-bold lg:flex">
@@ -50,7 +50,7 @@ function MovieCard({ movie, favorite }: { movie: Movie; favorite: boolean }) {
         <span className="rounded-md bg-white/15 px-2 py-1 backdrop-blur">{movie.releaseYear}</span>
         <span className="rounded-md bg-white/15 px-2 py-1 backdrop-blur">{movie.quality || 'HD'}</span>
       </div>
-      <Link href={`/movies/${movie.slug}`} className="pointer-events-auto block truncate text-sm font-black text-white hover:text-amber-300 lg:text-lg">{movie.title}</Link>
+      <button type="button" onClick={onSelect} className="pointer-events-auto block w-full truncate text-left text-sm font-black text-white hover:text-amber-300 lg:text-lg">{movie.title}</button>
       <p className="mt-1 truncate text-[10px] text-slate-300 lg:text-xs">{movie.englishTitle || `${movie.releaseYear} · ${movie.isSeries ? 'Phim bộ' : 'Phim lẻ'}`}</p>
       <div className="pointer-events-auto mt-3 hidden items-center gap-2 lg:flex">
         <Link href={`/watch/${movie.slug}`} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-white text-xs font-black text-black transition hover:bg-amber-300"><Play className="h-3.5 w-3.5 fill-current" /> Xem ngay</Link>
@@ -91,12 +91,29 @@ function AnimeSpotlight({ movies, favoriteIds }: { movies: Movie[]; favoriteIds:
 function MovieRow({ title, movies, href = '/search', favoriteIds, accent = 'text-amber-300' }: { title: string; movies: Movie[]; href?: string; favoriteIds: Set<string>; accent?: string }) {
   const rowRef = useRef<HTMLDivElement>(null);
   const [showPrevious, setShowPrevious] = useState(false);
+  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
   if (!movies.length) return null;
   const scroll = (direction: number) => rowRef.current?.scrollBy({ left: direction * Math.max(600, rowRef.current.clientWidth * .8), behavior: 'smooth' });
   const updatePreviousVisibility = () => setShowPrevious((rowRef.current?.scrollLeft ?? 0) > 1);
   return <section className="mx-auto mt-11 w-full max-w-[1440px] px-4 md:px-8">
     <div className="mb-5 flex items-center justify-between"><h2 className={`text-xl font-black md:text-2xl ${accent}`}>{title}</h2><Link href={href} className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white">Xem tất cả <ChevronRight className="h-4 w-4" /></Link></div>
-    <div className="relative">{showPrevious && <button onClick={() => scroll(-1)} aria-label="Phim trước" className="absolute -left-3 top-[38%] z-20 hidden h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-xl hover:bg-amber-300 md:flex"><ChevronLeft /></button>}<div ref={rowRef} onScroll={updatePreviousVisibility} className="movie-row flex gap-4 overflow-x-auto pb-3 md:gap-5">{movies.map((movie) => <MovieCard key={movie.id} movie={movie} favorite={favoriteIds.has(movie.id)} />)}</div><button onClick={() => scroll(1)} aria-label="Phim tiếp theo" className="absolute -right-3 top-[38%] z-20 hidden h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-xl hover:bg-amber-300 md:flex"><ChevronRight /></button></div>
+    <div className="relative">{showPrevious && <button onClick={() => scroll(-1)} aria-label="Phim trước" className="absolute -left-3 top-[38%] z-20 hidden h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-xl hover:bg-amber-300 md:flex"><ChevronLeft /></button>}<div ref={rowRef} onScroll={updatePreviousVisibility} className="movie-row flex gap-4 overflow-x-auto pb-3 md:gap-5">{movies.map((movie) => <MovieCard key={movie.id} movie={movie} favorite={favoriteIds.has(movie.id)} selected={selectedMovie?.id === movie.id} onSelect={() => setSelectedMovie((current) => current?.id === movie.id ? null : movie)} />)}</div><button onClick={() => scroll(1)} aria-label="Phim tiếp theo" className="absolute -right-3 top-[38%] z-20 hidden h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-xl hover:bg-amber-300 md:flex"><ChevronRight /></button></div>
+    {selectedMovie && <div className="relative mt-3 min-h-[310px] overflow-hidden rounded-2xl border border-white/10 bg-[#101116] shadow-[0_24px_70px_rgba(0,0,0,.42)] animate-fade-in sm:min-h-[340px]">
+      <Image src={selectedMovie.backdropUrl || selectedMovie.posterUrl} alt="" fill sizes="(max-width:768px) 100vw, 1400px" className="object-cover object-center opacity-35" />
+      <div className="absolute inset-0 bg-gradient-to-r from-[#101116] via-[#101116]/90 to-[#101116]/25" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#101116] via-transparent to-black/20" />
+      <button type="button" onClick={() => setSelectedMovie(null)} aria-label="Đóng xem nhanh" className="absolute right-3 top-3 z-20 grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-black/40 text-slate-300 backdrop-blur transition hover:bg-red-600 hover:text-white"><X className="h-4 w-4" /></button>
+      <div className="relative z-10 flex min-h-[310px] items-center gap-5 p-5 sm:min-h-[340px] sm:gap-7 sm:p-7">
+        <div className="relative hidden aspect-[2/3] h-[250px] shrink-0 overflow-hidden rounded-xl border border-white/15 shadow-2xl sm:block"><Image src={selectedMovie.posterUrl} alt={selectedMovie.title} fill sizes="170px" className="object-cover" /></div>
+        <div className="max-w-xl py-8">
+          <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold"><span className="flex items-center gap-1 rounded-md bg-amber-300 px-2.5 py-1.5 text-black"><Star className="h-3 w-3 fill-current" /> {selectedMovie.ratingAvg?.toFixed(1) || '0.0'}</span><span className="rounded-md bg-white/10 px-2.5 py-1.5">{selectedMovie.releaseYear}</span><span className="rounded-md bg-white/10 px-2.5 py-1.5">{selectedMovie.quality || 'HD'}</span><span className="rounded-md bg-white/10 px-2.5 py-1.5">{selectedMovie.isSeries ? 'Phim bộ' : 'Phim lẻ'}</span></div>
+          <h3 className="mt-4 text-2xl font-black text-white sm:text-3xl">{selectedMovie.title}</h3>
+          {selectedMovie.englishTitle && <p className="mt-1 text-sm font-semibold text-amber-300">{selectedMovie.englishTitle}</p>}
+          <p className="mt-4 line-clamp-3 text-sm leading-6 text-slate-300">{selectedMovie.description || 'Thông tin phim đang được cập nhật.'}</p>
+          <div className="mt-6 flex flex-wrap gap-2.5"><Link href={`/watch/${selectedMovie.slug}`} className="flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-200 to-amber-400 px-6 py-3 text-xs font-black text-black transition hover:brightness-110"><Play className="h-4 w-4 fill-current" /> Xem ngay</Link><Link href={`/movies/${selectedMovie.slug}`} className="flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-5 py-3 text-xs font-bold text-white transition hover:bg-white/10"><Info className="h-4 w-4" /> Chi tiết</Link><button type="button" onClick={() => void toggleFavorite(selectedMovie.id, selectedMovie)} className="flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-5 py-3 text-xs font-bold text-white transition hover:bg-white/10">{favoriteIds.has(selectedMovie.id) ? <Check className="h-4 w-4 text-emerald-400" /> : <Plus className="h-4 w-4" />} {favoriteIds.has(selectedMovie.id) ? 'Đã thích' : 'Yêu thích'}</button></div>
+        </div>
+      </div>
+    </div>}
   </section>;
 }
 

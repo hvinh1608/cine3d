@@ -19,6 +19,7 @@ export const viewerEnglish: Record<string, string> = {
   'Kiếm hiệp': 'Martial arts', 'Tình cảm': 'Romance', 'Ngọt ngào': 'Heartwarming',
   'Kinh dị': 'Horror', 'Rùng rợn': 'Terrifying', 'Hoạt hình': 'Animation', 'Cho cả nhà': 'Family',
   'Phim trước': 'Previous movie', 'Phim tiếp theo': 'Next movie',
+  'Đóng xem nhanh': 'Close quick view', 'Đã thích': 'Favorited', 'Yêu thích': 'Favorite',
 
   'Tìm phim': 'Search movies', 'Tìm nhanh tên phim...': 'Search movies...', 'Tìm phim, diễn viên...': 'Search movies, actors...',
   'Bộ lọc': 'Filters', 'Lọc phim': 'Filter movies', 'Sắp xếp': 'Sort', 'Mới nhất': 'Newest',
