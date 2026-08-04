@@ -39,7 +39,7 @@ function youtubeTrailerEmbed(url?: string | null) {
       ? parsed.pathname.split('/').filter(Boolean)[0]
       : parsed.searchParams.get('v') || parsed.pathname.match(/\/(?:embed|shorts)\/([^/?]+)/)?.[1];
     if (!id) return null;
-    return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?autoplay=1&mute=1&controls=0&loop=1&playlist=${encodeURIComponent(id)}&modestbranding=1&playsinline=1&rel=0`;
+    return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?autoplay=1&mute=1&controls=0&disablekb=1&fs=0&iv_load_policy=3&loop=1&playlist=${encodeURIComponent(id)}&modestbranding=1&playsinline=1&rel=0`;
   } catch {
     return null;
   }
@@ -120,7 +120,7 @@ function MovieRow({ title, movies, href = '/search', favoriteIds, accent = 'text
         title={`Trailer ${selectedMovie.title}`}
         allow="autoplay; encrypted-media"
         tabIndex={-1}
-        className="pointer-events-none absolute inset-x-0 top-1/2 hidden aspect-video w-full -translate-y-1/2 border-0 opacity-80 lg:block"
+        className="home-trailer pointer-events-none absolute inset-x-0 top-1/2 hidden aspect-video w-full -translate-y-1/2 border-0 lg:block"
       /> : selectedMovie.trailerUrl && /\.(?:mp4|webm)(?:\?|$)/i.test(selectedMovie.trailerUrl) ? <video
         key={selectedMovie.id}
         src={selectedMovie.trailerUrl}

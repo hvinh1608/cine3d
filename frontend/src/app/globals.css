@@ -78,6 +78,21 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* YouTube briefly paints its large playback controls even with controls=0.
+   Reveal the background trailer only after that startup overlay has faded. */
+.home-trailer {
+  animation: home-trailer-reveal 500ms 2200ms ease-out both;
+}
+
+@keyframes home-trailer-reveal {
+  from { opacity: 0; }
+  to { opacity: 0.8; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-trailer { animation-delay: 0ms; animation-duration: 1ms; }
+}
+
 /* Reveal content progressively as it enters the viewport. The ready class is
    added only after hydration, so content remains accessible without JS. */
 .scroll-reveal-ready {
