@@ -21,6 +21,7 @@
     "NEXT_PUBLIC_API_URL": "https://api.cine3d.id.vn/api",
     "NEXT_PUBLIC_SITE_URL": "https://cine3d.id.vn",
     "NEXT_PUBLIC_GOOGLE_CLIENT_ID": "104598107149-gsaf243g0bf77dm5c3m3tbfaa0ni1caj.apps.googleusercontent.com",
+    "NEXT_PUBLIC_TURNSTILE_SITE_KEY": "0x4AAAAAAD2XZytCevSPb2IK",
     "NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME": "hnlripqh",
     "NEXT_PUBLIC_USE_IMAGE_PROXY": "false"
   }
