@@ -10,11 +10,24 @@ const cinemaDust = Array.from({ length: 18 }, (_, index) => ({
   delay: `${(index % 7) * 0.11}s`,
 }));
 
+const CINEMA_SPLASH_SEEN_KEY = 'cine3d-cinema-splash-seen';
+
 export default function CinemaSplash() {
-  const [phase, setPhase] = useState<'welcome' | 'loading' | 'leave' | 'hidden'>('welcome');
+  const [phase, setPhase] = useState<'welcome' | 'loading' | 'leave' | 'hidden'>('hidden');
 
   const enterCinema = useCallback(() => {
     setPhase('loading');
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem(CINEMA_SPLASH_SEEN_KEY)) return;
+      sessionStorage.setItem(CINEMA_SPLASH_SEEN_KEY, 'true');
+    } catch {
+      // Still show the splash when browser storage is unavailable.
+    }
+    const showTimer = window.setTimeout(() => setPhase('welcome'), 0);
+    return () => window.clearTimeout(showTimer);
   }, []);
 
   useEffect(() => {
