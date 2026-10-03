@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from '@/components/ui/ResilientImage';
 import { CircleAlert, Heart, Play, Star, Plus, Check } from 'lucide-react';
 import { useStore } from '../../hooks/useStore';
+import { prefetchMovieDetail } from '@/lib/prefetch-movie';
 import type { Movie } from '../../types/movie';
 
 interface Props {
@@ -83,6 +84,7 @@ export default function MovieCard3D({ movie, onToggleFavorite, isFavorited = fal
 
   const handleMouseEnter = () => {
     setHovered(true);
+    prefetchMovieDetail(movie.slug);
     cardBoundsRef.current = cardRef.current?.getBoundingClientRect() || null;
     keepPreviewOpen();
     if (reduceMotion || !window.matchMedia('(hover: hover) and (pointer: fine) and (min-width: 1024px)').matches) return;
@@ -120,6 +122,7 @@ export default function MovieCard3D({ movie, onToggleFavorite, isFavorited = fal
   return (
     <div
       ref={cardRef}
+      data-movie-card
       onMouseMove={handleMouseMove}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -292,7 +295,7 @@ function MovieHoverPreview({
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
-          <span className="rounded-md border border-yellow-400 px-2 py-1 text-xs"><b className="text-yellow-300">IMDb</b> {movie.ratingAvg?.toFixed(1) || '8.0'}</span>
+          <span className="rounded-md border border-yellow-400 px-2 py-1 text-xs"><b className="text-yellow-300">★</b> {movie.ratingAvg?.toFixed(1) || '8.0'}</span>
           <span className="rounded-md bg-white px-2.5 py-1 text-black">T16</span>
           <span className="rounded-md bg-white/10 px-2.5 py-1">{movie.releaseYear}</span>
           <span className="rounded-md bg-white/10 px-2.5 py-1">{movie.isSeries ? 'Phần 1' : 'Movie'}</span>

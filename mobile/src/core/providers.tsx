@@ -27,6 +27,7 @@ import { colors, spacing } from '@/theme';
 import { DevPerformanceOverlay } from '@/components/dev-performance-overlay';
 import { TranslationVoteBanner } from '@/components/translation-vote-banner';
 import { checkpointRepository } from '@/features/player/data/player-storage';
+import { ensureAdsInitialized } from '@/features/ads/admob';
 
 const DISMISSED_UPDATE_KEY = 'cine3d.update.dismissedVersion';
 const secureOptions: SecureStore.SecureStoreOptions = {
@@ -48,6 +49,10 @@ export function AppProviders({ children }: PropsWithChildren) {
       mutations: { retry: 0 },
     },
   }));
+
+  useEffect(() => {
+    void ensureAdsInitialized();
+  }, []);
 
   useEffect(() => {
     void useAppStore.getState().hydrateSession().then(async () => {

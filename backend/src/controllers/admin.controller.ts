@@ -230,7 +230,7 @@ export const createMovie = async (req: Request, res: Response) => {
     ]);
     const followerIds = [...new Set([...actorFollowers, ...directorFollowers].map((item) => item.userId))];
     if (followerIds.length) {
-      const notification = { title: 'Nghệ sĩ bạn theo dõi có phim mới', message: `${title} vừa được thêm vào CINE3D.`, url: `/movies/${slug}` };
+      const notification = { title: 'Nghệ sĩ bạn theo dõi có phim mới', message: `${title} vừa được thêm vào CINE3D.`, url: `/movies/${slug}?utm_source=cine3d&utm_medium=push&utm_campaign=new_movie` };
       await prisma.notification.createMany({ data: followerIds.map((userId) => ({ userId, ...notification })) });
       void sendPushToUsers(followerIds, { title: notification.title, body: notification.message, url: notification.url });
     }
@@ -404,7 +404,7 @@ export const createEpisode = async (req: Request, res: Response) => {
       const notification = {
         title: `${movie.title} có tập mới`,
         message: `${title} vừa được cập nhật. Xem ngay trên CINE3D.`,
-        url: `/watch/${movie.slug}?ep=${Math.max(1, parseInt(episodeOrder, 10))}`,
+        url: `/watch/${movie.slug}?ep=${Math.max(1, parseInt(episodeOrder, 10))}&utm_source=cine3d&utm_medium=push&utm_campaign=new_episode`,
       };
       await prisma.notification.createMany({ data: userIds.map((userId) => ({ userId, ...notification })) });
       void sendPushToUsers(userIds, { title: notification.title, body: notification.message, url: notification.url });

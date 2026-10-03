@@ -29,7 +29,7 @@ export default function AndroidDownloadQr({ url }: AndroidDownloadQrProps) {
       </a>
 
       <p className="mt-4 text-sm font-bold text-white">Mở camera điện thoại để quét</p>
-      <p className="mt-1 text-xs leading-5 text-slate-500">Mã QR dẫn thẳng tới file APK chính thức trên GitHub.</p>
+      <p className="mt-1 text-xs leading-5 text-slate-500">Mã QR dẫn tới file APK chính thức trên cine3d.id.vn.</p>
     </aside>
   );
 }

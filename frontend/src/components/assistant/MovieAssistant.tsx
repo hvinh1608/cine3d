@@ -40,7 +40,7 @@ const knowledgeBase: KnowledgeArticle[] = [
   },
   {
     patterns: [/\b(vip la gi|vip co gi|quyen loi vip|mua vip|nang cap vip|dang ky vip|thanh toan vip|gia vip|goi vip)\b/],
-    text: 'VIP mở khóa nguồn phát Premium, nội dung độc quyền, Picture-in-Picture và tải trực tiếp khi phim có nguồn MP4. Bạn có thể xem các gói, tạo đơn và theo dõi trạng thái kích hoạt tại trang VIP.',
+    text: 'VIP gồm: không quảng cáo trên web, nội dung độc quyền & suất chiếu sớm, nguồn xem chất lượng cao, cửa sổ xem nổi, tải phim khi có sẵn, ảnh đại diện tùy chọn, phòng Xem Chung riêng tư và đồng bộ quyền lợi sang app Android. Xem gói tại trang VIP.',
     href: '/vip', label: 'Xem gói VIP',
   },
   {
@@ -50,7 +50,7 @@ const knowledgeBase: KnowledgeArticle[] = [
   },
   {
     patterns: [/\b(tai app|tai ung dung|ung dung android|app android|file apk|cai apk|cai ung dung|ch play)\b/],
-    text: 'CINE3D có ứng dụng Android dạng APK. App chưa phát hành trên CH Play; hãy tải từ trang chính thức, cho phép cài ứng dụng không rõ nguồn khi Android yêu cầu, rồi đăng nhập cùng tài khoản web để đồng bộ VIP.',
+    text: 'CINE3D có ứng dụng Android. App chưa có trên CH Play; hãy tải từ trang chính thức, cho phép cài đặt từ nguồn ngoài khi điện thoại hỏi, rồi đăng nhập cùng tài khoản web để đồng bộ VIP.',
     href: '/download', label: 'Tải ứng dụng Android',
   },
   {
@@ -80,7 +80,7 @@ const knowledgeBase: KnowledgeArticle[] = [
   },
   {
     patterns: [/\b(phu de|subtitle|toc do phat|chat luong video|toan man hinh|tat den|che do rap|cast|truyen len tv|picture in picture|pip|tai phim)\b/],
-    text: 'Trong trình phát, nút Cài đặt cho phép đổi nguồn phát, tốc độ và phụ đề; bạn cũng có thể tua ±10 giây, toàn màn hình, Tắt đèn, chế độ rạp và truyền lên TV. Picture-in-Picture và tải MP4 là quyền lợi VIP.',
+    text: 'Trong trình phát, nút Cài đặt giúp đổi nguồn xem, tốc độ và phụ đề; bạn cũng có thể tua ±10 giây, toàn màn hình, tắt đèn, chế độ rạp và truyền lên TV. Cửa sổ xem nổi và tải phim là quyền lợi VIP.',
     href: '/search', label: 'Chọn phim để xem',
   },
   {
@@ -90,7 +90,7 @@ const knowledgeBase: KnowledgeArticle[] = [
   },
   {
     patterns: [/\b(gop y|bao loi|loi web|ho tro|lien he|phan hoi|feedback)\b/],
-    text: 'Nếu gặp lỗi hoặc muốn đề xuất tính năng, bạn hãy gửi nội dung tại trang Góp ý & hỗ trợ để quản trị viên tiếp nhận đúng thông tin.',
+    text: 'Nếu gặp sự cố hoặc muốn góp ý cải thiện, hãy gửi nội dung tại trang Góp ý & hỗ trợ — đội ngũ CINE3D sẽ tiếp nhận sớm.',
     href: '/feedback', label: 'Gửi góp ý & hỗ trợ',
   },
   {
@@ -167,7 +167,7 @@ function buildRequest(input: string, genres: MetaItem[], countries: MetaItem[], 
   if (/xem nhieu|pho bien|hot|thinh hanh/.test(normalized)) params.set('sortBy', 'views');
   else if (/danh gia|diem cao/.test(normalized)) params.set('sortBy', 'ratingAvg');
   if (/phim vip|noi dung vip/.test(normalized)) params.set('vip', 'true');
-  if (/thuyet minh|long tieng/.test(normalized)) params.set('dubbed', 'true');
+  if (/thuyet minh|long tieng/.test(normalized)) params.set('lang', /long tieng/.test(normalized) ? 'long-tieng' : 'thuyet-minh');
 
   const removable = [matchedGenre?.name, matchedCountry?.name, year].filter(Boolean).map((value) => normalize(String(value)));
   let search = normalized;

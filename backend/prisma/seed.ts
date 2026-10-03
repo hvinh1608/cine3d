@@ -137,11 +137,15 @@ async function main() {
   const downloadBase = (process.env.CLIENT_URL || 'https://cine3d.id.vn').replace(/\/$/, '');
   await prisma.appVersionPolicy.upsert({
     where: { platform: 'android' },
-    update: {},
+    update: {
+      latestVersion: '1.0.21',
+      message: 'Đã có bản CINE3D 1.0.21. Cập nhật — chỉ còn một nút Đăng xuất rõ ràng.',
+      storeUrl: `${downloadBase}/download`,
+    },
     create: {
       platform: 'android',
       minVersion: '1.0.0',
-      latestVersion: '1.0.14',
+      latestVersion: '1.0.21',
       forceUpdate: false,
       message: 'Đã có bản CINE3D mới. Cập nhật để trải nghiệm ổn định hơn.',
       storeUrl: `${downloadBase}/download`,
@@ -149,11 +153,11 @@ async function main() {
   });
   await prisma.appVersionPolicy.upsert({
     where: { platform: 'ios' },
-    update: {},
+    update: { latestVersion: '1.0.21' },
     create: {
       platform: 'ios',
       minVersion: '1.0.0',
-      latestVersion: '1.0.14',
+      latestVersion: '1.0.21',
       forceUpdate: false,
       message: 'Đã có bản CINE3D mới. Cập nhật để trải nghiệm ổn định hơn.',
       storeUrl: null,
@@ -234,7 +238,11 @@ async function main() {
   const existingMoviesCount = await prisma.movie.count();
   if (existingMoviesCount > 0) {
     console.log('Movies already exist in database. Skipping movie seeding.');
-    await seedCommunitySamples(userRole.id);
+    try {
+      await seedCommunitySamples(userRole.id);
+    } catch (error) {
+      console.warn('Skipping community sample seed (database may be full or read-only):', error);
+    }
     console.log('Seeding completed successfully!');
     return;
   }

@@ -33,7 +33,9 @@ const allowedOrigins = new Set([
 class CorsOriginError extends Error {}
 
 // Global Middlewares
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 app.use(compression());
 app.use(
   cors({
@@ -329,7 +331,7 @@ const notifyReleasedEpisodes = async () => {
     const claimed = await prisma.episode.updateMany({ where: { id: episode.id, releaseNotifiedAt: null }, data: { releaseNotifiedAt: now } });
     if (!claimed.count || !episode.movie.followers.length) continue;
     const userIds = episode.movie.followers.map((follow) => follow.userId);
-    const notification = { title: `${episode.movie.title} có tập mới`, message: `${episode.title} đã đến giờ phát hành. Xem ngay trên CINE3D.`, url: `/watch/${episode.movie.slug}?ep=${episode.episodeOrder}` };
+    const notification = { title: `${episode.movie.title} có tập mới`, message: `${episode.title} đã đến giờ phát hành. Xem ngay trên CINE3D.`, url: `/watch/${episode.movie.slug}?ep=${episode.episodeOrder}&utm_source=cine3d&utm_medium=push&utm_campaign=new_episode` };
     await prisma.notification.createMany({ data: userIds.map((userId) => ({ userId, ...notification })) });
     void sendPushToUsers(userIds, { title: notification.title, body: notification.message, url: notification.url });
   }

@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { internalError } from '../lib/http-error';
+import { internalError, isStorageFullError } from '../lib/http-error';
 import { ensureMovieInDb } from '../services/movie.upsert';
 import { getPushPublicKey, pushConfigured } from '../services/push.service';
 
@@ -215,7 +215,7 @@ export const unsubscribePush = async (req: AuthenticatedRequest, res: Response) 
   }
 };
 
-const analyticsNames = new Set(['page_view', 'movie_play', 'movie_complete', 'player_error', 'player_startup', 'player_buffer', 'server_fallback', 'search', 'watch_room_create', 'watch_room_join']);
+const analyticsNames = new Set(['page_view', 'movie_play', 'movie_complete', 'player_error', 'player_startup', 'player_buffer', 'server_fallback', 'search', 'watch_room_create', 'watch_room_join', 'share_click', 'campaign_open']);
 export const trackAnalytics = async (req: AuthenticatedRequest, res: Response) => {
   const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
   if (!analyticsNames.has(name)) return res.status(400).json({ message: 'Sự kiện không hợp lệ.' });
@@ -233,6 +233,7 @@ export const trackAnalytics = async (req: AuthenticatedRequest, res: Response) =
     });
     return res.status(202).json({ accepted: true });
   } catch (error) {
+    if (isStorageFullError(error)) return res.status(202).json({ accepted: false, skipped: true });
     return internalError(res, 'Không thể ghi nhận sự kiện.', error);
   }
 };

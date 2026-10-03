@@ -179,9 +179,14 @@ export function absoluteImageUrl(url?: string | null, cdn = DEFAULT_CDN): string
   return `${cdn.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
 }
 
-/** Newly updated movies (flat pagination). */
+/** Newly updated movies (v3: TMDB/IMDB, lang, category, country). */
 export async function fetchNewMovies(page = 1) {
-  return kkFetch('/danh-sach/phim-moi-cap-nhat', { page });
+  return kkFetch('/danh-sach/phim-moi-cap-nhat-v3', { page });
+}
+
+/** KKPhim homepage payload (films updated today). */
+export async function fetchKkphimHome() {
+  return kkFetch('/v1/api/home');
 }
 
 /** Filtered catalog: phim-le | phim-bo | hoat-hinh | tv-shows | ... */
@@ -195,6 +200,7 @@ export async function fetchMovieList(
     year?: string | number;
     sort_field?: string;
     sort_type?: string;
+    sort_lang?: string;
   } = {}
 ) {
   return kkFetch(`/v1/api/danh-sach/${typeList}`, {
@@ -205,6 +211,7 @@ export async function fetchMovieList(
     year: opts.year,
     sort_field: opts.sort_field,
     sort_type: opts.sort_type,
+    sort_lang: opts.sort_lang,
   });
 }
 
@@ -218,6 +225,7 @@ export async function searchMovies(
     year?: string | number;
     sort_field?: string;
     sort_type?: string;
+    sort_lang?: string;
   } = {}
 ) {
   return kkFetch('/v1/api/tim-kiem', {
@@ -229,10 +237,12 @@ export async function searchMovies(
     year: opts.year,
     sort_field: opts.sort_field,
     sort_type: opts.sort_type,
+    sort_lang: opts.sort_lang,
   });
 }
 
 export async function fetchMovieDetail(slug: string) {
+  // Classic detail includes episodes + link_m3u8; /v1/api/phim/{slug} uses a different shape.
   return kkFetch(`/phim/${encodeURIComponent(slug)}`);
 }
 

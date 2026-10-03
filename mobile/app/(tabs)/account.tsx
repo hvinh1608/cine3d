@@ -5,6 +5,7 @@ import type { Href } from 'expo-router';
 import { Image } from 'expo-image';
 import { Button, Divider, List, Text } from 'react-native-paper';
 import { accountApi } from '@/features/account/data/account-api';
+import { useTabScreenBottomPadding } from '@/core/tab-inset';
 import { useAppStore } from '@/state/app-store';
 import { colors, radius, spacing } from '@/theme';
 
@@ -13,6 +14,7 @@ export default function AccountRoute() {
   const setUser = useAppStore((state) => state.setUser);
   const setActiveProfile = useAppStore((state) => state.setActiveProfile);
   const logout = useAppStore((state) => state.logout);
+  const bottomPad = useTabScreenBottomPadding();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -33,6 +35,13 @@ export default function AccountRoute() {
     } finally { setLoading(false); }
   }, [activeProfile, setActiveProfile, setUser, tokens.refreshToken]);
   useEffect(() => { if (hydrated && tokens.refreshToken) void refresh(); }, [hydrated, tokens.refreshToken]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleLogout = () => {
+    void accountApi.logout(tokens.refreshToken).catch(() => undefined).finally(async () => {
+      await logout();
+      router.replace('/(tabs)/account');
+    });
+  };
 
   if (!hydrated) return <View style={styles.center}><Text>Đang khôi phục phiên đăng nhập…</Text></View>;
   if (!tokens.refreshToken) {
@@ -60,7 +69,10 @@ export default function AccountRoute() {
   ] as const;
 
   return (
-    <ScrollView refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void refresh()} />} contentContainerStyle={styles.page}>
+    <ScrollView
+      refreshControl={<RefreshControl refreshing={loading} onRefresh={() => void refresh()} />}
+      contentContainerStyle={[styles.page, { paddingBottom: bottomPad }]}
+    >
       <View style={styles.hero}>
         <Image source={user.avatar || undefined} style={styles.avatar} />
         <View style={styles.grow}>
@@ -83,18 +95,29 @@ export default function AccountRoute() {
             {index < links.length - 1 ? <Divider /> : null}
           </View>
         ))}
-        {user.role === 'ADMIN' ? <List.Item title="Quản trị" description="Phim, thành viên, đơn VIP và vận hành" onPress={() => router.push('/admin')} left={(props) => <List.Icon {...props} icon="shield-crown" />} right={(props) => <List.Icon {...props} icon="chevron-right" />} /> : null}
+        {user.role === 'ADMIN' ? (
+          <>
+            <Divider />
+            <List.Item title="Quản trị" description="Phim, thành viên, đơn VIP và vận hành" onPress={() => router.push('/admin')} left={(props) => <List.Icon {...props} icon="shield-crown" />} right={(props) => <List.Icon {...props} icon="chevron-right" />} />
+          </>
+        ) : null}
       </View>
-      <Button textColor={colors.primarySoft} onPress={() => void accountApi.logout(tokens.refreshToken).catch(() => undefined).finally(async () => {
-        await logout();
-        router.replace('/(tabs)/account');
-      })}>Đăng xuất</Button>
+      <Button
+        mode="outlined"
+        textColor={colors.primarySoft}
+        style={styles.logoutButton}
+        contentStyle={styles.logoutButtonContent}
+        icon="logout"
+        onPress={handleLogout}
+      >
+        Đăng xuất
+      </Button>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  page: { padding: spacing.md, gap: spacing.md, paddingBottom: spacing.xl },
+  page: { padding: spacing.md, gap: spacing.md },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.xl, gap: spacing.md, backgroundColor: colors.background },
   hero: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg, borderRadius: radius.lg, backgroundColor: colors.surface },
   avatar: { width: 72, height: 72, borderRadius: 36, backgroundColor: colors.surfaceRaised },
@@ -103,4 +126,11 @@ const styles = StyleSheet.create({
   muted: { color: colors.textMuted },
   vip: { color: colors.warning, fontWeight: '700' },
   error: { color: colors.primarySoft },
+  logoutButton: {
+    borderColor: colors.primarySoft,
+    borderWidth: 1.5,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(255, 73, 111, 0.08)',
+  },
+  logoutButtonContent: { paddingVertical: spacing.sm },
 });

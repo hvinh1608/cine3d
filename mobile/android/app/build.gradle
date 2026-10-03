@@ -2,29 +2,6 @@ apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
 
-def googleServicesInput = System.getenv("GOOGLE_SERVICES_FILE")
-def googleServicesOutput = file("google-services.json")
-if (googleServicesInput && file(googleServicesInput).exists()) {
-    copy {
-        from googleServicesInput
-        into projectDir
-        rename { "google-services.json" }
-    }
-}
-if (!googleServicesOutput.exists()) {
-    def repositoryServices = rootProject.file("../google-services.json")
-    if (repositoryServices.exists()) {
-        copy {
-            from repositoryServices
-            into projectDir
-            rename { "google-services.json" }
-        }
-    }
-}
-if (googleServicesOutput.exists()) {
-    apply plugin: "com.google.gms.google-services"
-}
-
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
 /**
@@ -55,9 +32,7 @@ react {
     //   The list of variants to that are debuggable. For those we're going to
     //   skip the bundling of the JS bundle and the assets. By default is just 'debug'.
     //   If you add flavors like lite, prod, etc. you'll have to list your debuggableVariants.
-    // Bundle JS into local debug APKs so physical-device testing does not depend
-    // on Metro, USB reverse, LAN firewall rules, or an ngrok tunnel.
-    debuggableVariants = []
+    // debuggableVariants = ["liteDebug", "prodDebug"]
 
     /* Bundling */
     //   A list containing the node command and its flags. Default is just 'node'.
@@ -116,16 +91,13 @@ android {
         applicationId 'vn.cine3d.app'
         minSdk = rootProject.ext.minSdkVersion
         targetSdk = rootProject.ext.targetSdkVersion
-        versionCode 14
-        versionName "1.0.14"
+        versionCode 21
+        versionName "1.0.21"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
     signingConfigs {
         debug {
-            // Must match the Android OAuth client SHA-1 in Firebase/Google Cloud
-            // (5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25).
-            // ~/.android/debug.keystore has a different SHA-1 and breaks Google Sign-In.
             storeFile file('debug.keystore')
             storePassword 'android'
             keyAlias 'androiddebugkey'
@@ -137,9 +109,8 @@ android {
             signingConfig = signingConfigs.debug
         }
         release {
-            // EAS injects the remote production signing credentials. Without
-            // injected credentials, local sideload builds reuse the debug key
-            // so the APK remains installable outside Play/EAS.
+            // Caution! In production, you need to generate your own keystore file.
+            // see https://reactnative.dev/docs/signed-apk-android.
             signingConfig = signingConfigs.debug
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources = enableShrinkResources.toBoolean()
@@ -209,3 +180,5 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+apply plugin: 'com.google.gms.google-services'

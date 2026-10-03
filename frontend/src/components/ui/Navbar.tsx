@@ -61,6 +61,8 @@ export default function Navbar() {
   const desktopSearchInputRef = useRef<HTMLInputElement>(null);
   const mobileSearchInputRef = useRef<HTMLInputElement>(null);
   const suggestionCacheRef = useRef<Map<string, Movie[]>>(new Map());
+  /** Blocks typeahead from reopening after submit / navigate. */
+  const suppressSuggestionsRef = useRef(false);
 
   // Monitor scrolling to alter glass background intensity
   useEffect(() => {
@@ -93,10 +95,16 @@ export default function Navbar() {
     return () => window.removeEventListener('click', handleOutsideClick);
   }, []);
 
-  // Update query state if search param changes
+  // Update query state if search param changes; keep suggestions closed on results page.
   useEffect(() => {
-    queueMicrotask(() => setSearchQuery(searchParams.get('q') || ''));
-  }, [searchParams]);
+    queueMicrotask(() => {
+      setSearchQuery(searchParams.get('q') || '');
+      if (pathname?.startsWith('/search') && searchParams.get('q')) {
+        suppressSuggestionsRef.current = true;
+        setSuggestionsOpen(false);
+      }
+    });
+  }, [pathname, searchParams]);
 
   useEffect(() => {
     try {
@@ -131,18 +139,21 @@ export default function Navbar() {
   // Lightweight debounced typeahead search. It only starts after two characters.
   useEffect(() => {
     const keyword = searchQuery.trim();
-    if (keyword.length < 2) {
+    if (keyword.length < 2 || suppressSuggestionsRef.current) {
       return;
     }
 
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
+      if (suppressSuggestionsRef.current) return;
+
       const cacheKey = keyword.toLocaleLowerCase('vi');
       const cachedSuggestions = suggestionCacheRef.current.get(cacheKey);
       if (cachedSuggestions) {
         setSuggestions(cachedSuggestions);
         setSuggestionsLoading(false);
         setActiveSuggestionIndex(-1);
+        if (!suppressSuggestionsRef.current) setSuggestionsOpen(true);
         return;
       }
 
@@ -152,6 +163,7 @@ export default function Navbar() {
           params: { search: keyword, page: 1, limit: 6 },
           signal: controller.signal,
         });
+        if (suppressSuggestionsRef.current) return;
         const movies = Array.isArray(response.data?.movies) ? response.data.movies : [];
         suggestionCacheRef.current.set(cacheKey, movies);
         setSuggestions(movies);
@@ -232,13 +244,22 @@ export default function Navbar() {
     }
   };
 
+  const closeSearchSuggestions = useCallback(() => {
+    suppressSuggestionsRef.current = true;
+    setSuggestionsOpen(false);
+    setActiveSuggestionIndex(-1);
+    setSuggestionsLoading(false);
+    desktopSearchInputRef.current?.blur();
+    mobileSearchInputRef.current?.blur();
+  }, []);
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const keyword = searchQuery.trim();
     if (keyword) {
       saveRecentSearch(keyword);
       void axios.post('/analytics/events', { name: 'search', path: '/search', metadata: { length: keyword.length } }).catch(() => undefined);
-      setSuggestionsOpen(false);
+      closeSearchSuggestions();
       setMobileMenuOpen(false);
       router.push(`/search?q=${encodeURIComponent(keyword)}`);
     }
@@ -246,6 +267,7 @@ export default function Navbar() {
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
+    suppressSuggestionsRef.current = false;
     setSearchQuery(value);
     setSuggestionsOpen(true);
     setActiveSuggestionIndex(-1);
@@ -259,14 +281,14 @@ export default function Navbar() {
   const handleRecentSearch = (keyword: string) => {
     setSearchQuery(keyword);
     saveRecentSearch(keyword);
-    setSuggestionsOpen(false);
+    closeSearchSuggestions();
     setMobileMenuOpen(false);
     router.push(`/search?q=${encodeURIComponent(keyword)}`);
   };
 
   const handleSuggestionSelect = (movie: Movie) => {
     saveRecentSearch(searchQuery || movie.title);
-    setSuggestionsOpen(false);
+    closeSearchSuggestions();
     setMobileMenuOpen(false);
   };
 
@@ -296,7 +318,7 @@ export default function Navbar() {
       event.preventDefault();
       const movie = suggestions[activeSuggestionIndex];
       saveRecentSearch(searchQuery || movie.title);
-      setSuggestionsOpen(false);
+      closeSearchSuggestions();
       setMobileMenuOpen(false);
       router.push(`/movies/${movie.slug}`);
     }
@@ -411,12 +433,13 @@ export default function Navbar() {
         <div className="hidden items-center gap-1 text-sm font-semibold text-slate-300 xl:flex">
           <Link href="/" className={`rounded-full px-3.5 py-2 transition ${isTabActive('/') ? 'bg-white/10 text-white' : 'hover:bg-white/5 hover:text-white'}`}>{t('home')}</Link>
           <div className="relative" ref={discoverRef}>
-            <button type="button" onClick={() => setDiscoverOpen((open) => !open)} className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 transition ${pathname?.startsWith('/search') || pathname?.startsWith('/schedule') ? 'bg-white/10 text-white' : 'hover:bg-white/5 hover:text-white'}`} aria-expanded={discoverOpen}>
+            <button type="button" onClick={() => setDiscoverOpen((open) => !open)} className={`flex items-center gap-1.5 rounded-full px-3.5 py-2 transition ${pathname?.startsWith('/search') || pathname?.startsWith('/schedule') || pathname?.startsWith('/phim-moi') ? 'bg-white/10 text-white' : 'hover:bg-white/5 hover:text-white'}`} aria-expanded={discoverOpen}>
               {t('discover')} <ChevronDown className={`h-3.5 w-3.5 transition-transform ${discoverOpen ? 'rotate-180' : ''}`} />
             </button>
             {discoverOpen && (
               <div className="absolute left-0 top-full mt-3 grid w-56 gap-1 rounded-2xl border border-white/10 bg-[#0b0c12]/95 p-2 shadow-2xl backdrop-blur-xl">
                 <Link href="/search" onClick={() => setDiscoverOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs hover:bg-white/5 hover:text-yellow-400"><Sparkles className="h-4 w-4 text-purple-400" /> {t('allMovies')}</Link>
+                <Link href="/phim-moi" onClick={() => setDiscoverOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs hover:bg-white/5 hover:text-yellow-400"><Sparkles className="h-4 w-4 text-amber-400" /> Phim mới</Link>
                 <Link href="/search?type=series" onClick={() => setDiscoverOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs hover:bg-white/5 hover:text-yellow-400"><Clapperboard className="h-4 w-4 text-sky-400" /> {t('series')}</Link>
                 <Link href="/search?type=movie" onClick={() => setDiscoverOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs hover:bg-white/5 hover:text-yellow-400"><Clapperboard className="h-4 w-4 text-emerald-400" /> {t('movies')}</Link>
                 <Link href="/schedule" onClick={() => setDiscoverOpen(false)} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs hover:bg-white/5 hover:text-yellow-400"><CalendarDays className="h-4 w-4 text-amber-400" /> {t('schedule')}</Link>
@@ -436,7 +459,10 @@ export default function Navbar() {
               type="text"
               value={searchQuery}
               onChange={handleSearchChange}
-              onFocus={() => setSuggestionsOpen(true)}
+              onFocus={() => {
+                // Allow reopen on intentional focus; typing clears suppress.
+                setSuggestionsOpen(true);
+              }}
               onKeyDown={handleSearchKeyDown}
               aria-label={t('search')}
               role="combobox"
@@ -618,7 +644,10 @@ export default function Navbar() {
               type="text"
               value={searchQuery}
               onChange={handleSearchChange}
-              onFocus={() => setSuggestionsOpen(true)}
+              onFocus={() => {
+                // Allow reopen on intentional focus; typing clears suppress.
+                setSuggestionsOpen(true);
+              }}
               onKeyDown={handleSearchKeyDown}
               aria-label={t('search')}
               role="combobox"

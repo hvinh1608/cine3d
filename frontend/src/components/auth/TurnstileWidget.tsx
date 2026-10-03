@@ -44,8 +44,8 @@ export default function TurnstileWidget({ onToken }: { onToken: (token: string) 
       'error-callback': (errorCode) => {
         onToken('');
         setErrorMessage(errorCode === '110200'
-          ? 'Xác minh bảo mật chưa được cấp phép cho tên miền này. Vui lòng liên hệ quản trị viên.'
-          : 'Không thể tải xác minh bảo mật. Vui lòng tải lại trang và thử lại.');
+          ? 'Xác minh bảo mật chưa sẵn sàng cho website này. Vui lòng thử lại sau hoặc liên hệ hỗ trợ.'
+          : 'Không tải được bước xác minh. Vui lòng tải lại trang và thử lại.');
         return true;
       },
     });

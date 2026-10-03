@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Shield, Film, ListVideo, AlertTriangle, Users, BarChart3, Plus, Trash2, Edit, X, Lock, Unlock, RefreshCw, Tv, Subtitles, Star, ReceiptText, CheckCircle2, ServerCrash, MessageSquareText, Smartphone } from 'lucide-react';
+import { Shield, Film, ListVideo, AlertTriangle, Users, BarChart3, Plus, Trash2, Edit, X, Lock, Unlock, RefreshCw, Tv, Subtitles, Star, ReceiptText, CheckCircle2, ServerCrash, MessageSquareText, Smartphone, Megaphone, Send } from 'lucide-react';
 import type { AxiosError } from 'axios';
 import { useStore } from '../../hooks/useStore';
 import axios from '../../lib/api';
@@ -38,6 +38,43 @@ type AppVersionPolicy = {
   storeUrl?: string | null;
   updatedAt?: string;
 };
+type MarketingCampaign = {
+  id: string;
+  title: string;
+  body: string;
+  url?: string | null;
+  segment: string;
+  status: string;
+  scheduledAt?: string | null;
+  sentAt?: string | null;
+  targeted: number;
+  sent: number;
+  failed: number;
+  error?: string | null;
+  createdAt: string;
+  createdBy?: { username?: string } | null;
+};
+type MarketingSummary = {
+  periodDays: number;
+  pushSubscribers: number;
+  vipUsers: number;
+  activeUsers: number;
+  inactiveApprox: number;
+  shareClicks: number;
+  campaignOpens: number;
+  topUtmSources: { source: string; count: number }[];
+  topUtmCampaigns: { campaign: string; count: number }[];
+  campaignsByStatus: Record<string, number>;
+  facebookConfigured?: boolean;
+};
+
+const MARKETING_SEGMENTS = [
+  { value: 'ALL', label: 'Tất cả user' },
+  { value: 'VIP', label: 'VIP đang active' },
+  { value: 'NON_VIP', label: 'Không VIP' },
+  { value: 'INACTIVE_7D', label: 'Không hoạt động 7 ngày' },
+  { value: 'HAS_PUSH', label: 'Đã bật Push' },
+] as const;
 
 const isUserVipActive = (user: AdminUser) => {
   const now = Date.now();
@@ -60,7 +97,7 @@ export default function AdminPage() {
   }, [user, router]);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'stats' | 'analytics' | 'sources' | 'movies' | 'episodes' | 'users' | 'vip' | 'reports' | 'feedback'>('stats');
+  const [activeTab, setActiveTab] = useState<'stats' | 'analytics' | 'sources' | 'movies' | 'episodes' | 'users' | 'vip' | 'reports' | 'feedback' | 'marketing'>('stats');
 
   // Stats States
   const [stats, setStats] = useState<AdminStats>({
@@ -79,12 +116,109 @@ export default function AdminPage() {
   const [androidPolicy, setAndroidPolicy] = useState<AppVersionPolicy>({
     platform: 'android',
     minVersion: '1.0.0',
-    latestVersion: '1.0.14',
+    latestVersion: '1.0.21',
     forceUpdate: false,
     message: 'Đã có bản CINE3D mới. Cập nhật để trải nghiệm ổn định hơn.',
     storeUrl: 'https://cine3d.id.vn/download',
   });
   const [savingAppVersion, setSavingAppVersion] = useState(false);
+  const [marketingSummary, setMarketingSummary] = useState<MarketingSummary | null>(null);
+  const [marketingCampaigns, setMarketingCampaigns] = useState<MarketingCampaign[]>([]);
+  const [marketingLoading, setMarketingLoading] = useState(false);
+  const [campaignBusy, setCampaignBusy] = useState(false);
+  const [campaignForm, setCampaignForm] = useState({
+    title: '',
+    body: '',
+    url: '/',
+    segment: 'ALL',
+    scheduledAt: '',
+  });
+
+  const loadMarketing = useCallback(async () => {
+    if (!accessToken) return;
+    setMarketingLoading(true);
+    try {
+      const [summaryRes, campaignsRes] = await Promise.all([
+        axios.get(`${API_URL}/admin/marketing/summary`, { headers: { Authorization: `Bearer ${accessToken}` } }),
+        axios.get(`${API_URL}/admin/marketing/campaigns`, { headers: { Authorization: `Bearer ${accessToken}` } }),
+      ]);
+      setMarketingSummary(summaryRes.data);
+      setMarketingCampaigns(Array.isArray(campaignsRes.data) ? campaignsRes.data : []);
+    } catch (error) {
+      showToast(requestMessage(error, 'Không tải được dữ liệu marketing.'), 'error');
+    } finally {
+      setMarketingLoading(false);
+    }
+  }, [accessToken, showToast]);
+
+  const submitCampaign = useCallback(async (sendNow: boolean) => {
+    if (!accessToken) return;
+    if (!campaignForm.title.trim() || !campaignForm.body.trim()) {
+      showToast('Nhập tiêu đề và nội dung chiến dịch.', 'info');
+      return;
+    }
+    setCampaignBusy(true);
+    try {
+      await axios.post(
+        `${API_URL}/admin/marketing/campaigns`,
+        {
+          title: campaignForm.title.trim(),
+          body: campaignForm.body.trim(),
+          url: campaignForm.url.trim() || '/',
+          segment: campaignForm.segment,
+          sendNow,
+          scheduledAt: !sendNow && campaignForm.scheduledAt ? campaignForm.scheduledAt : undefined,
+        },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      showToast(sendNow ? 'Đã gửi chiến dịch.' : 'Đã lưu chiến dịch.', 'success');
+      setCampaignForm({ title: '', body: '', url: '/', segment: 'ALL', scheduledAt: '' });
+      await loadMarketing();
+    } catch (error) {
+      showToast(requestMessage(error, 'Không gửi được chiến dịch.'), 'error');
+    } finally {
+      setCampaignBusy(false);
+    }
+  }, [accessToken, campaignForm, loadMarketing, showToast]);
+
+  const sendExistingCampaign = useCallback(async (id: string) => {
+    if (!accessToken) return;
+    setCampaignBusy(true);
+    try {
+      await axios.post(`${API_URL}/admin/marketing/campaigns/${id}/send`, {}, { headers: { Authorization: `Bearer ${accessToken}` } });
+      showToast('Đã gửi chiến dịch.', 'success');
+      await loadMarketing();
+    } catch (error) {
+      showToast(requestMessage(error, 'Không gửi được chiến dịch.'), 'error');
+    } finally {
+      setCampaignBusy(false);
+    }
+  }, [accessToken, loadMarketing, showToast]);
+
+  const postCampaignToFacebook = useCallback(async () => {
+    if (!accessToken) return;
+    if (!campaignForm.title.trim() && !campaignForm.body.trim()) {
+      showToast('Nhập tiêu đề hoặc nội dung trước khi đăng Facebook.', 'info');
+      return;
+    }
+    setCampaignBusy(true);
+    try {
+      const { data } = await axios.post(
+        `${API_URL}/admin/marketing/facebook`,
+        {
+          title: campaignForm.title.trim(),
+          body: campaignForm.body.trim(),
+          url: campaignForm.url.trim() || '/phim-moi',
+        },
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      showToast(data?.message || 'Đã đăng Facebook Page.', 'success');
+    } catch (error) {
+      showToast(requestMessage(error, 'Không đăng được Facebook.'), 'error');
+    } finally {
+      setCampaignBusy(false);
+    }
+  }, [accessToken, campaignForm, showToast]);
 
   const loadSystemHealth = useCallback(async () => {
     try {
@@ -733,6 +867,16 @@ export default function AdminPage() {
         </button>
 
         <button
+          onClick={() => { setActiveTab('marketing'); void loadMarketing(); }}
+          className={`flex items-center space-x-2.5 px-4 py-3 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
+            activeTab === 'marketing' ? 'bg-amber-500 text-black' : 'text-amber-400 hover:bg-amber-500/10 hover:text-amber-300'
+          }`}
+        >
+          <Megaphone className="w-4 h-4" />
+          <span>Chiến dịch Marketing</span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('episodes')}
           className={`flex items-center space-x-2.5 px-4 py-3 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
             activeTab === 'episodes' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'
@@ -969,6 +1113,151 @@ export default function AdminPage() {
             </div>
             <div><h3 className="mb-3 text-sm font-black uppercase text-slate-300">Lỗi phát gần đây</h3><div className="space-y-2">{analytics.recentPlayerErrors.map((event) => <div key={event.id} className="rounded-xl border border-red-500/10 bg-red-950/10 p-3"><div className="flex flex-wrap justify-between gap-2 text-xs"><span className="font-bold text-red-300">{event.movieId || event.path || 'Không xác định'}</span><span className="text-slate-600">{new Date(event.createdAt).toLocaleString('vi-VN')}</span></div><pre className="mt-2 overflow-x-auto text-[10px] text-slate-500">{JSON.stringify(event.metadata || {}, null, 2)}</pre></div>)}{!analytics.recentPlayerErrors.length && <p className="py-8 text-center text-xs text-emerald-400">Chưa ghi nhận lỗi phát nào.</p>}</div></div>
             <div><h3 className="mb-3 text-sm font-black uppercase text-slate-300">Chất lượng phát gần đây</h3><div className="grid gap-2 md:grid-cols-2">{(analytics.recentQualityEvents || []).slice(0, 12).map((event) => <div key={event.id} className="rounded-xl border border-cyan-500/10 bg-cyan-950/10 p-3"><div className="flex justify-between text-[10px]"><span className="font-black uppercase text-cyan-300">{event.name}</span><span className="text-slate-600">{new Date(event.createdAt).toLocaleTimeString('vi-VN')}</span></div><pre className="mt-2 overflow-x-auto text-[9px] text-slate-500">{JSON.stringify(event.metadata || {}, null, 2)}</pre></div>)}</div></div>
+          </div>
+        )}
+
+        {activeTab === 'marketing' && (
+          <div className="space-y-6 animate-fade-in">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="flex items-center text-xl font-black uppercase tracking-wide text-amber-400">
+                  <Megaphone className="mr-2 h-5 w-5" /> Marketing Push
+                </h2>
+                <p className="mt-2 text-xs leading-5 text-slate-500">Gửi thông báo in-app + push theo segment. Theo dõi UTM share / campaign open 7 ngày gần nhất.</p>
+              </div>
+              <button type="button" onClick={() => void loadMarketing()} className="inline-flex items-center gap-2 rounded-xl border border-white/10 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-white/5">
+                <RefreshCw className={`h-3.5 w-3.5 ${marketingLoading ? 'animate-spin' : ''}`} /> Làm mới
+              </button>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {[
+                ['Có Push', marketingSummary?.pushSubscribers ?? '—'],
+                ['VIP', marketingSummary?.vipUsers ?? '—'],
+                ['Active 7 ngày', marketingSummary?.activeUsers ?? '—'],
+                ['Share clicks', marketingSummary?.shareClicks ?? '—'],
+              ].map(([label, value]) => (
+                <div key={String(label)} className="rounded-2xl border border-white/5 bg-slate-900/60 p-5">
+                  <p className="text-[10px] font-black uppercase text-slate-500">{label}</p>
+                  <p className="mt-1 text-2xl font-black">{value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              <form
+                className="space-y-4 rounded-2xl border border-white/5 bg-slate-900/60 p-5"
+                onSubmit={(event) => { event.preventDefault(); void submitCampaign(true); }}
+              >
+                <h3 className="text-sm font-black uppercase text-slate-300">Tạo chiến dịch</h3>
+                <label className="block space-y-1.5">
+                  <span className="text-[10px] font-black uppercase text-slate-500">Tiêu đề</span>
+                  <input value={campaignForm.title} onChange={(e) => setCampaignForm((c) => ({ ...c, title: e.target.value }))} maxLength={120} className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-amber-400/40" placeholder="Phim mới tuần này" />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-[10px] font-black uppercase text-slate-500">Nội dung</span>
+                  <textarea value={campaignForm.body} onChange={(e) => setCampaignForm((c) => ({ ...c, body: e.target.value }))} maxLength={500} rows={3} className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-amber-400/40" placeholder="Nội dung thông báo gửi tới user" />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-[10px] font-black uppercase text-slate-500">URL đích</span>
+                  <input value={campaignForm.url} onChange={(e) => setCampaignForm((c) => ({ ...c, url: e.target.value }))} className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-amber-400/40" placeholder="/phim-moi" />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-[10px] font-black uppercase text-slate-500">Segment</span>
+                  <select value={campaignForm.segment} onChange={(e) => setCampaignForm((c) => ({ ...c, segment: e.target.value }))} className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-amber-400/40">
+                    {MARKETING_SEGMENTS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-[10px] font-black uppercase text-slate-500">Lên lịch (tuỳ chọn)</span>
+                  <input type="datetime-local" value={campaignForm.scheduledAt} onChange={(e) => setCampaignForm((c) => ({ ...c, scheduledAt: e.target.value }))} className="w-full rounded-xl border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-amber-400/40" />
+                </label>
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <button type="submit" disabled={campaignBusy} className="inline-flex items-center gap-2 rounded-xl bg-amber-400 px-4 py-2 text-xs font-black text-slate-950 disabled:opacity-40">
+                    <Send className="h-3.5 w-3.5" /> Gửi Push
+                  </button>
+                  <button type="button" disabled={campaignBusy} onClick={() => void submitCampaign(false)} className="rounded-xl border border-white/10 px-4 py-2 text-xs font-bold text-slate-300 hover:bg-white/5 disabled:opacity-40">
+                    Lưu / Lên lịch
+                  </button>
+                  <button
+                    type="button"
+                    disabled={campaignBusy}
+                    onClick={() => void postCampaignToFacebook()}
+                    className="rounded-xl border border-blue-400/30 bg-blue-500/15 px-4 py-2 text-xs font-bold text-blue-200 hover:bg-blue-500/25 disabled:opacity-40"
+                    title={marketingSummary?.facebookConfigured ? 'Đăng lên Facebook Page' : 'Cần cấu hình FACEBOOK_PAGE_* trên server'}
+                  >
+                    Đăng Facebook
+                  </button>
+                </div>
+                {!marketingSummary?.facebookConfigured && (
+                  <p className="text-[10px] text-slate-500">Server chưa có token Page — thêm FACEBOOK_PAGE_ID + FACEBOOK_PAGE_ACCESS_TOKEN vào .env.home rồi restart backend.</p>
+                )}
+              </form>
+
+              <div className="rounded-2xl border border-white/5 bg-slate-900/60 p-5">
+                <h3 className="mb-3 text-sm font-black uppercase text-slate-300">Top UTM 7 ngày</h3>
+                <div className="space-y-2">
+                  {(marketingSummary?.topUtmSources || []).map((row) => (
+                    <div key={row.source} className="flex items-center justify-between rounded-xl border border-white/5 bg-slate-950/60 px-3 py-2 text-xs">
+                      <span className="font-bold text-amber-300">{row.source}</span>
+                      <span className="text-slate-500">{row.count}</span>
+                    </div>
+                  ))}
+                  {!marketingSummary?.topUtmSources?.length && <p className="py-6 text-center text-xs text-slate-500">Chưa có UTM nào được ghi nhận.</p>}
+                </div>
+                <p className="mt-4 text-[10px] text-slate-600">Campaign opens: {marketingSummary?.campaignOpens ?? 0} · Inactive ~{marketingSummary?.inactiveApprox ?? 0}</p>
+              </div>
+            </div>
+
+            <div className="overflow-hidden rounded-2xl border border-white/5 bg-slate-900/60">
+              <div className="border-b border-white/5 px-5 py-3 text-sm font-black uppercase text-slate-300">Lịch sử chiến dịch</div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-left text-xs">
+                  <thead className="bg-slate-950/50 text-[10px] uppercase tracking-wider text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3">Chiến dịch</th>
+                      <th className="px-4 py-3">Segment</th>
+                      <th className="px-4 py-3">Trạng thái</th>
+                      <th className="px-4 py-3">Đếm</th>
+                      <th className="px-4 py-3">Thời gian</th>
+                      <th className="px-4 py-3" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {marketingCampaigns.map((campaign) => (
+                      <tr key={campaign.id} className="border-t border-white/5">
+                        <td className="px-4 py-3">
+                          <p className="font-bold text-white">{campaign.title}</p>
+                          <p className="mt-1 max-w-xs truncate text-slate-500">{campaign.body}</p>
+                        </td>
+                        <td className="px-4 py-3 text-slate-400">{campaign.segment}</td>
+                        <td className="px-4 py-3">
+                          <span className={`rounded-full px-2 py-0.5 text-[9px] font-black ${
+                            campaign.status === 'SENT' ? 'bg-emerald-500/15 text-emerald-400'
+                              : campaign.status === 'FAILED' ? 'bg-red-500/15 text-red-400'
+                                : campaign.status === 'SENDING' ? 'bg-cyan-500/15 text-cyan-300'
+                                  : campaign.status === 'SCHEDULED' ? 'bg-amber-500/15 text-amber-300'
+                                    : 'bg-slate-700 text-slate-300'
+                          }`}>{campaign.status}</span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-400">{campaign.sent}/{campaign.targeted}{campaign.failed ? ` · fail ${campaign.failed}` : ''}</td>
+                        <td className="px-4 py-3 text-slate-500">{new Date(campaign.sentAt || campaign.createdAt).toLocaleString('vi-VN')}</td>
+                        <td className="px-4 py-3 text-right">
+                          {(campaign.status === 'DRAFT' || campaign.status === 'SCHEDULED' || campaign.status === 'FAILED') && (
+                            <button type="button" disabled={campaignBusy} onClick={() => void sendExistingCampaign(campaign.id)} className="rounded-lg bg-amber-400/90 px-2.5 py-1 text-[10px] font-black text-slate-950 disabled:opacity-40">
+                              Gửi
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                    {!marketingCampaigns.length && (
+                      <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500">Chưa có chiến dịch nào.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
 

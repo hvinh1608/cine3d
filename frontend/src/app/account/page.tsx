@@ -135,7 +135,7 @@ export default function AccountPage() {
     setAuthNotice('');
 
     if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !turnstileToken) {
-      setErrorMsg('Vui lòng hoàn tất xác minh Cloudflare trước khi tiếp tục.');
+      setErrorMsg('Vui lòng hoàn tất xác minh bảo mật trước khi tiếp tục.');
       submittingRef.current = false;
       setIsSubmitting(false);
       return;
@@ -179,7 +179,7 @@ export default function AccountPage() {
   const handleGoogleCredential = async (credential: string) => {
     if (submittingRef.current) return;
     if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !turnstileToken) {
-      setErrorMsg('Vui lòng hoàn tất xác minh Cloudflare trước khi đăng nhập.');
+      setErrorMsg('Vui lòng hoàn tất xác minh bảo mật trước khi đăng nhập.');
       return;
     }
     submittingRef.current = true;
@@ -208,7 +208,7 @@ export default function AccountPage() {
   const handleFacebookAccessToken = async (facebookAccessToken: string) => {
     if (submittingRef.current) return;
     if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !turnstileToken) {
-      setErrorMsg('Vui lòng hoàn tất xác minh Cloudflare trước khi đăng nhập.');
+      setErrorMsg('Vui lòng hoàn tất xác minh bảo mật trước khi đăng nhập.');
       return;
     }
     submittingRef.current = true;
@@ -242,7 +242,7 @@ export default function AccountPage() {
     setAuthNotice('');
 
     if (recoveryMode === 'forgot' && process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY && !turnstileToken) {
-      setErrorMsg('Vui lòng hoàn tất xác minh Cloudflare trước khi gửi yêu cầu.');
+      setErrorMsg('Vui lòng hoàn tất xác minh bảo mật trước khi gửi yêu cầu.');
       submittingRef.current = false;
       setIsSubmitting(false);
       return;
@@ -299,7 +299,7 @@ export default function AccountPage() {
       setUser(res.data.user);
       setSuccessMsg('Tải lên ảnh đại diện thành công!');
     } catch (error) {
-      setErrorMsg(requestMessage(error, 'Lỗi tải ảnh đại diện lên.'));
+      setErrorMsg(requestMessage(error, 'Không tải được ảnh đại diện. Vui lòng thử ảnh khác.'));
     } finally {
       setIsUploading(false);
     }
@@ -732,7 +732,7 @@ export default function AccountPage() {
                   {user?.isVip ? (
                     <div className="space-y-3">
                       <div className="space-y-1">
-                        <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Đường dẫn ảnh đại diện (URL):</span>
+                        <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Liên kết ảnh đại diện:</span>
                         <input
                           type="text"
                           value={editAvatar}
@@ -769,7 +769,7 @@ export default function AccountPage() {
                   ) : (
                     <div className="bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs px-4 py-3 rounded-xl flex items-start space-x-2 leading-relaxed">
                       <Crown className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-                      <span>Nâng cấp tài khoản lên <strong>VIP</strong> để tải ảnh đại diện từ thiết bị hoặc sử dụng URL tùy thích.</span>
+                      <span>Nâng cấp tài khoản lên <strong>VIP</strong> để tải ảnh đại diện từ thiết bị hoặc dùng liên kết ảnh tùy thích.</span>
                     </div>
                   )}
                   <button type="submit" className="w-full bg-white text-black text-xs md:text-sm font-black py-3 rounded-xl transition-all hover:bg-slate-200 active:scale-95 shadow-md flex items-center justify-center space-x-2">

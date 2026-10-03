@@ -21,90 +21,8 @@
 
 :root {
   --background: #191a22;
-  --surface-deep: #111219;
-  --surface-soft: #23252f;
   --foreground: #f8fafc;
-  --accent: #ff003c;
   --neon-purple: #9d00ff;
-  --neon-blue: #00f0ff;
-}
-
-/* Expanding social card in the footer. */
-.footer-social-card {
-  position: relative;
-  display: flex;
-  width: 200px;
-  height: 58px;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 18px;
-  background: #e7e7e7;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-}
-
-.footer-social-card::before,
-.footer-social-card::after {
-  position: absolute;
-  z-index: 1;
-  width: 50%;
-  height: 100%;
-  content: '';
-  transition: 0.25s linear;
-}
-
-.footer-social-card::before { left: 0; background: #4d60b6; }
-.footer-social-card::after { right: 0; background: #4453a6; }
-.footer-social-card:hover { box-shadow: 0 14px 30px rgba(0, 0, 0, 0.38); }
-.footer-social-card:hover::before { opacity: 0.5; transform: translateY(-100%); }
-.footer-social-card:hover::after { opacity: 0.5; transform: translateY(100%); }
-
-.footer-social-card > span {
-  position: absolute;
-  z-index: 2;
-  display: grid;
-  width: 100%;
-  height: 100%;
-  place-items: center;
-  color: whitesmoke;
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  transition: opacity 0.25s;
-}
-
-.footer-social-card:hover > span { z-index: -1; opacity: 0; }
-
-.footer-social-link {
-  position: relative;
-  z-index: 0;
-  display: flex;
-  width: 25%;
-  height: 100%;
-  align-items: center;
-  justify-content: center;
-  transition: 0.25s;
-}
-
-.footer-social-link svg { width: 25px; height: 25px; }
-.footer-social-card:hover .footer-social-link { z-index: 3; }
-.footer-social-link:hover { background: rgba(249, 244, 255, 0.82); animation: footer-social-bounce 0.4s linear; }
-
-@keyframes footer-social-bounce {
-  40% { transform: scale(1.4); }
-  60% { transform: scale(0.8); }
-  80% { transform: scale(1.2); }
-  100% { transform: scale(1); }
-}
-
-@media (max-width: 639px) {
-  .footer-social-card { width: 58px; border-radius: 999px; }
-  .footer-social-card > span { font-size: 0; }
-  .footer-social-card > span::after { content: '●●●'; font-size: 12px; letter-spacing: 2px; }
-  .footer-social-card:hover,
-  .footer-social-card:focus-within { width: 200px; border-radius: 18px; }
 }
 
 /* CINE3D cursor: a film-strip pointer that becomes a mini clapperboard on
@@ -156,21 +74,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* YouTube briefly paints its large playback controls even with controls=0.
-   Reveal the background trailer only after that startup overlay has faded. */
-.home-trailer {
-  animation: home-trailer-reveal 500ms 2200ms ease-out both;
-}
-
-@keyframes home-trailer-reveal {
-  from { opacity: 0; }
-  to { opacity: 0.8; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .home-trailer { animation-delay: 0ms; animation-duration: 1ms; }
-}
-
 /* Reveal content progressively as it enters the viewport. The ready class is
    added only after hydration, so content remains accessible without JS. */
 .scroll-reveal-ready {
@@ -202,9 +105,27 @@ body {
 /* Cinematic depth for the home hero, updated through one requestAnimationFrame
    per scroll frame. */
 .hero-parallax-layer {
-  transform: translate3d(0, var(--hero-parallax-offset, 0px), 0) scale(1.08);
+  transform: translate3d(0, var(--hero-parallax-offset, 0px), 0) scale(1.03);
   transition: transform 80ms linear;
   will-change: transform;
+  image-rendering: auto;
+}
+
+/* RoPhim-style fine pixel/dot grain — makes hero artwork feel sharper & cinematic. */
+.cinema-pixel-grain {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.42;
+  mix-blend-mode: overlay;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.7) 0.55px, transparent 0.55px);
+  background-size: 3px 3px;
+}
+
+.cinema-pixel-grain--soft {
+  opacity: 0.28;
+  background-size: 3.5px 3.5px;
 }
 
 /* Lightweight route entrance; the keyed wrapper restarts it after navigation. */
@@ -216,12 +137,10 @@ body {
   from {
     opacity: 0;
     transform: translate3d(0, 10px, 0);
-    filter: blur(2px);
   }
   to {
     opacity: 1;
     transform: none;
-    filter: blur(0);
   }
 }
 
@@ -252,14 +171,6 @@ body {
   background: var(--neon-purple);
 }
 
-/* Glassmorphism Styles */
-.glass {
-  background: rgba(10, 10, 18, 0.45);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
 .glass-panel {
   background: rgba(15, 15, 25, 0.6);
   backdrop-filter: blur(20px);
@@ -267,43 +178,10 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* Cinematic Shimmer Effect */
-.shimmer {
-  background: linear-gradient(
-    90deg,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0.03) 50%,
-    rgba(255, 255, 255, 0) 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmer-anim 2.5s infinite;
-}
-
-@keyframes shimmer-anim {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-/* Text Gradients */
-.text-glow-purple {
-  text-shadow: 0 0 15px rgba(157, 0, 255, 0.6);
-}
-
 .text-glow-red {
   text-shadow: 0 0 15px rgba(255, 0, 60, 0.6);
 }
 
-/* Cinema Ambient Projection Glow (Watch Page) */
-.ambient-glow {
-  filter: blur(80px) opacity(0.25);
-  mix-blend-mode: screen;
-  pointer-events: none;
-  transition: background 1.5s ease;
-}
 /* Movie rails use explicit arrow controls instead of a browser scrollbar. */
 .movie-row {
   scrollbar-width: none;

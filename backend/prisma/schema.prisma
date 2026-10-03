@@ -72,6 +72,8 @@ model User {
   nativeDevices      NativeDevice[]
   playPurchases      PlayPurchase[]
   downloadEntitlements DownloadEntitlement[]
+  marketingCampaigns MarketingCampaign[] @relation("MarketingCampaignCreator")
+  marketingDeliveries MarketingDelivery[]
 
   @@index([email])
   @@index([username])
@@ -754,4 +756,48 @@ model AnalyticsEvent {
   @@index([name, createdAt])
   @@index([userId, createdAt])
   @@index([movieId, createdAt])
+}
+
+/// Admin push / in-app marketing campaign (MVP).
+model MarketingCampaign {
+  id          String              @id @default(uuid())
+  title       String
+  body        String
+  url         String?
+  /// ALL | VIP | NON_VIP | INACTIVE_7D | HAS_PUSH
+  segment     String              @default("ALL")
+  /// DRAFT | SCHEDULED | SENDING | SENT | FAILED
+  status      String              @default("DRAFT")
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  createdById String?
+  createdBy   User?               @relation("MarketingCampaignCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  targeted    Int                 @default(0)
+  sent        Int                 @default(0)
+  failed      Int                 @default(0)
+  error       String?
+  deliveries  MarketingDelivery[]
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  @@index([status, createdAt])
+  @@index([createdById, createdAt])
+  @@index([segment, createdAt])
+}
+
+model MarketingDelivery {
+  id         String            @id @default(uuid())
+  campaignId String
+  campaign   MarketingCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// IN_APP | PUSH
+  channel    String
+  /// SENT | FAILED | SKIPPED
+  status     String            @default("SENT")
+  createdAt  DateTime          @default(now())
+
+  @@index([campaignId, status])
+  @@index([userId, createdAt])
+  @@unique([campaignId, userId, channel])
 }

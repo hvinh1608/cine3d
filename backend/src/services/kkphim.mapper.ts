@@ -108,19 +108,42 @@ function resolveCdn(cdn?: string | null): string {
   return cdn || DEFAULT_CDN;
 }
 
+function isDubbedLang(lang?: string | null): boolean {
+  const value = String(lang || '').toLowerCase();
+  return value.includes('thuyet') || value.includes('long') || value.includes('thuyết') || value.includes('lồng');
+}
+
+/** Prefer TMDB score, then IMDb — ignore zeros so IMDb 0 does not hide TMDB 6.7. */
+export function pickVoteAverage(item: any): number {
+  const tmdb = Number(item?.tmdb?.vote_average);
+  const imdb = Number(item?.imdb?.vote_average);
+  if (Number.isFinite(tmdb) && tmdb > 0) return Math.round(tmdb * 10) / 10;
+  if (Number.isFinite(imdb) && imdb > 0) return Math.round(imdb * 10) / 10;
+  return 0;
+}
+
+/** Map KKPhim sort_lang / UI lang values to upstream query values. */
+export function resolveSortLang(raw?: string | null): string | undefined {
+  const value = String(raw || '').trim().toLowerCase();
+  if (!value) return undefined;
+  if (value === 'true' || value === 'dubbed' || value === 'thuyet-minh' || value === 'thuyetminh') return 'thuyet-minh';
+  if (value === 'long-tieng' || value === 'longtieng') return 'long-tieng';
+  if (value === 'vietsub' || value === 'sub') return 'vietsub';
+  return undefined;
+}
+
 /** Map a list/search item (no full episodes). */
 export function mapListItem(item: any, cdn?: string): AppMovie {
   const imgCdn = resolveCdn(cdn);
   const poster = absoluteImageUrl(item.poster_url, imgCdn);
   const thumb = absoluteImageUrl(item.thumb_url, imgCdn) || poster;
-  const vote = item.tmdb?.vote_average || item.imdb?.vote_average || 0;
 
   return {
     id: item.slug || item._id,
     title: item.name || '',
     englishTitle: item.origin_name || null,
     slug: item.slug,
-    description: stripHtml(item.content) || item.origin_name || '',
+    description: stripHtml(item.content) || '',
     backdropUrl: thumb,
     posterUrl: poster || thumb,
     trailerUrl: item.trailer_url || null,
@@ -129,9 +152,10 @@ export function mapListItem(item: any, cdn?: string): AppMovie {
     quality: item.quality || 'HD',
     episodeCount: parseEpisodeCount(item.episode_total || item.episode_current),
     isSeries: isSeriesType(item.type),
+    isDubbed: isDubbedLang(item.lang),
     status: mapStatus(item.status || item.episode_current),
     views: item.view || 0,
-    ratingAvg: typeof vote === 'number' ? vote : 0,
+    ratingAvg: pickVoteAverage(item),
     isFeatured: false,
     isTrending: false,
     isProposed: false,

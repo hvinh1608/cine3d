@@ -20,9 +20,12 @@ export async function generateMetadata({ searchParams }: { searchParams: SearchP
 
 async function loadSearchData(rawParams: Record<string, string | string[] | undefined>): Promise<SearchInitialData> {
   const params = new URLSearchParams({ page: first(rawParams.page) || '1', limit: '24' });
-  for (const key of ['q', 'genre', 'country', 'year', 'type', 'sortBy', 'status', 'vip', 'dubbed'] as const) {
+  for (const key of ['q', 'genre', 'country', 'year', 'type', 'sortBy', 'status', 'vip', 'lang', 'dubbed'] as const) {
     const value = first(rawParams[key]);
-    if (value) params.set(key === 'q' ? 'search' : key, value);
+    if (!value) continue;
+    if (key === 'q') params.set('search', value);
+    else if (key === 'dubbed' && value === 'true' && !first(rawParams.lang)) params.set('lang', 'thuyet-minh');
+    else if (key !== 'dubbed') params.set(key, value);
   }
 
   const [moviesResult, genresResult, countriesResult] = await Promise.allSettled([

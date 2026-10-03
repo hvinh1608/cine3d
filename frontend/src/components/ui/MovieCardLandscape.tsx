@@ -19,6 +19,7 @@ export default function MovieCardLandscape({ movie, onToggleFavorite, isFavorite
 
   return (
     <div
+      data-movie-card
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className="relative aspect-video w-full rounded-xl overflow-hidden cursor-pointer bg-slate-900 border border-white/5 shadow-lg group select-none"

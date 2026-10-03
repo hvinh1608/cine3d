@@ -7,6 +7,17 @@ import { colors, radius, spacing } from '@/theme';
 
 const VIP_WEB_URL = 'https://cine3d.id.vn/vip';
 
+const VIP_BENEFITS = [
+  'Không quảng cáo trên website và trong app CINE3D',
+  'Nội dung VIP độc quyền và suất chiếu sớm',
+  'Nguồn xem chất lượng cao / 4K khi có sẵn',
+  'Cửa sổ xem nổi trên trình duyệt web',
+  'Tải phim về máy khi có nguồn phù hợp',
+  'Ảnh đại diện tùy chọn từ thiết bị',
+  'Phòng Xem Chung riêng tư có mật khẩu',
+  'Huy hiệu VIP và đồng bộ quyền lợi web ↔ app',
+] as const;
+
 export default function VipRoute() {
   const user = useAppStore((state) => state.session.user);
   const setUser = useAppStore((state) => state.setUser);
@@ -62,6 +73,15 @@ export default function VipRoute() {
                 ? `Hết hạn ${new Date(status.expiresAt).toLocaleDateString('vi-VN')}`
                 : 'Chưa có kỳ hạn VIP'}
           </Text>
+        </Card.Content>
+      </Card>
+
+      <Card mode="contained">
+        <Card.Content style={styles.gap}>
+          <Text variant="titleMedium">Quyền lợi Premium</Text>
+          {VIP_BENEFITS.map((item) => (
+            <Text key={item} style={styles.benefit}>• {item}</Text>
+          ))}
         </Card.Content>
       </Card>
 
@@ -123,6 +143,7 @@ const styles = StyleSheet.create({
   page: { width: '100%', maxWidth: 720, alignSelf: 'center', padding: spacing.md, gap: spacing.md },
   gap: { gap: spacing.sm },
   body: { color: colors.text, lineHeight: 22 },
+  benefit: { color: colors.text, lineHeight: 22 },
   steps: {
     gap: spacing.xs,
     padding: spacing.md,

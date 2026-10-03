@@ -1,0 +1,108 @@
+# Home PC: Redis + Express API + Next.js web.
+# Cloudflare Tunnel: 127.0.0.1:5000 (API) and 127.0.0.1:3000 (web).
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: cine3d-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - cine3d-home
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  db:
+    profiles: ["local-db"]
+    image: postgres:15-alpine
+    container_name: cine3d-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cine3d}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cine3d}
+      POSTGRES_DB: ${POSTGRES_DB:-webxemphim}
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - cine3d-home
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cine3d-backend
+    restart: unless-stopped
+    env_file:
+      - .env.home
+    ports:
+      - "127.0.0.1:5000:5000"
+    environment:
+      PORT: 5000
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+    volumes:
+      - backend_uploads:/app/uploads
+    command: ["sh", "-c", "npm run prisma:deploy && node dist/index.js"]
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - cine3d-home
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:5000/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 8s
+      retries: 8
+      start_period: 90s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cine3d-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: https://api.cine3d.id.vn/api
+      INTERNAL_API_URL: http://backend:5000/api
+      NEXT_PUBLIC_SITE_URL: https://cine3d.id.vn
+      # APK served via GitHub/R2 CDN — do not stream from the home tunnel by default.
+      ANDROID_APK_UPSTREAM_URL: https://github.com/hvinh1608/cine3d/releases/download/v1.0.21/cine3d.apk
+    volumes:
+      - ./mobile/cine3d.apk:/app/data/cine3d.apk:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - cine3d-home
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 8s
+      retries: 8
+      start_period: 40s
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_uploads:
+
+networks:
+  cine3d-home:
+    driver: bridge

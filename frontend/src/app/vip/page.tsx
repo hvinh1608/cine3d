@@ -6,9 +6,10 @@ import Link from 'next/link';
 import Image from '@/components/ui/ResilientImage';
 import Script from 'next/script';
 import { createPortal } from 'react-dom';
-import { BadgeCheck, Check, Clock3, Copy, Crown, Download, MonitorPlay, ReceiptText, ShieldCheck, Sparkles, X, Zap } from 'lucide-react';
+import { BadgeCheck, Ban, Check, Clock3, Copy, Crown, Download, ImagePlus, LockKeyhole, MonitorPlay, PictureInPicture2, ReceiptText, ShieldCheck, Sparkles, Users, X, Zap } from 'lucide-react';
 import api from '../../lib/api';
 import { useStore } from '../../hooks/useStore';
+import { VIP_BENEFITS } from '../../lib/vip-benefits';
 
 type VipPlan = {
   id: string;
@@ -173,7 +174,7 @@ export default function VipPage() {
       },
       onCancel: () => {
         setPayosModalOpen(false);
-        showToast('Bạn đã hủy thanh toán PayOS.', 'error');
+        showToast('Bạn đã hủy thanh toán.', 'error');
         void api.post(`/vip/orders/${pendingOrder.id}/cancel`)
           .catch(() => undefined)
           .finally(() => void loadOrders().catch(() => undefined));
@@ -248,13 +249,13 @@ export default function VipPage() {
         src="https://cdn.payos.vn/payos-checkout/v1/stable/payos-initialize.js"
         strategy="afterInteractive"
         onReady={() => setPayosReady(true)}
-        onError={() => showToast('Không tải được giao diện PayOS. Bạn vẫn có thể mở trang thanh toán dự phòng.', 'error')}
+        onError={() => showToast('Không mở được cửa sổ thanh toán. Bạn vẫn có thể dùng trang thanh toán dự phòng.', 'error')}
       />
       {payosModalOpen && pendingOrder?.provider === 'PAYOS' && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-3 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Thanh toán PayOS" onMouseDown={(event) => { if (event.target === event.currentTarget) setPayosModalOpen(false); }}>
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 p-3 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Thanh toán bảo mật" onMouseDown={(event) => { if (event.target === event.currentTarget) setPayosModalOpen(false); }}>
           <div className="relative flex h-[min(640px,94dvh)] w-full max-w-[520px] flex-col overflow-hidden rounded-3xl border border-white/15 bg-white shadow-[0_30px_120px_rgba(0,0,0,0.8)]">
             <div className="shrink-0 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.2),transparent_42%),linear-gradient(135deg,#07111f,#020617)] px-5 py-4 pr-16 text-white">
-              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300"><ShieldCheck className="h-4 w-4" /> Thanh toán bảo mật qua PayOS</div>
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-300"><ShieldCheck className="h-4 w-4" /> Thanh toán bảo mật</div>
               <div className="mt-3 flex items-end justify-between gap-4">
                 <div className="min-w-0"><p className="truncate text-lg font-black">{pendingOrder.plan.name}</p><p className="mt-1 text-xs text-slate-400">Mã đơn <span className="font-mono font-bold text-slate-200">{pendingOrder.orderCode}</span></p></div>
                 <p className="shrink-0 text-xl font-black text-emerald-300">{formatMoney(pendingOrder.amount)}</p>
@@ -284,13 +285,29 @@ export default function VipPage() {
               Mở khóa kho nội dung độc quyền, chất lượng hình ảnh cao nhất và trải nghiệm xem phim liền mạch trên mọi thiết bị.
             </p>
           </div>
-          <div className="mx-auto w-full max-w-sm rounded-3xl border border-white/10 bg-white/[0.055] p-6 text-left backdrop-blur-xl">
+          <div className="mx-auto w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.055] p-6 text-left backdrop-blur-xl">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Quyền lợi Premium</p>
-            <div className="mt-5 space-y-4">
-              <div className="flex items-center gap-3"><span className="rounded-xl bg-amber-400/15 p-2.5 text-amber-300"><MonitorPlay className="h-5 w-5" /></span><div><p className="text-sm font-bold text-white">Nội dung VIP độc quyền</p><p className="text-xs text-slate-500">Mở khóa toàn bộ nguồn phát Premium</p></div></div>
-              <div className="flex items-center gap-3"><span className="rounded-xl bg-cyan-400/15 p-2.5 text-cyan-300"><Download className="h-5 w-5" /></span><div><p className="text-sm font-bold text-white">Tải phim khi có MP4</p><p className="text-xs text-slate-500">Nút tải trực tiếp dành riêng cho tài khoản VIP</p></div></div>
-              <div className="flex items-center gap-3"><span className="rounded-xl bg-purple-400/15 p-2.5 text-purple-300"><Zap className="h-5 w-5" /></span><div><p className="text-sm font-bold text-white">Kích hoạt nhanh chóng</p><p className="text-xs text-slate-500">Thời hạn tự động cộng dồn sau xác nhận</p></div></div>
-              <div className="flex items-center gap-3"><span className="rounded-xl bg-emerald-400/15 p-2.5 text-emerald-300"><ShieldCheck className="h-5 w-5" /></span><div><p className="text-sm font-bold text-white">Quản lý minh bạch</p><p className="text-xs text-slate-500">Theo dõi đơn và hạn dùng ngay trên tài khoản</p></div></div>
+            <div className="mt-5 max-h-[28rem] space-y-3.5 overflow-y-auto pr-1">
+              {VIP_BENEFITS.map((benefit) => {
+                const Icon =
+                  benefit.title.includes('quảng cáo') ? Ban
+                  : benefit.title.includes('độc quyền') || benefit.title.includes('suất') ? MonitorPlay
+                  : benefit.title.includes('chất lượng') ? Zap
+                  : benefit.title.includes('cửa sổ') ? PictureInPicture2
+                  : benefit.title.includes('Tải phim') ? Download
+                  : benefit.title.includes('Ảnh') ? ImagePlus
+                  : benefit.title.includes('Xem Chung') ? LockKeyhole
+                  : Users;
+                return (
+                  <div key={benefit.title} className="flex items-start gap-3">
+                    <span className="mt-0.5 rounded-xl bg-amber-400/15 p-2 text-amber-300"><Icon className="h-4 w-4" /></span>
+                    <div>
+                      <p className="text-sm font-bold text-white">{benefit.title}</p>
+                      <p className="text-xs leading-5 text-slate-500">{benefit.detail}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -298,7 +315,7 @@ export default function VipPage() {
           <div className="relative z-10 mt-7 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
             <ShieldCheck className="h-4 w-4" />
             {user.role === 'ADMIN'
-              ? 'Quyền Premium dành cho Admin'
+              ? 'Tài khoản quản trị đã có VIP'
               : `VIP đang hoạt động${vipExpiresAt ? ` đến ${new Date(vipExpiresAt).toLocaleDateString('vi-VN')}` : ' vĩnh viễn'}`}
           </div>
         )}
@@ -313,10 +330,10 @@ export default function VipPage() {
               <p className="mt-2 text-xs leading-5 text-slate-400">Mã giao dịch <span className="rounded bg-white/5 px-2 py-1 font-mono font-bold text-white">{pendingOrder.orderCode}</span> · hiệu lực đến {new Date(pendingOrder.expiresAt).toLocaleString('vi-VN')}</p>
               {pendingOrder.provider === 'PAYOS' && pendingOrder.checkoutUrl ? (
                 <div className="mt-6 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.06] p-5">
-                  <p className="text-sm font-bold text-emerald-300">Thanh toán trong cửa sổ bảo mật PayOS ngay trên CINE3D. VIP sẽ tự động kích hoạt khi ngân hàng xác nhận.</p>
+                  <p className="text-sm font-bold text-emerald-300">Thanh toán trong cửa sổ bảo mật ngay trên CINE3D. VIP sẽ tự kích hoạt khi thanh toán thành công.</p>
                   <div className="mt-4 flex flex-wrap items-center gap-3">
                     <button type="button" disabled={!payosReady} onClick={() => setPayosModalOpen(true)} className="inline-flex items-center gap-2 rounded-full bg-emerald-400 px-5 py-3 text-sm font-black text-slate-950 transition hover:bg-emerald-300 disabled:cursor-wait disabled:opacity-50">
-                      <Zap className="h-4 w-4" /> {payosReady ? 'Mở cửa sổ thanh toán' : 'Đang tải PayOS...'}
+                      <Zap className="h-4 w-4" /> {payosReady ? 'Mở cửa sổ thanh toán' : 'Đang chuẩn bị thanh toán...'}
                     </button>
                     <a href={pendingOrder.checkoutUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-slate-500 underline decoration-slate-700 underline-offset-4 hover:text-white">
                       Mở trang dự phòng
@@ -330,7 +347,7 @@ export default function VipPage() {
                 <PaymentDetail label="Nội dung chuyển khoản" value={transferContent} emphasize onCopy={() => copyPaymentValue(transferContent, 'nội dung chuyển khoản')} />
               </div>
               <div className="mt-4 rounded-2xl border border-amber-300/15 bg-amber-300/[0.06] p-4 text-xs leading-5 text-amber-100/75">
-                Chuyển đúng <strong className="text-amber-300">{formatMoney(pendingOrder.amount)}</strong> và giữ nguyên nội dung <strong className="font-mono text-white">{transferContent}</strong> để admin xác nhận chính xác đơn của bạn.
+                Chuyển đúng <strong className="text-amber-300">{formatMoney(pendingOrder.amount)}</strong> và giữ nguyên nội dung <strong className="font-mono text-white">{transferContent}</strong> để chúng tôi xác nhận đúng đơn của bạn.
               </div></>}
               <div className="mt-5 flex max-w-xl items-center text-[10px] font-bold text-slate-500">
                 <span className="flex items-center gap-1 text-emerald-400"><BadgeCheck className="h-4 w-4" /> Tạo đơn</span><span className="mx-3 h-px flex-1 bg-emerald-400/30" /><span className="flex items-center gap-1 text-amber-300"><Clock3 className="h-4 w-4" /> Xác nhận</span><span className="mx-3 h-px flex-1 bg-white/10" /><span>Kích hoạt VIP</span>
@@ -356,10 +373,13 @@ export default function VipPage() {
             <h2 className="text-xl font-black text-white">{plan.name}</h2>
             <p className="mt-2 min-h-12 text-sm leading-6 text-slate-400">{plan.description}</p>
             <p className="mt-6 text-3xl font-black text-amber-400">{formatMoney(plan.price)} <span className="text-xs font-semibold text-slate-500">/ gói</span></p>
-            <ul className="my-6 space-y-3 text-sm text-slate-300">
-              <li className="flex gap-2"><Check className="h-4 w-4 shrink-0 text-emerald-400" /> {plan.durationDays} ngày xem nội dung VIP</li>
-              <li className="flex gap-2"><Check className="h-4 w-4 shrink-0 text-emerald-400" /> Cộng dồn nếu đang còn hạn</li>
-              <li className="flex gap-2"><Check className="h-4 w-4 shrink-0 text-emerald-400" /> Theo dõi trạng thái giao dịch tức thời</li>
+            <ul className="my-6 space-y-2.5 text-sm text-slate-300">
+              <li className="flex gap-2"><Check className="h-4 w-4 shrink-0 text-emerald-400" /> {plan.durationDays} ngày toàn bộ quyền lợi VIP</li>
+              <li className="flex gap-2"><Check className="h-4 w-4 shrink-0 text-emerald-400" /> Không quảng cáo trên website</li>
+              <li className="flex gap-2"><Check className="h-4 w-4 shrink-0 text-emerald-400" /> Nội dung VIP, suất sớm & nguồn chất lượng cao</li>
+              <li className="flex gap-2"><Check className="h-4 w-4 shrink-0 text-emerald-400" /> Cửa sổ xem nổi, tải phim & ảnh đại diện tùy chọn</li>
+              <li className="flex gap-2"><Check className="h-4 w-4 shrink-0 text-emerald-400" /> Phòng Xem Chung riêng tư · đồng bộ app</li>
+              <li className="flex gap-2"><Check className="h-4 w-4 shrink-0 text-emerald-400" /> Cộng dồn thời hạn nếu đang còn VIP</li>
             </ul>
             {!user ? (
               <Link href="/account" className="mt-auto rounded-full bg-white px-5 py-3 text-center text-sm font-black text-black hover:bg-amber-400">Đăng nhập để đăng ký</Link>

@@ -5,6 +5,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Funnel, Grid2X2, List, Search, X } from 'lucide-react-native';
 import { Button, Chip, Divider, Modal, Portal, Searchbar, SegmentedButtons, Text } from 'react-native-paper';
 import { EmptyState, MovieCard, MovieRailSkeleton, Screen } from '@/components/ui';
+import { AdBanner } from '@/features/ads/AdBanner';
 import { cacheRepository } from '@/data/cache/sqlite-cache';
 import type { Movie } from '@/domain/models';
 import { discoveryRepository } from '@/features/discovery/data/http-discovery-repository';
@@ -16,6 +17,7 @@ import {
 } from '@/features/discovery/domain/discovery-repository';
 import { colors, radius, spacing } from '@/theme';
 import { useMovieGridLayout } from '@/core/responsive';
+import { useTabScreenBottomPadding } from '@/core/tab-inset';
 import { PaginationControls } from '@/components/pagination-controls';
 
 const PAGE_SIZE = 24;
@@ -41,6 +43,7 @@ function useDebouncedValue<T>(value: T, delay = 350): T {
 
 export function ExploreScreen() {
   const { gridColumns, cardWidth, contentWidth } = useMovieGridLayout(spacing.md, spacing.sm);
+  const bottomPad = useTabScreenBottomPadding();
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebouncedValue(search.trim());
   const [filters, setFilters] = useState<Filters>(emptyFilters);
@@ -187,6 +190,7 @@ export function ExploreScreen() {
       )}
       {showingStale ? <Text style={styles.offline}>Đang hiển thị nội dung đã lưu. Kéo xuống để thử kết nối lại.</Text> : null}
       {movies.isFetching && !movies.isPending ? <Text style={styles.sync}>Đang đồng bộ nội dung mới…</Text> : null}
+      <AdBanner />
     </View>
   );
 
@@ -205,9 +209,14 @@ export function ExploreScreen() {
           : movies.error
             ? <EmptyState title="Không thể tìm kiếm" message={`${movies.error.message}. Kiểm tra kết nối rồi thử lại.`} />
             : <EmptyState title="Không có kết quả" message="Thử từ khóa khác hoặc xóa bớt bộ lọc." />}
-        ListFooterComponent={<PaginationControls page={movies.data?.page ?? page} totalPages={movies.data?.totalPages ?? 1} disabled={movies.isFetching} onPage={(nextPage) => { setPage(nextPage); listRef.current?.scrollToOffset({ offset: 0, animated: true }); }} />}
+        ListFooterComponent={
+          <View>
+            <PaginationControls page={movies.data?.page ?? page} totalPages={movies.data?.totalPages ?? 1} disabled={movies.isFetching} onPage={(nextPage) => { setPage(nextPage); listRef.current?.scrollToOffset({ offset: 0, animated: true }); }} />
+            {results.length > 0 ? <AdBanner /> : null}
+          </View>
+        }
         refreshControl={<RefreshControl refreshing={movies.isRefetching} onRefresh={() => void refresh()} tintColor={colors.primary} />}
-        contentContainerStyle={[styles.content, { width: contentWidth, alignSelf: 'center' }]}
+        contentContainerStyle={[styles.content, { width: contentWidth, alignSelf: 'center', paddingBottom: bottomPad }]}
       />
       <FilterModal
         visible={filtersVisible}
@@ -280,7 +289,7 @@ function FilterModal({
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: spacing.xl },
+  content: {},
   header: { paddingHorizontal: spacing.md, paddingTop: spacing.sm, paddingBottom: spacing.md, gap: spacing.sm },
   brand: { color: colors.text, fontSize: 13, fontWeight: '800', letterSpacing: 1.2 },
   brandAccent: { color: colors.primary },

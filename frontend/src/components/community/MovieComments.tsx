@@ -139,7 +139,7 @@ export default function MovieComments({ movieId, currentTime = 0, onSeek }: { mo
     if (!reason?.trim()) return;
     try {
       await api.post('/reports', { movieId, commentId: comment.id, type: 'abusive_comment', content: reason.trim() });
-      showToast('Đã gửi báo cáo cho quản trị viên.', 'success');
+      showToast('Cảm ơn bạn! Báo cáo đã được gửi.', 'success');
     } catch {
       showToast('Không thể gửi báo cáo.', 'error');
     }

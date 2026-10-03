@@ -3,10 +3,12 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import Image from '@/components/ui/ResilientImage';
 import Link from 'next/link';
-import { Clapperboard, Download, Flag, HelpCircle, Mail, MessageCircle, Music2, ScanLine, ShieldCheck, Smartphone } from 'lucide-react';
+import { Clapperboard, Download, Flag, HelpCircle, Mail, ScanLine, ShieldCheck, Smartphone } from 'lucide-react';
 import BrandedQrCode from './BrandedQrCode';
-import { ANDROID_APK_URL } from '../../lib/android-app';
+import { ANDROID_APK_URL, ANDROID_APP_VERSION } from '../../lib/android-app';
 import { useLanguage } from '../../lib/i18n';
+
+const FACEBOOK_PAGE_URL = 'https://www.facebook.com/profile.php?id=61595111604284';
 
 const footerLinks = [
   { href: '/feedback', label: 'Hỏi đáp' },
@@ -37,19 +39,14 @@ function getCursorPreference() {
   return localStorage.getItem(CURSOR_PREFERENCE_KEY) !== 'system';
 }
 
-function SocialCard() {
+const footerIconClass =
+  'group grid h-[58px] w-[58px] place-items-center rounded-full border border-white/[0.12] bg-[#12131a] text-slate-300 shadow-[0_10px_28px_rgba(0,0,0,0.28)] transition duration-200 hover:-translate-y-1 hover:border-amber-400/45 hover:bg-amber-400/10 hover:text-amber-300 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-amber-400';
+
+function FacebookIcon({ className }: { className?: string }) {
   return (
-    <div className="footer-social-card" aria-label="Mạng xã hội CINE3D">
-      <span>Social</span>
-      <a className="footer-social-link text-red-500" href="https://www.youtube.com/" target="_blank" rel="noreferrer" aria-label="YouTube">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.6 15.6V8.4l6.3 3.6-6.3 3.6Z" /></svg>
-      </a>
-      <a className="footer-social-link text-white" href="https://www.tiktok.com/" target="_blank" rel="noreferrer" aria-label="TikTok"><Music2 /></a>
-      <a className="footer-social-link text-indigo-400" href="https://discord.com/" target="_blank" rel="noreferrer" aria-label="Discord"><MessageCircle /></a>
-      <a className="footer-social-link text-blue-600" href="https://www.facebook.com/" target="_blank" rel="noreferrer" aria-label="Facebook">
-        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M24 12.1A12 12 0 1 0 10.1 24v-8.4h-3v-3.5h3V9.4c0-3 1.8-4.7 4.6-4.7 1.3 0 2.7.2 2.7.2v3h-1.5c-1.5 0-2 .9-2 1.9v2.3h3.3l-.5 3.5h-2.8V24A12 12 0 0 0 24 12.1Z" /></svg>
-      </a>
-    </div>
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className={className}>
+      <path d="M24 12.1A12 12 0 1 0 10.1 24v-8.4h-3v-3.5h3V9.4c0-3 1.8-4.7 4.6-4.7 1.3 0 2.7.2 2.7.2v3h-1.5c-1.5 0-2 .9-2 1.9v2.3h3.3l-.5 3.5h-2.8V24A12 12 0 0 0 24 12.1Z" />
+    </svg>
   );
 }
 
@@ -97,7 +94,7 @@ export default function Footer() {
                 href="/feedback"
                 aria-label="Góp ý và hỗ trợ"
                 title={locale === 'en' ? 'Help and feedback' : 'Hỏi đáp và góp ý'}
-                className="group grid h-[58px] w-[58px] place-items-center rounded-full border border-white/[0.12] bg-[#12131a] text-slate-300 shadow-[0_10px_28px_rgba(0,0,0,0.28)] transition duration-200 hover:-translate-y-1 hover:border-amber-400/45 hover:bg-amber-400/10 hover:text-amber-300 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-amber-400"
+                className={footerIconClass}
               >
                 <HelpCircle className="h-6 w-6 transition-transform group-hover:scale-110" strokeWidth={1.8} />
               </Link>
@@ -105,11 +102,20 @@ export default function Footer() {
                 href="mailto:hvinh.job@gmail.com"
                 aria-label="Gửi email cho CINE3D"
                 title={locale === 'en' ? 'Email CINE3D' : 'Gửi email cho CINE3D'}
-                className="group grid h-[58px] w-[58px] place-items-center rounded-full border border-white/[0.12] bg-[#12131a] text-slate-300 shadow-[0_10px_28px_rgba(0,0,0,0.28)] transition duration-200 hover:-translate-y-1 hover:border-amber-400/45 hover:bg-amber-400/10 hover:text-amber-300 focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-amber-400"
+                className={footerIconClass}
               >
                 <Mail className="h-6 w-6 transition-transform group-hover:scale-110" strokeWidth={1.8} />
               </a>
-              <SocialCard />
+              <a
+                href={FACEBOOK_PAGE_URL}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Facebook Cine3d"
+                title="Facebook Cine3d"
+                className={footerIconClass}
+              >
+                <FacebookIcon className="h-6 w-6 transition-transform group-hover:scale-110" />
+              </a>
             </div>
           </div>
 
@@ -179,11 +185,11 @@ export default function Footer() {
                 <Download className="h-5 w-5" />
                 <span className="text-left leading-tight">
                   <small className="block text-[10px] font-bold uppercase tracking-wider text-white/70">{locale === 'en' ? 'Direct download' : 'Tải trực tiếp'}</small>
-                  CINE3D APK 1.0.14
+                  CINE3D APK {ANDROID_APP_VERSION}
                 </span>
               </a>
               <div className="flex items-center gap-2 text-xs text-slate-500">
-                <ShieldCheck className="h-4 w-4 text-emerald-400" /> Android 7.0+ · {locale === 'en' ? 'Official GitHub download' : 'Tải từ GitHub chính thức'}
+                <ShieldCheck className="h-4 w-4 text-emerald-400" /> Android 7.0+ · {locale === 'en' ? 'Official download on cine3d.id.vn' : 'Tải chính thức tại cine3d.id.vn'}
               </div>
             </div>
 
@@ -195,7 +201,7 @@ export default function Footer() {
               <BrandedQrCode
                 value={ANDROID_APK_URL}
                 size={148}
-                title="Mã QR tải CINE3D APK 1.0.14"
+                title={`Mã QR tải CINE3D APK ${ANDROID_APP_VERSION}`}
               />
             </a>
           </div>

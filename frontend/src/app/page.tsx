@@ -5,11 +5,8 @@ import { rewriteImageUrls } from '../lib/image-url';
 
 const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-// The homepage is intentionally generated at deploy time. Re-generating this
-// large page every minute can exceed the CPU allowance of Workers Free and
-// surface Cloudflare error 1102. Interactive/account data still loads client-side.
-export const dynamic = 'force-static';
-export const revalidate = false;
+// Home refreshes periodically so catalog/synopsis stay fresh on self-hosted Docker.
+export const revalidate = 120;
 
 export const metadata: Metadata = {
   title: 'CINE3D - Xem phim trực tuyến chất lượng cao',
@@ -33,9 +30,14 @@ function compactMovieRows(value: unknown, limit: number): HomeInitialData['movie
     delete movie.updatedAt;
     delete movie.countryId;
     delete movie.kkphimId;
+    const rawDescription = typeof movie.description === 'string' ? movie.description.trim() : '';
+    const titleLike = rawDescription
+      && (rawDescription === movie.title || rawDescription === movie.englishTitle);
     return {
       ...movie,
-      description: '',
+      // Keep a short synopsis for home cards. Empty/title-only strings become ''
+      // so the UI can fall back later; do not wipe real descriptions.
+      description: titleLike ? '' : rawDescription.slice(0, 420),
       episodes: [],
       movieActors: [],
       movieDirectors: [],
@@ -62,16 +64,16 @@ async function loadHomeData(): Promise<HomeInitialData> {
   return {
     banners: Array.isArray(home.banners) ? home.banners : [],
     trending: compactMovieRows(home.trending, 12),
-    proposed: compactMovieRows(home.proposed, 12),
+    proposed: compactMovieRows(home.proposed, 18),
     movies: compactMovieRows(home.movies, 16),
     anime: compactMovieRows(anime.movies, 12),
     china: compactMovieRows(home.countries?.china, 8),
     korea: compactMovieRows(home.countries?.korea, 8),
     vietnam: compactMovieRows(home.countries?.vietnam, 8),
     loadError: failedSections === 2
-      ? 'Không tải được danh sách phim. Backend có thể đang khởi động, vui lòng thử lại.'
+      ? 'Không tải được danh sách phim lúc này. Vui lòng thử lại sau giây lát.'
       : failedSections === 1
-        ? 'Một phần nội dung tải chậm và đang tạm thời không hiển thị.'
+        ? 'Một phần nội dung đang tải chậm và tạm chưa hiển thị.'
         : '',
   };
 }

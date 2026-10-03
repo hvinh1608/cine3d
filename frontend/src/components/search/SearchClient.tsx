@@ -15,6 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import MovieCard3D from '../ui/MovieCard3D';
+import AdsterraNativeBanner from '../ads/AdsterraNativeBanner';
 import { useStore } from '../../hooks/useStore';
 import api from '../../lib/api';
 import { toggleFavorite } from '../../lib/user-library';
@@ -22,7 +23,7 @@ import type { MetaItem, Movie } from '../../types/movie';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
-type FilterKey = 'genre' | 'country' | 'year' | 'type' | 'sortBy' | 'status' | 'vip' | 'dubbed';
+type FilterKey = 'genre' | 'country' | 'year' | 'type' | 'sortBy' | 'status' | 'vip' | 'lang';
 type PaginationItem = number | 'ellipsis-left' | 'ellipsis-right';
 
 const sortLabels: Record<string, string> = {
@@ -36,6 +37,12 @@ const typeLabels: Record<string, string> = {
   series: 'Phim bộ',
   hoathinh: 'Hoạt hình',
   tvshows: 'TV Shows',
+};
+
+const langLabels: Record<string, string> = {
+  vietsub: 'Vietsub',
+  'thuyet-minh': 'Thuyết minh',
+  'long-tieng': 'Lồng tiếng',
 };
 
 function SearchFallback() {
@@ -90,7 +97,8 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
   const [sortBy, setSortBy] = useState(searchParams.get('sortBy') || 'createdAt');
   const [selectedStatus, setSelectedStatus] = useState(searchParams.get('status') || '');
   const [selectedVip, setSelectedVip] = useState(searchParams.get('vip') || '');
-  const [selectedDubbed, setSelectedDubbed] = useState(searchParams.get('dubbed') || '');
+  const initialLang = searchParams.get('lang') || (searchParams.get('dubbed') === 'true' ? 'thuyet-minh' : '');
+  const [selectedLang, setSelectedLang] = useState(initialLang);
   const [currentPage, setCurrentPage] = useState(Math.max(1, Number(searchParams.get('page')) || initialData.initialFilters?.page || 1));
 
   const [movies, setMovies] = useState<Movie[]>(initialData.movies);
@@ -122,6 +130,7 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
       if (!value || (key === 'sortBy' && value === 'createdAt')) params.delete(key);
       else params.set(key, value);
     });
+    if (updates.lang !== undefined) params.delete('dubbed');
     const nextUrl = `/search${params.size ? `?${params.toString()}` : ''}`;
     router.replace(nextUrl, { scroll: false });
   }, [initialData.initialFilters, initialData.seoBasePath, router, searchParams]);
@@ -167,7 +176,7 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
         if (sortBy) params.sortBy = sortBy;
         if (selectedStatus) params.status = selectedStatus;
         if (selectedVip) params.vip = selectedVip;
-        if (selectedDubbed) params.dubbed = selectedDubbed;
+        if (selectedLang) params.lang = selectedLang;
 
         const response = await api.get(`${API_URL}/movies`, { params, signal: controller.signal });
         const nextMovies = Array.isArray(response.data?.movies) ? response.data.movies : [];
@@ -187,7 +196,7 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
     };
     void fetchMovies();
     return () => controller.abort();
-  }, [query, selectedGenre, selectedCountry, selectedYear, selectedType, selectedStatus, selectedVip, selectedDubbed, sortBy, currentPage, reloadKey]);
+  }, [query, selectedGenre, selectedCountry, selectedYear, selectedType, selectedStatus, selectedVip, selectedLang, sortBy, currentPage, reloadKey]);
 
   const activeFilters = useMemo(() => {
     const items: { key: FilterKey; label: string }[] = [];
@@ -198,9 +207,9 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
     if (sortBy !== 'createdAt') items.push({ key: 'sortBy', label: sortLabels[sortBy] || sortBy });
     if (selectedStatus) items.push({ key: 'status', label: selectedStatus === 'Ongoing' ? 'Đang chiếu' : selectedStatus === 'Completed' ? 'Hoàn thành' : 'Sắp chiếu' });
     if (selectedVip) items.push({ key: 'vip', label: selectedVip === 'true' ? 'Phim VIP' : 'Phim miễn phí' });
-    if (selectedDubbed) items.push({ key: 'dubbed', label: 'Có thuyết minh' });
+    if (selectedLang) items.push({ key: 'lang', label: langLabels[selectedLang] || selectedLang });
     return items;
-  }, [countries, genres, selectedCountry, selectedDubbed, selectedGenre, selectedStatus, selectedType, selectedVip, selectedYear, sortBy]);
+  }, [countries, genres, selectedCountry, selectedLang, selectedGenre, selectedStatus, selectedType, selectedVip, selectedYear, sortBy]);
 
   const applySearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -219,7 +228,7 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
     if (key === 'sortBy') setSortBy(value || 'createdAt');
     if (key === 'status') setSelectedStatus(value);
     if (key === 'vip') setSelectedVip(value);
-    if (key === 'dubbed') setSelectedDubbed(value);
+    if (key === 'lang') setSelectedLang(value);
     setCurrentPage(1);
     updateUrl({ [key]: value, page: '' });
   };
@@ -232,7 +241,7 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
     setSelectedYear('');
     setSelectedType('');
     setSortBy('createdAt');
-    setSelectedStatus(''); setSelectedVip(''); setSelectedDubbed('');
+    setSelectedStatus(''); setSelectedVip(''); setSelectedLang('');
     setCurrentPage(1);
     router.replace('/search', { scroll: false });
   };
@@ -318,7 +327,7 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
               <FilterSelect label="Sắp xếp" value={sortBy} onChange={(value) => changeFilter('sortBy', value)} options={Object.entries(sortLabels).map(([value, label]) => ({ value, label }))} />
               <FilterSelect label="Trạng thái" value={selectedStatus} onChange={(value) => changeFilter('status', value)} options={[{ value: 'Ongoing', label: 'Đang chiếu' }, { value: 'Completed', label: 'Hoàn thành' }, { value: 'Upcoming', label: 'Sắp chiếu' }]} placeholder="Mọi trạng thái" />
               <FilterSelect label="Quyền xem" value={selectedVip} onChange={(value) => changeFilter('vip', value)} options={[{ value: 'true', label: 'VIP' }, { value: 'false', label: 'Miễn phí' }]} placeholder="Tất cả" />
-              <FilterSelect label="Âm thanh" value={selectedDubbed} onChange={(value) => changeFilter('dubbed', value)} options={[{ value: 'true', label: 'Có thuyết minh' }]} placeholder="Tất cả" />
+              <FilterSelect label="Âm thanh" value={selectedLang} onChange={(value) => changeFilter('lang', value)} options={Object.entries(langLabels).map(([value, label]) => ({ value, label }))} placeholder="Tất cả" />
             </div>
           )}
         </div>
@@ -344,6 +353,8 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
             </p>
           )}
         </div>
+
+        {!loading && !loadError && movies.length > 0 && <AdsterraNativeBanner className="!max-w-none !px-0 mb-6" />}
 
         {loading ? (
           <div className="grid grid-cols-2 gap-x-4 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 md:gap-x-5">

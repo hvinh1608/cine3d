@@ -136,6 +136,13 @@ import {
 } from '../controllers/native.controller';
 import { handleGooglePlayRtdn, verifyGooglePlayPurchase } from '../controllers/billing.controller';
 import { imageProxy } from '../controllers/image-proxy.controller';
+import {
+  listMarketingCampaigns,
+  createMarketingCampaign,
+  sendMarketingCampaign,
+  getMarketingSummary,
+  postMarketingToFacebook,
+} from '../controllers/marketing.controller';
 
 const router = Router();
 
@@ -372,5 +379,10 @@ router.get('/admin/feedback', authenticateToken as any, requireAdmin as any, get
 router.put('/admin/feedback/:id', authenticateToken as any, requireAdmin as any, updateFeedback as any);
 router.get('/admin/app-version', authenticateToken as any, requireAdmin as any, getAdminAppVersionPolicies as any);
 router.put('/admin/app-version', authenticateToken as any, requireAdmin as any, upsertAdminAppVersionPolicy as any);
+router.get('/admin/marketing/summary', authenticateToken as any, requireAdmin as any, getMarketingSummary as any);
+router.get('/admin/marketing/campaigns', authenticateToken as any, requireAdmin as any, listMarketingCampaigns as any);
+router.post('/admin/marketing/campaigns', authenticateToken as any, requireAdmin as any, createMarketingCampaign as any);
+router.post('/admin/marketing/campaigns/:id/send', authenticateToken as any, requireAdmin as any, sendMarketingCampaign as any);
+router.post('/admin/marketing/facebook', authenticateToken as any, requireAdmin as any, postMarketingToFacebook as any);
 
 export default router;

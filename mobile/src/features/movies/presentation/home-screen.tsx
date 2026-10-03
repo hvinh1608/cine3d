@@ -8,6 +8,7 @@ import { Play } from 'lucide-react-native';
 import { Button, Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AsyncState, MovieRail, Screen } from '@/components/ui';
+import { AdBanner } from '@/features/ads/AdBanner';
 import type { Banner, HomeFeed } from '@/domain/models';
 import { movieRepository } from '@/features/movies/data/http-movie-repository';
 import { movieKeys } from '@/features/movies/domain/movie-repository';
@@ -16,9 +17,11 @@ import { useAppStore } from '@/state/app-store';
 import { colors, spacing } from '@/theme';
 import { useAccessibilityPreferences } from '@/core/accessibility';
 import { useResponsiveLayout } from '@/core/responsive';
+import { useTabScreenBottomPadding } from '@/core/tab-inset';
 
 export function HomeScreen() {
   const { contentWidth } = useResponsiveLayout();
+  const bottomPad = useTabScreenBottomPadding();
   const queryClient = useQueryClient();
   const hydrated = useAppStore((state) => state.session.hydrated);
   const accessToken = useAppStore((state) => state.session.tokens.accessToken);
@@ -90,19 +93,22 @@ export function HomeScreen() {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => void refresh()} tintColor={colors.primary} />
           }
-          contentContainerStyle={[styles.content, { width: contentWidth, alignSelf: 'center' }]}
+          contentContainerStyle={[styles.content, { width: contentWidth, alignSelf: 'center', paddingBottom: bottomPad }]}
         >
           <HeroCarousel banners={feed?.banners ?? []} />
           <CategoryChips />
+          <AdBanner />
           {feed?.partial ? <Text style={styles.notice}>Một số danh mục đang tạm thời chưa khả dụng.</Text> : null}
           <MovieRail title="Tiếp tục xem" movies={continueWatching} />
           <MovieRail title="Đề xuất cho bạn" movies={(feed?.proposed ?? []).slice(0, 12)} />
           <MovieRail title="Thịnh hành" movies={(feed?.trending ?? []).slice(0, 12)} />
           <MovieRail title="Mới cập nhật" movies={(feed?.movies ?? []).slice(0, 12)} />
+          <AdBanner />
           <MovieRail title="Hoạt hình & Anime" movies={anime} />
           <MovieRail title="Phim Hàn Quốc" movies={(feed?.countries.korea ?? []).slice(0, 12)} />
           <MovieRail title="Phim Trung Quốc" movies={(feed?.countries.china ?? []).slice(0, 12)} />
           <MovieRail title="Phim Việt Nam" movies={(feed?.countries.vietnam ?? []).slice(0, 12)} />
+          <AdBanner />
           <CommunityHub
             data={community.data}
             fallbackHot={(feed?.trending ?? []).slice(0, 5)}
@@ -223,7 +229,7 @@ function CategoryChips() {
 }
 
 const styles = StyleSheet.create({
-  content: { paddingBottom: spacing.xl },
+  content: {},
   hero: { justifyContent: 'flex-end', backgroundColor: colors.surface },
   heroScrimOpaque: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(9, 9, 11, 0.6)' },
   heroBody: { gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.xl },

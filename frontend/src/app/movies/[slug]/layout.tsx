@@ -1,37 +1,13 @@
 import type { Metadata } from 'next';
-import { cache } from 'react';
+import { fetchMovieBySlug } from '@/lib/movie-detail-server';
+import { movieImageUrl } from '@/lib/movie-image';
 import { getSiteUrl } from '../../../lib/site';
 
-const API_URL = process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 const siteUrl = getSiteUrl();
-
-type SeoMovie = {
-  title: string;
-  englishTitle?: string | null;
-  description?: string | null;
-  releaseYear?: number;
-  duration?: number | null;
-  posterUrl?: string | null;
-  backdropUrl?: string | null;
-  ratingAvg?: number;
-  isSeries?: boolean;
-  movieGenres?: { genre: { name: string } }[];
-  movieActors?: { actor: { name: string } }[];
-  movieDirectors?: { director: { name: string } }[];
-};
-
-const getMovie = cache(async (slug: string): Promise<SeoMovie | null> => {
-  try {
-    const response = await fetch(`${API_URL}/movies/${encodeURIComponent(slug)}`, { next: { revalidate: 900 } });
-    return response.ok ? response.json() : null;
-  } catch {
-    return null;
-  }
-});
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const movie = await getMovie(slug);
+  const movie = await fetchMovieBySlug(slug);
   if (!movie) return { title: 'Không tìm thấy phim | CINE3D', robots: { index: false, follow: false } };
   const description = (movie.description || `Xem ${movie.title} chất lượng cao tại CINE3D`).slice(0, 160);
   const image = movie.backdropUrl || movie.posterUrl;
@@ -52,9 +28,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function MovieLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const movie = await getMovie(slug);
+  const movie = await fetchMovieBySlug(slug);
   if (!movie) return children;
   const movieUrl = `${siteUrl}/movies/${slug}`;
+  const lcpSrc = movie.backdropUrl || movie.posterUrl;
+  const lcpPreload = lcpSrc ? movieImageUrl(lcpSrc, 1600, 85) : null;
   const movieSchema = {
     '@id': `${movieUrl}#movie`,
     '@type': movie.isSeries ? 'TVSeries' : 'Movie',
@@ -84,5 +62,13 @@ export default async function MovieLayout({ children, params }: { children: Reac
       },
     ],
   };
-  return <><script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />{children}</>;
+  return (
+    <>
+      {lcpPreload && (
+        <link rel="preload" as="image" href={lcpPreload} fetchPriority="high" />
+      )}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
+      {children}
+    </>
+  );
 }

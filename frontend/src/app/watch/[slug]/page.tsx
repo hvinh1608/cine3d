@@ -383,7 +383,7 @@ function WatchPageContent() {
             const currentIndex = sources.findIndex((source) => source.id === sourceId);
             const fallback = sources.slice(currentIndex + 1).find((source) => source.url !== sourceUrl);
             if (fallback) {
-              showToast(`Server ${sourceServer} lỗi, đang chuyển sang ${fallback.server}.`, 'info');
+              showToast(`Nguồn xem gặp sự cố, đang chuyển sang ${fallback.server}.`, 'info');
               void axios.post('/analytics/events', {
                 name: 'server_fallback', path: window.location.pathname, movieId,
                 metadata: { from: sourceServer, to: fallback.server, details: data.details },
@@ -400,9 +400,9 @@ function WatchPageContent() {
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
           video.src = sourceUrl;
         } else {
-          showToast('Trình duyệt không hỗ trợ nguồn phát HLS này.', 'error');
+          showToast('Trình duyệt của bạn chưa phát được định dạng video này.', 'error');
         }
-      }).catch(() => showToast('Không thể tải bộ phát HLS.', 'error'));
+      }).catch(() => showToast('Không mở được trình phát. Vui lòng thử lại hoặc đổi nguồn xem.', 'error'));
     } else {
       video.src = sourceUrl;
     }
@@ -818,8 +818,8 @@ function WatchPageContent() {
       else if (event.key.toLowerCase() === 'f') void handleFullscreen();
       else if (event.key.toLowerCase() === 'm') setMuted((current) => { videoRef.current!.muted = !current; return !current; });
       else if (event.key.toLowerCase() === 'p' && document.pictureInPictureEnabled) {
-        if (!user) { showToast('Đăng nhập để sử dụng cửa sổ nổi.', 'info'); router.push('/account'); }
-        else if (!user.isVip) { showToast('Picture-in-Picture dành cho thành viên VIP.', 'info'); router.push('/vip'); }
+        if (!user) { showToast('Đăng nhập để dùng cửa sổ xem nổi.', 'info'); router.push('/account'); }
+        else if (!user.isVip) { showToast('Cửa sổ xem nổi dành cho thành viên VIP.', 'info'); router.push('/vip'); }
         else void (document.pictureInPictureElement ? document.exitPictureInPicture() : videoRef.current.requestPictureInPicture());
       }
     };
@@ -829,18 +829,18 @@ function WatchPageContent() {
   }, [activeSource, router, showToast, skipBackward, skipForward, user]);
 
   const handlePictureInPicture = async () => {
-    if (!user) { showToast('Đăng nhập để sử dụng cửa sổ nổi.', 'info'); router.push('/account'); return; }
-    if (!user.isVip) { showToast('Picture-in-Picture dành cho thành viên VIP.', 'info'); router.push('/vip'); return; }
-    if (!videoRef.current || !document.pictureInPictureEnabled) return showToast('Trình duyệt không hỗ trợ Picture-in-Picture.', 'info');
-    try { if (document.pictureInPictureElement) await document.exitPictureInPicture(); else await videoRef.current.requestPictureInPicture(); } catch { showToast('Không thể bật cửa sổ nổi.', 'error'); }
+    if (!user) { showToast('Đăng nhập để dùng cửa sổ xem nổi.', 'info'); router.push('/account'); return; }
+    if (!user.isVip) { showToast('Cửa sổ xem nổi dành cho thành viên VIP.', 'info'); router.push('/vip'); return; }
+    if (!videoRef.current || !document.pictureInPictureEnabled) return showToast('Trình duyệt của bạn chưa hỗ trợ cửa sổ xem nổi.', 'info');
+    try { if (document.pictureInPictureElement) await document.exitPictureInPicture(); else await videoRef.current.requestPictureInPicture(); } catch { showToast('Không bật được cửa sổ xem nổi lúc này.', 'error'); }
   };
 
   const reportPlayback = async () => {
-    if (!user) return showToast('Vui lòng đăng nhập để báo lỗi nguồn phát.', 'info');
+    if (!user) return showToast('Vui lòng đăng nhập để báo lỗi phát phim.', 'info');
     try {
       await axios.post('/reports', { movieId: movie?.id, type: 'stream_error', content: JSON.stringify({ episode: activeEpisode?.episodeOrder, source: activeSource?.server, quality: activeSource?.quality, currentTime: Math.floor(currentTime), url: window.location.href }) });
-      showToast('Đã gửi báo lỗi nguồn phát cho quản trị viên.', 'success');
-    } catch { showToast('Không thể gửi báo lỗi lúc này.', 'error'); }
+      showToast('Cảm ơn bạn! Chúng tôi đã nhận báo cáo và sẽ kiểm tra sớm.', 'success');
+    } catch { showToast('Chưa gửi được báo cáo. Vui lòng thử lại sau.', 'error'); }
   };
 
   // Double tap feedback helper
@@ -896,7 +896,7 @@ function WatchPageContent() {
     return (
       <div className="flex-grow flex flex-col items-center justify-center h-[60vh] space-y-3 text-slate-400 text-sm">
         <div className="w-10 h-10 border-4 border-t-red-500 border-slate-900 rounded-full animate-spin" />
-        <p>Đang tải trình phát… Nếu lâu quá, phim có thể không tồn tại.</p>
+        <p>Đang chuẩn bị phim cho bạn… Nếu chờ lâu, hãy thử tải lại trang.</p>
         <Link href="/" className="text-red-400 hover:text-red-300">Về trang chủ</Link>
       </div>
     );
@@ -951,7 +951,7 @@ function WatchPageContent() {
                 <div className="space-y-1.5 max-w-md">
                   <h3 className="text-lg md:text-xl font-black text-amber-400 uppercase tracking-widest">{movie.isEarlyAccess ? 'Suất chiếu sớm VIP' : 'Nội dung giới hạn VIP'}</h3>
                   <p className="text-xs md:text-sm text-slate-300">
-                    Bộ phim <span className="text-white font-bold">“{movie.title}”</span> hiện chỉ dành riêng cho thành viên Premium VIP. Vui lòng đăng nhập tài khoản VIP hoặc liên hệ Quản trị viên để nâng cấp.
+                    Bộ phim <span className="text-white font-bold">“{movie.title}”</span> dành riêng cho thành viên VIP. Vui lòng đăng nhập tài khoản VIP hoặc nâng cấp tại trang VIP để xem tiếp.
                   </p>
                 </div>
 
@@ -1112,7 +1112,7 @@ function WatchPageContent() {
                         >
                           <span className="flex items-center text-slate-300">
                             <Tv className="w-4 h-4 mr-2 text-cyan-400" />
-                            Nguồn phát / Phân giải
+                            Nguồn xem / Độ phân giải
                           </span>
                           <span className="text-xs font-bold text-yellow-500 flex items-center">
                             {currentQualityIndex === -1 
@@ -1165,7 +1165,7 @@ function WatchPageContent() {
                             Thu phóng màn hình
                           </span>
                           <span className="text-xs font-bold text-yellow-500 flex items-center">
-                            {aspectRatio === 'contain' ? 'Gốc (Contain)' : aspectRatio === 'cover' ? 'Đầy (Cover)' : 'Giãn (Fill)'}
+                            {aspectRatio === 'contain' ? 'Gốc' : aspectRatio === 'cover' ? 'Đầy màn hình' : 'Giãn vừa khít'}
                             <ChevronRight className="w-3.5 h-3.5 ml-1 text-slate-500" />
                           </span>
                         </button>
@@ -1198,7 +1198,7 @@ function WatchPageContent() {
                                 currentQualityIndex === -1 ? 'text-yellow-500 bg-white/5' : 'text-slate-300'
                               }`}
                             >
-                              Tự động (HLS)
+                              Tự động
                             </button>
                             {qualities.map((lvl) => (
                               <button
@@ -1214,7 +1214,7 @@ function WatchPageContent() {
                           </>
                         ) : (
                           <>
-                            <div className="text-[10px] text-slate-500 px-3 py-1 font-bold">CHỌN SERVER / PHÂN GIẢI</div>
+                            <div className="text-[10px] text-slate-500 px-3 py-1 font-bold">CHỌN NGUỒN XEM / ĐỘ PHÂN GIẢI</div>
                             {activeEpisode.videoSources?.map((source) => (
                               <button
                                 key={source.id}
@@ -1307,9 +1307,9 @@ function WatchPageContent() {
                           <ChevronLeft className="w-4 h-4 mr-1" /> Trở lại cài đặt
                         </button>
                         {([
-                          { key: 'contain', name: 'Tự nhiên / Gốc (Fit)', desc: 'Hiện đầy đủ khung hình gốc' },
-                          { key: 'cover', name: 'Đầy màn hình (Zoom/Cover)', desc: 'Phóng to lấp đầy màn hình, cắt nhẹ' },
-                          { key: 'fill', name: 'Giãn màn hình (Stretch/Fill)', desc: 'Co giãn video vừa khít màn hình' }
+                          { key: 'contain', name: 'Tự nhiên / Gốc', desc: 'Hiện đầy đủ khung hình gốc' },
+                          { key: 'cover', name: 'Đầy màn hình', desc: 'Phóng to lấp đầy màn hình, cắt nhẹ' },
+                          { key: 'fill', name: 'Giãn vừa khít', desc: 'Co giãn video vừa khít màn hình' }
                         ] satisfies { key: 'contain' | 'cover' | 'fill'; name: string; desc: string }[]).map((item) => (
                           <button
                             key={item.key}
@@ -1466,7 +1466,7 @@ function WatchPageContent() {
                           href={activeSource.url}
                           download={`${movie.slug}-tap-${activeEpisode?.episodeOrder || 1}.mp4`}
                           className="text-amber-300 transition-colors hover:text-amber-200"
-                          title="Tải MP4 dành cho VIP"
+                          title="Tải phim về máy (VIP)"
                         >
                           <Download className="w-4.5 h-4.5" />
                         </a>

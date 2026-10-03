@@ -42,6 +42,22 @@ Thumbs.db
 
 # Secrets & credentials
 **/env/
+.env.home
+deploy/home/config.yml
+deploy/home/tunnel-credentials.json
 *.credential*.json
 *-firebase-adminsdk-*.json
 *-adminsdk-*.json
+
+# Hosted Android APK (mounted / copied at deploy time)
+frontend/public/apk/*.apk
+mobile/*.apk
+
+# Local-only / generated junk
+backend/env
+backend/.env.bak.*
+tmp_movie.json
+.vercel/
+ToolVideo/
+mobile/.claude/
+frontend/public/Generated image *.png

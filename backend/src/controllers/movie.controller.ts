@@ -3,16 +3,18 @@ import { prisma } from '../lib/prisma';
 import {
   fetchNewMovies,
   fetchMovieList,
+  fetchKkphimHome,
   searchMovies,
   fetchMovieDetail,
   KkphimError,
 } from '../services/kkphim.client';
-import { mapListItem, mapMovieDetail, extractListPagination } from '../services/kkphim.mapper';
+import { mapListItem, mapMovieDetail, extractListPagination, resolveSortLang } from '../services/kkphim.mapper';
 import { ensureMovieInDb, mapStoredMovie } from '../services/movie.upsert';
-import { internalError } from '../lib/http-error';
+import { internalError, isStorageFullError } from '../lib/http-error';
 import { hasVipAccess } from '../lib/vip';
 import { shapeMovieForViewer } from '../lib/vip-content';
 import { smartSearchScore } from '../lib/smart-search';
+import { cacheGet, cacheSet } from '../lib/cache';
 
 
 function resolveTypeList(type?: string): string {
@@ -118,53 +120,101 @@ export const getMovies = async (req: Request, res: Response) => {
       status: statusFilter,
       vip,
       dubbed,
+      lang,
     } = req.query;
 
     const pageNum = Math.max(1, parseInt(page as string, 10) || 1);
     const limitNum = Math.min(64, Math.max(1, parseInt(limit as string, 10) || 24));
+    const sortLang = resolveSortLang((lang as string | undefined) || (dubbed === 'true' ? 'thuyet-minh' : undefined));
+    const listCacheKey = `movies:list:v2:${[
+      pageNum,
+      limitNum,
+      String(search || '').trim().toLowerCase(),
+      genre || '',
+      country || '',
+      year || '',
+      type || '',
+      sortBy || '',
+      statusFilter || '',
+      vip || '',
+      dubbed || '',
+      sortLang || '',
+    ].join('|')}`;
+    const cachedList = await cacheGet<Record<string, unknown>>(listCacheKey);
+    if (cachedList) return res.json(cachedList);
 
     let raw: any;
     let localSmartMatches: any[] = [];
 
     if (search) {
       const query = String(search).trim();
-      const localCandidates = await prisma.movie.findMany({
-        take: 300,
-        orderBy: { updatedAt: 'desc' },
-        include: { country: true, movieGenres: { include: { genre: true } }, movieActors: { include: { actor: true } }, movieDirectors: { include: { director: true } } },
-      });
-      localSmartMatches = localCandidates.filter((movie) => {
-        if (genre && !movie.movieGenres.some((item) => item.genre.slug === genre)) return false;
-        if (country && movie.country.slug !== country) return false;
-        if (year && String(movie.releaseYear) !== String(year)) return false;
-        if (type === 'series' && !movie.isSeries) return false;
-        if (type === 'movie' && movie.isSeries) return false;
-        if ((type === 'hoathinh' || type === 'anime') && !movie.movieGenres.some((item) => item.genre.slug === 'hoat-hinh')) return false;
-        if (statusFilter && movie.status.toLowerCase() !== String(statusFilter).toLowerCase()) return false;
-        if (vip === 'true' && !movie.isVip) return false;
-        if (vip === 'false' && movie.isVip) return false;
-        if (dubbed === 'true' && !movie.isDubbed) return false;
-        return true;
-      }).map((movie) => ({
-        movie,
-        score: smartSearchScore(query, [movie.title, movie.englishTitle, movie.slug, ...movie.movieActors.map((item) => item.actor.name), ...movie.movieDirectors.map((item) => item.director.name)]),
-      })).filter((item) => item.score > 0).sort((first, second) => second.score - first.score).slice(0, limitNum).map((item) => item.movie);
-      try {
-        raw = await searchMovies(query, pageNum, limitNum, {
-          category: genre as string | undefined,
-          country: country as string | undefined,
-          year: year as string | undefined,
-          sort_field: sortBy === 'views' ? 'view' : sortBy === 'ratingAvg' ? 'tmdb.vote_average' : 'modified.time',
-          sort_type: 'desc',
-        });
-      } catch (error) {
-        if (error instanceof KkphimError) {
+      const searchOptions = {
+        category: genre as string | undefined,
+        country: country as string | undefined,
+        year: year as string | undefined,
+        sort_field: sortBy === 'views' ? 'view' : sortBy === 'ratingAvg' ? 'tmdb.vote_average' : 'modified.time',
+        sort_type: 'desc' as const,
+        sort_lang: sortLang,
+      };
+
+      // Run upstream + lightweight local scoring in parallel (avoid serial 300-row hydrate).
+      const [localResult, upstreamResult] = await Promise.all([
+        prisma.movie.findMany({
+          take: 120,
+          orderBy: { updatedAt: 'desc' },
+          select: {
+            id: true,
+            title: true,
+            englishTitle: true,
+            slug: true,
+            releaseYear: true,
+            isSeries: true,
+            status: true,
+            isVip: true,
+            isDubbed: true,
+            country: { select: { slug: true } },
+            movieGenres: { select: { genre: { select: { slug: true } } } },
+          },
+        }).catch(() => []),
+        searchMovies(query, pageNum, limitNum, searchOptions)
+          .then((value) => ({ ok: true as const, value }))
+          .catch((error) => ({ ok: false as const, error })),
+      ]);
+
+      if (!upstreamResult.ok) {
+        if (upstreamResult.error instanceof KkphimError) {
           warnCatalogFallback();
           return res.json(await getStoredMoviePage(req.query));
         }
         raw = null;
+      } else {
+        raw = upstreamResult.value;
       }
-    } else if (genre || country || year || type) {
+
+      const scoredIds = localResult.flatMap((movie) => {
+        if (genre && !movie.movieGenres.some((item) => item.genre.slug === genre)) return [];
+        if (country && movie.country.slug !== country) return [];
+        if (year && String(movie.releaseYear) !== String(year)) return [];
+        if (type === 'series' && !movie.isSeries) return [];
+        if (type === 'movie' && movie.isSeries) return [];
+        if ((type === 'hoathinh' || type === 'anime') && !movie.movieGenres.some((item) => item.genre.slug === 'hoat-hinh')) return [];
+        if (statusFilter && movie.status.toLowerCase() !== String(statusFilter).toLowerCase()) return [];
+        if (vip === 'true' && !movie.isVip) return [];
+        if (vip === 'false' && movie.isVip) return [];
+        if ((dubbed === 'true' || sortLang === 'thuyet-minh' || sortLang === 'long-tieng') && !movie.isDubbed) return [];
+        const score = smartSearchScore(query, [movie.title, movie.englishTitle, movie.slug]);
+        return score > 0 ? [{ id: movie.id, score }] : [];
+      }).sort((first, second) => second.score - first.score).slice(0, limitNum);
+
+      if (scoredIds.length) {
+        const hydrated = await prisma.movie.findMany({
+          where: { id: { in: scoredIds.map((item) => item.id) } },
+          include: storedListInclude,
+        }).catch(() => []);
+        const byId = new Map(hydrated.map((movie) => [movie.id, mapStoredMovie(movie)]));
+        localSmartMatches = scoredIds.map((item) => byId.get(item.id)).filter((movie): movie is NonNullable<typeof movie> => Boolean(movie));
+      }
+    } else if (genre || country || year || type || sortLang) {
       raw = await fetchMovieList(resolveTypeList(type as string | undefined), {
         page: pageNum,
         limit: limitNum,
@@ -177,6 +227,7 @@ export const getMovies = async (req: Request, res: Response) => {
             ? 'tmdb.vote_average'
             : 'modified.time',
         sort_type: 'desc',
+        sort_lang: sortLang,
       });
     } else {
       raw = await fetchNewMovies(pageNum);
@@ -205,13 +256,15 @@ export const getMovies = async (req: Request, res: Response) => {
     if (vip === 'false') movies = movies.filter((movie) => !movie.isVip);
     if (dubbed === 'true') movies = movies.filter((movie) => movie.isDubbed);
 
-    return res.json({
+    const payload = {
       total: Math.max(total, movies.length),
       page: currentPage,
       limit: pageLimit || limitNum,
       totalPages,
       movies,
-    });
+    };
+    void cacheSet(listCacheKey, payload, search ? 45_000 : 30_000);
+    return res.json(payload);
   } catch (error: any) {
     if (error instanceof KkphimError) {
       try {
@@ -279,19 +332,26 @@ export const getReleaseSchedule = async (_req: Request, res: Response) => {
 
 export const getMovieBySlug = async (req: Request, res: Response) => {
   const { slug } = req.params;
+  const detailCacheKey = `movies:detail:v2:${slug}`;
 
   try {
+    const cached = await cacheGet<Record<string, unknown>>(detailCacheKey);
+    if (cached) return res.json(cached);
+
     // Upsert into DB so favorites/comments get a stable UUID
     const movie = await ensureMovieInDb(slug);
-
-    return res.json(shapeMovieForViewer(movie, await viewerCanAccessVip(req)));
+    const payload = shapeMovieForViewer(movie, await viewerCanAccessVip(req));
+    void cacheSet(detailCacheKey, payload, 60_000);
+    return res.json(payload);
   } catch (error: any) {
     // Older bookmarks used `...-1`; KKPhim now exposes seasons as `...-phan-1`.
     const legacySeasonAlias = slug.match(/-phan-\d+$/) ? slug : slug.replace(/-(\d+)$/, '-phan-$1');
     if (legacySeasonAlias !== slug) {
       try {
         const aliasedMovie = await ensureMovieInDb(legacySeasonAlias);
-        return res.json(shapeMovieForViewer(aliasedMovie, await viewerCanAccessVip(req)));
+        const payload = shapeMovieForViewer(aliasedMovie, await viewerCanAccessVip(req));
+        void cacheSet(detailCacheKey, payload, 60_000);
+        return res.json(payload);
       } catch {
         // Continue to the normal upstream fallback and preserve the original 404.
       }
@@ -320,11 +380,13 @@ export const getMovieBySlug = async (req: Request, res: Response) => {
         return res.status(503).json({ message: 'Movie service is temporarily unavailable.' });
       }
 
-      return res.json(shapeMovieForViewer({
+      const payload = shapeMovieForViewer({
         ...movie,
         isVip: dbMovie?.isVip || false,
         vipEarlyAccessUntil: dbMovie?.vipEarlyAccessUntil || null,
-      }, await viewerCanAccessVip(req)));
+      }, await viewerCanAccessVip(req));
+      void cacheSet(detailCacheKey, payload, 60_000);
+      return res.json(payload);
     } catch (inner: any) {
       const status = inner instanceof KkphimError ? inner.status : 500;
       return internalError(res, 'Error retrieving movie details.', inner, status);
@@ -334,13 +396,14 @@ export const getMovieBySlug = async (req: Request, res: Response) => {
 
 export const incrementViews = async (req: Request, res: Response) => {
   const { id } = req.params;
+  let existing: { id: string; views: number } | null = null;
 
   try {
-    // Prefer UUID; also accept slug for hybrid clients
-    const existing = await prisma.movie.findFirst({
+    existing = await prisma.movie.findFirst({
       where: {
         OR: [{ id }, { slug: id }],
       },
+      select: { id: true, views: true },
     });
 
     if (!existing) {
@@ -350,10 +413,14 @@ export const incrementViews = async (req: Request, res: Response) => {
     const movie = await prisma.movie.update({
       where: { id: existing.id },
       data: { views: { increment: 1 } },
+      select: { id: true, views: true },
     });
 
     return res.json({ id: movie.id, views: movie.views });
   } catch (error: any) {
+    if (isStorageFullError(error) && existing) {
+      return res.json({ id: existing.id, views: existing.views, skipped: true });
+    }
     return internalError(res, 'Error incrementing view count.', error);
   }
 };
@@ -422,50 +489,81 @@ export const getBanners = async (req: Request, res: Response) => {
 /** Home payload in one round trip; shared KKPhim calls are also cached by the client. */
 export const getHome = async (_req: Request, res: Response) => {
   try {
-    const [newResult, proposedResult, trendingResult, chinaResult, koreaResult, vietnamResult] = await Promise.allSettled([
+    const [homeResult, newResult, proposedResult, trendingResult, chinaResult, koreaResult, vietnamResult] = await Promise.allSettled([
+      fetchKkphimHome(),
       fetchNewMovies(1),
-      fetchMovieList('phim-bo', { page: 1, limit: 12 }),
+      fetchMovieList('phim-bo', { page: 1, limit: 24 }),
       fetchMovieList('phim-le', { page: 1, limit: 12, sort_field: 'view', sort_type: 'desc' }),
       fetchMovieList('phim-bo', { page: 1, limit: 12, country: 'trung-quoc' }),
       fetchMovieList('phim-bo', { page: 1, limit: 12, country: 'han-quoc' }),
       fetchMovieList('phim-bo', { page: 1, limit: 12, country: 'viet-nam' }),
     ]);
 
-    const results = [newResult, proposedResult, trendingResult, chinaResult, koreaResult, vietnamResult];
+    const results = [homeResult, newResult, proposedResult, trendingResult, chinaResult, koreaResult, vietnamResult];
     const failures = results.filter((result) => result.status === 'rejected');
-    if (failures.length === results.length) throw (newResult as PromiseRejectedResult).reason;
+    if (failures.length === results.length) throw (newResult as PromiseRejectedResult).reason || (homeResult as PromiseRejectedResult).reason;
     if (failures.length) console.warn(`Home payload is partial: ${failures.length}/${results.length} upstream requests failed.`);
 
     const emptyList = { items: [], total: 0, page: 1, limit: 0, totalPages: 1, cdn: '' };
+    const homeToday = homeResult.status === 'fulfilled' ? extractListPagination(homeResult.value) : emptyList;
     const latest = newResult.status === 'fulfilled' ? extractListPagination(newResult.value) : emptyList;
+    // Prefer KKPhim /v1/api/home (updated today) for banners/newest; fall back to phim-moi-cap-nhat-v3.
+    const primaryLatest = homeToday.items.length ? homeToday : latest;
     let proposed = proposedResult.status === 'fulfilled' ? extractListPagination(proposedResult.value) : emptyList;
     const trending = trendingResult.status === 'fulfilled' ? extractListPagination(trendingResult.value) : emptyList;
     const china = chinaResult.status === 'fulfilled' ? extractListPagination(chinaResult.value) : emptyList;
     const korea = koreaResult.status === 'fulfilled' ? extractListPagination(koreaResult.value) : emptyList;
     const vietnam = vietnamResult.status === 'fulfilled' ? extractListPagination(vietnamResult.value) : emptyList;
-    const newestMovies = latest.items.map((item) => mapListItem(item, latest.cdn));
+    const newestMovies = primaryLatest.items.map((item) => mapListItem(item, primaryLatest.cdn));
     const trendingMovies = trending.items.map((item) => mapListItem(item, trending.cdn));
 
-    // Keep the recommendation row meaningfully different from the latest row.
-    // KKPhim can return the same titles in both lists, especially when the
-    // newest catalog is dominated by series. Fetch the next page only when
-    // the first recommendation page has collisions.
+    // Keep the recommendation row meaningfully different from newest + trending,
+    // but pull extra pages until the row is long enough to scroll on desktop.
+    const PROPOSED_TARGET = 18;
     const occupiedSlugs = new Set([
-      ...latest.items,
-      ...trending.items,
+      ...primaryLatest.items.slice(0, 24),
+      ...trending.items.slice(0, 12),
     ].map((item) => item.slug).filter(Boolean));
-    let distinctProposedItems = proposed.items.filter((item) => !occupiedSlugs.has(item.slug));
+    const seenProposed = new Set<string>();
+    let distinctProposedItems: typeof proposed.items = [];
+    let proposedCdn = proposed.cdn;
+    let proposedPage = 1;
+    let proposedTotalPages = Math.max(1, proposed.totalPages || 1);
 
-    if (distinctProposedItems.length < Math.min(12, proposed.items.length) && proposed.totalPages > 1) {
+    const pushProposed = (items: typeof proposed.items, cdn: string) => {
+      if (cdn) proposedCdn = cdn;
+      for (const item of items) {
+        const slug = item?.slug;
+        if (!slug || occupiedSlugs.has(slug) || seenProposed.has(slug)) continue;
+        seenProposed.add(slug);
+        distinctProposedItems.push(item);
+        if (distinctProposedItems.length >= PROPOSED_TARGET) break;
+      }
+    };
+
+    pushProposed(proposed.items, proposed.cdn);
+
+    while (distinctProposedItems.length < PROPOSED_TARGET && proposedPage < proposedTotalPages && proposedPage < 4) {
+      proposedPage += 1;
       try {
-        const nextPage = await fetchMovieList('phim-bo', { page: 2, limit: 12 });
+        const nextPage = await fetchMovieList('phim-bo', { page: proposedPage, limit: 24 });
         const nextProposed = extractListPagination(nextPage);
-        distinctProposedItems = [
-          ...distinctProposedItems,
-          ...nextProposed.items.filter((item) => !occupiedSlugs.has(item.slug)),
-        ];
+        proposedTotalPages = Math.max(proposedTotalPages, nextProposed.totalPages || 1);
+        pushProposed(nextProposed.items, nextProposed.cdn);
       } catch {
-        // Keep the first page when the optional follow-up request fails.
+        break;
+      }
+    }
+
+    // If filtering left the row too short, top up from the original lists
+    // (prefer uniqueness, but scrolling beats empty space).
+    if (distinctProposedItems.length < 12) {
+      for (const item of [...proposed.items, ...primaryLatest.items, ...trending.items]) {
+        const slug = item?.slug;
+        if (!slug || seenProposed.has(slug)) continue;
+        seenProposed.add(slug);
+        distinctProposedItems.push(item);
+        if (distinctProposedItems.length >= PROPOSED_TARGET) break;
       }
     }
 
@@ -477,7 +575,7 @@ export const getHome = async (_req: Request, res: Response) => {
     // detail record does. Enrich home cards so quick view can autoplay the
     // same trailer that is available on the movie detail page.
     const homeSlugs = [...new Set([
-      ...latest.items,
+      ...primaryLatest.items,
       ...trending.items,
       ...distinctProposedItems,
       ...china.items,
@@ -485,24 +583,40 @@ export const getHome = async (_req: Request, res: Response) => {
       ...vietnam.items,
     ].map((item) => item.slug).filter(Boolean))];
     let trailerBySlug = new Map<string, string>();
+    let descriptionBySlug = new Map<string, string>();
     try {
-      const storedTrailers = await prisma.movie.findMany({
+      const storedExtras = await prisma.movie.findMany({
         where: { slug: { in: homeSlugs } },
-        select: { slug: true, trailerUrl: true },
+        select: { slug: true, trailerUrl: true, description: true },
       });
-      trailerBySlug = new Map(storedTrailers.flatMap((movie) => movie.trailerUrl ? [[movie.slug, movie.trailerUrl]] : []));
+      trailerBySlug = new Map(storedExtras.flatMap((movie) => movie.trailerUrl ? [[movie.slug, movie.trailerUrl]] : []));
+      descriptionBySlug = new Map(storedExtras.flatMap((movie) => {
+        const text = (movie.description || '').trim();
+        return text ? [[movie.slug, text]] : [];
+      }));
     } catch {
       // The upstream home payload remains usable when database enrichment fails.
     }
-    const withTrailer = <T extends { slug: string; trailerUrl?: string | null }>(movie: T): T => ({
-      ...movie,
-      trailerUrl: trailerBySlug.get(movie.slug) || movie.trailerUrl || null,
-    });
+    const withHomeExtras = <T extends { slug: string; title?: string; englishTitle?: string | null; description?: string; trailerUrl?: string | null }>(movie: T): T => {
+      const storedDescription = descriptionBySlug.get(movie.slug) || '';
+      const currentDescription = (movie.description || '').trim();
+      const titleLike = (value: string) => !value || value === movie.title || value === movie.englishTitle;
+      const description = (!titleLike(storedDescription) ? storedDescription : null)
+        || (!titleLike(currentDescription) ? currentDescription : null)
+        || storedDescription
+        || currentDescription
+        || '';
+      return {
+        ...movie,
+        trailerUrl: trailerBySlug.get(movie.slug) || movie.trailerUrl || null,
+        description,
+      };
+    };
 
     res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300');
     return res.json({
       banners: bannerMovies.slice(0, 8).map((rawMovie, index) => {
-        const movie = withTrailer(rawMovie);
+        const movie = withHomeExtras(rawMovie);
         return ({
         id: `kk-banner-${movie.slug}`,
         title: movie.title,
@@ -513,21 +627,22 @@ export const getHome = async (_req: Request, res: Response) => {
         movie,
       }); }),
       trending: trendingMovies.slice(0, 12).map((movie, index) => ({
-        ...withTrailer(movie),
+        ...withHomeExtras(movie),
         isTrending: true,
         isFeatured: index < 3,
       })),
-      proposed: distinctProposedItems.slice(0, 12).map((item) => ({
-        ...withTrailer(mapListItem(item, proposed.cdn)),
+      proposed: distinctProposedItems.slice(0, PROPOSED_TARGET).map((item) => ({
+        ...withHomeExtras(mapListItem(item, proposedCdn || proposed.cdn)),
         isProposed: true,
       })),
-      movies: newestMovies.map(withTrailer),
+      movies: newestMovies.map(withHomeExtras),
       countries: {
-        china: china.items.map((item) => withTrailer(mapListItem(item, china.cdn))),
-        korea: korea.items.map((item) => withTrailer(mapListItem(item, korea.cdn))),
-        vietnam: vietnam.items.map((item) => withTrailer(mapListItem(item, vietnam.cdn))),
+        china: china.items.map((item) => withHomeExtras(mapListItem(item, china.cdn))),
+        korea: korea.items.map((item) => withHomeExtras(mapListItem(item, korea.cdn))),
+        vietnam: vietnam.items.map((item) => withHomeExtras(mapListItem(item, vietnam.cdn))),
       },
       partial: failures.length > 0,
+      source: homeToday.items.length ? 'kkphim-home+catalog' : 'kkphim-catalog',
     });
   } catch (error: any) {
     if (error instanceof KkphimError) {
@@ -558,7 +673,7 @@ export const getHome = async (_req: Request, res: Response) => {
             isTrending: true,
             isFeatured: index < 3,
           })),
-          proposed: byRating.slice(0, 12).map((movie) => ({ ...movie, isProposed: true })),
+          proposed: byRating.slice(0, 18).map((movie) => ({ ...movie, isProposed: true })),
           movies: movies.slice(0, 24),
           countries: {
             china: countryMovies('trung-quoc'),

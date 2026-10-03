@@ -2,7 +2,7 @@
   "expo": {
     "name": "Cine3D",
     "slug": "cine3d",
-    "version": "1.0.14",
+    "version": "1.0.21",
     "orientation": "default",
     "scheme": "cine3d",
     "icon": "./assets/icon.png",
@@ -26,7 +26,7 @@
     },
     "android": {
       "package": "vn.cine3d.app",
-      "versionCode": 14,
+      "versionCode": 21,
       "permissions": [
         "android.permission.INTERNET",
         "android.permission.CAMERA",
@@ -183,6 +183,13 @@
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": true
         }
+      ],
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-4393110640744475~9656274330",
+          "iosAppId": "ca-app-pub-3940256099942544~1458002511"
+        }
       ]
     ],
     "extra": {
@@ -191,5 +198,9 @@
         "supportsFullscreenLandscape": true
       }
     }
+  },
+  "react-native-google-mobile-ads": {
+    "android_app_id": "ca-app-pub-4393110640744475~9656274330",
+    "ios_app_id": "ca-app-pub-3940256099942544~1458002511"
   }
 }

@@ -8,6 +8,8 @@ import { useStore } from '@/hooks/useStore';
 import { toggleFavorite } from '@/lib/user-library';
 import api from '@/lib/api';
 import CommunityHub from '@/components/home/CommunityHub';
+import { prefetchMovieDetail } from '@/lib/prefetch-movie';
+import AdsterraNativeBanner from '@/components/ads/AdsterraNativeBanner';
 import type { Banner, Movie } from '@/types/movie';
 
 export type HomeInitialData = {
@@ -30,41 +32,6 @@ const topics = [
   ['Kinh dị', 'Rùng rợn', 'from-orange-500 to-red-950', 'kinh-di'],
   ['Hoạt hình', 'Cho cả nhà', 'from-emerald-500 to-teal-950', 'hoat-hinh'],
 ] as const;
-
-function youtubeTrailerEmbed(url?: string | null) {
-  if (!url) return null;
-  try {
-    const parsed = new URL(url);
-    const id = parsed.hostname.includes('youtu.be')
-      ? parsed.pathname.split('/').filter(Boolean)[0]
-      : parsed.searchParams.get('v') || parsed.pathname.match(/\/(?:embed|shorts)\/([^/?]+)/)?.[1];
-    if (!id) return null;
-    return `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?autoplay=1&mute=1&controls=0&disablekb=1&fs=0&iv_load_policy=3&loop=1&playlist=${encodeURIComponent(id)}&modestbranding=1&playsinline=1&rel=0`;
-  } catch {
-    return null;
-  }
-}
-
-function TrailerMedia({ movie, className }: { movie: Movie; className: string }) {
-  const youtubeEmbed = youtubeTrailerEmbed(movie.trailerUrl);
-  const directVideo = !!movie.trailerUrl && /\.(?:mp4|webm)(?:\?|$)/i.test(movie.trailerUrl);
-  const [playable, setPlayable] = useState<boolean | null>(directVideo ? true : null);
-
-  useEffect(() => {
-    if (!youtubeEmbed || !movie.trailerUrl) return;
-    const controller = new AbortController();
-    fetch(`/api/trailer-check?url=${encodeURIComponent(movie.trailerUrl)}`, { signal: controller.signal })
-      .then((response) => response.ok ? response.json() : { playable: false })
-      .then((result) => setPlayable(result.playable === true))
-      .catch(() => { if (!controller.signal.aborted) setPlayable(false); });
-    return () => controller.abort();
-  }, [movie.trailerUrl, youtubeEmbed]);
-
-  if (!playable) return null;
-  if (youtubeEmbed) return <iframe src={youtubeEmbed} title={`Trailer ${movie.title}`} allow="autoplay; encrypted-media" tabIndex={-1} className={className} />;
-  if (directVideo) return <video src={movie.trailerUrl!} autoPlay muted loop playsInline onError={() => setPlayable(false)} className={className} />;
-  return null;
-}
 
 function TopicCard({ topic, movie }: { topic: (typeof topics)[number]; movie?: Movie }) {
   const [hovered, setHovered] = useState(false);
@@ -92,37 +59,61 @@ function TopicCard({ topic, movie }: { topic: (typeof topics)[number]; movie?: M
   </Link>;
 }
 
-function MovieCard({ movie, favorite, selected, onSelect }: { movie: Movie; favorite: boolean; selected: boolean; onSelect: () => void }) {
+function MovieCard({ movie, favorite }: { movie: Movie; favorite: boolean }) {
   const [hovered, setHovered] = useState(false);
-  return <article
-    onMouseEnter={() => setHovered(true)}
-    onMouseLeave={() => setHovered(false)}
-    className={`group relative h-[250px] w-[145px] shrink-0 overflow-hidden rounded-2xl border bg-[#242631] shadow-[0_14px_35px_rgba(0,0,0,.28)] transition-[width,transform,border-color,box-shadow] duration-300 ease-out hover:border-amber-300/70 hover:shadow-[0_20px_50px_rgba(0,0,0,.48)] sm:h-[270px] sm:w-[170px] lg:h-[290px] lg:w-[185px] lg:hover:w-[330px] ${selected ? 'border-amber-300 ring-2 ring-amber-300/20' : 'border-white/10'}`}
-  >
-    <button type="button" onClick={onSelect} aria-label={`Xem nhanh ${movie.title}`} aria-expanded={selected} className="absolute inset-0 w-full text-left">
-      <Image src={movie.posterUrl} alt={movie.title} fill sizes="(max-width:640px) 145px, (max-width:1024px) 170px, 330px" className="object-cover transition duration-500 group-hover:scale-105 group-hover:brightness-[.45]" />
-      {hovered && movie.backdropUrl && <Image src={movie.backdropUrl} alt="" fill sizes="330px" className="hidden object-cover opacity-0 transition duration-500 starting:opacity-0 lg:block lg:group-hover:opacity-55" />}
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/25 to-transparent lg:opacity-60 lg:group-hover:opacity-100" />
-    </button>
+  return (
+    <article
+      data-movie-card
+      onMouseEnter={() => {
+        setHovered(true);
+        prefetchMovieDetail(movie.slug);
+      }}
+      onMouseLeave={() => setHovered(false)}
+      onTouchStart={() => prefetchMovieDetail(movie.slug)}
+      className="group relative h-[250px] w-[145px] shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-[#242631] shadow-[0_14px_35px_rgba(0,0,0,.28)] transition-[width,transform,border-color,box-shadow] duration-300 ease-out hover:border-amber-300/70 hover:shadow-[0_20px_50px_rgba(0,0,0,.48)] sm:h-[270px] sm:w-[170px] lg:h-[290px] lg:w-[185px] lg:hover:w-[330px]"
+    >
+      <Link href={`/movies/${movie.slug}`} aria-label={`Xem chi tiết ${movie.title}`} className="absolute inset-0 z-[1]">
+        <Image src={movie.posterUrl} alt={movie.title} fill sizes="(max-width:640px) 145px, (max-width:1024px) 170px, 330px" className="object-cover transition duration-500 group-hover:scale-105 group-hover:brightness-[.45]" />
+        {hovered && movie.backdropUrl && (
+          <Image src={movie.backdropUrl} alt="" fill sizes="330px" className="hidden object-cover opacity-0 transition duration-500 starting:opacity-0 lg:block lg:group-hover:opacity-55" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/25 to-transparent lg:opacity-60 lg:group-hover:opacity-100" />
+      </Link>
 
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 p-3.5 transition duration-300 lg:translate-y-10 lg:opacity-0 lg:group-hover:translate-y-0 lg:group-hover:opacity-100">
-      <div className="mb-2 hidden items-center gap-2 text-[10px] font-bold lg:flex">
-        <span className="flex items-center gap-1 rounded-md bg-amber-300 px-2 py-1 text-black"><Star className="h-3 w-3 fill-current" /> {movie.ratingAvg?.toFixed(1) || '0.0'}</span>
-        <span className="rounded-md bg-white/15 px-2 py-1 backdrop-blur">{movie.releaseYear}</span>
-        <span className="rounded-md bg-white/15 px-2 py-1 backdrop-blur">{movie.quality || 'HD'}</span>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 p-3.5 transition duration-300 lg:translate-y-10 lg:opacity-0 lg:group-hover:translate-y-0 lg:group-hover:opacity-100">
+        <div className="mb-2 hidden items-center gap-2 text-[10px] font-bold lg:flex">
+          <span className="flex items-center gap-1 rounded-md bg-amber-300 px-2 py-1 text-black"><Star className="h-3 w-3 fill-current" /> {movie.ratingAvg?.toFixed(1) || '0.0'}</span>
+          <span className="rounded-md bg-white/15 px-2 py-1 backdrop-blur">{movie.releaseYear}</span>
+          <span className="rounded-md bg-white/15 px-2 py-1 backdrop-blur">{movie.quality || 'HD'}</span>
+        </div>
+        <Link href={`/movies/${movie.slug}`} className="pointer-events-auto block w-full truncate text-left text-sm font-black text-white hover:text-amber-300 lg:text-lg">
+          {movie.title}
+        </Link>
+        <p className="mt-1 truncate text-[10px] text-slate-300 lg:text-xs">{movie.englishTitle || `${movie.releaseYear} · ${movie.isSeries ? 'Phim bộ' : 'Phim lẻ'}`}</p>
+        <div className="pointer-events-auto mt-3 hidden items-center gap-2 lg:flex">
+          <Link href={`/watch/${movie.slug}`} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-white text-xs font-black text-black transition hover:bg-amber-300">
+            <Play className="h-3.5 w-3.5 fill-current" /> Xem ngay
+          </Link>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              void toggleFavorite(movie.id, movie);
+            }}
+            aria-label={favorite ? 'Xóa yêu thích' : 'Thêm vào yêu thích'}
+            className={`grid h-9 w-9 place-items-center rounded-full border transition ${favorite ? 'border-emerald-400/40 bg-emerald-400/15 text-emerald-300' : 'border-white/25 bg-black/30 text-white hover:bg-white/15'}`}
+          >
+            {favorite ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
-      <button type="button" onClick={onSelect} className="pointer-events-auto block w-full truncate text-left text-sm font-black text-white hover:text-amber-300 lg:text-lg">{movie.title}</button>
-      <p className="mt-1 truncate text-[10px] text-slate-300 lg:text-xs">{movie.englishTitle || `${movie.releaseYear} · ${movie.isSeries ? 'Phim bộ' : 'Phim lẻ'}`}</p>
-      <div className="pointer-events-auto mt-3 hidden items-center gap-2 lg:flex">
-        <Link href={`/watch/${movie.slug}`} className="flex h-9 flex-1 items-center justify-center gap-1.5 rounded-full bg-white text-xs font-black text-black transition hover:bg-amber-300"><Play className="h-3.5 w-3.5 fill-current" /> Xem ngay</Link>
-        <button type="button" onClick={() => void toggleFavorite(movie.id, movie)} aria-label={favorite ? 'Xóa yêu thích' : 'Thêm vào yêu thích'} className={`grid h-9 w-9 place-items-center rounded-full border transition ${favorite ? 'border-emerald-400/40 bg-emerald-400/15 text-emerald-300' : 'border-white/25 bg-black/30 text-white hover:bg-white/15'}`}>
-          {favorite ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-        </button>
-      </div>
-    </div>
 
-    <span className="absolute right-2.5 top-2.5 z-10 rounded-md bg-red-600/90 px-2 py-1 text-[9px] font-black shadow-lg">{movie.isSeries ? `${movie.episodeCount} Tập` : movie.quality || 'HD'}</span>
-  </article>;
+      <span className="absolute right-2.5 top-2.5 z-10 rounded-md bg-red-600/90 px-2 py-1 text-[9px] font-black shadow-lg">
+        {movie.isSeries ? `${movie.episodeCount} Tập` : movie.quality || 'HD'}
+      </span>
+    </article>
+  );
 }
 
 function AnimeSpotlight({ movies, favoriteIds }: { movies: Movie[]; favoriteIds: Set<string> }) {
@@ -140,7 +131,7 @@ function AnimeSpotlight({ movies, favoriteIds }: { movies: Movie[]; favoriteIds:
       <div className="absolute inset-0 overflow-hidden rounded-[28px]"><Image src={anime.backdropUrl || anime.posterUrl} alt={anime.title} fill sizes="1440px" className="object-cover object-center md:object-[65%_center]" /><div className="absolute inset-0 bg-gradient-to-r from-[#20222e] via-[#20222e]/90 to-transparent md:via-[43%] md:to-[78%]" /><div className="absolute inset-0 bg-gradient-to-t from-[#20222e] via-transparent to-black/20" /><div className="absolute inset-0 opacity-[.1] [background-image:radial-gradient(rgba(255,255,255,.6)_.7px,transparent_.7px)] [background-size:4px_4px]" /></div>
       <div className="relative z-10 flex min-h-[500px] max-w-2xl flex-col justify-center px-6 pb-36 pt-10 md:h-full md:px-12 md:pb-40 lg:px-14">
         <h3 className="text-3xl font-black md:text-4xl">{anime.title}</h3>{anime.englishTitle && <p className="mt-2 text-base text-amber-300">{anime.englishTitle}</p>}
-        <div className="mt-5 flex flex-wrap gap-2 text-[11px] font-bold"><span className="rounded border border-amber-300 px-2.5 py-1.5">IMDb {anime.ratingAvg?.toFixed(1) || '0.0'}</span><span className="rounded bg-white px-2.5 py-1.5 text-black">T16</span><span className="rounded border border-white/40 px-2.5 py-1.5">{anime.releaseYear}</span><span className="rounded border border-white/40 px-2.5 py-1.5">{anime.isSeries ? 'Phần 1' : 'Movie'}</span><span className="rounded border border-white/40 px-2.5 py-1.5">{anime.isSeries ? `Tập ${anime.episodeCount}` : 'Full'}</span></div>
+        <div className="mt-5 flex flex-wrap gap-2 text-[11px] font-bold"><span className="rounded border border-amber-300 px-2.5 py-1.5">★ {anime.ratingAvg?.toFixed(1) || '0.0'}</span><span className="rounded bg-white px-2.5 py-1.5 text-black">T16</span><span className="rounded border border-white/40 px-2.5 py-1.5">{anime.releaseYear}</span><span className="rounded border border-white/40 px-2.5 py-1.5">{anime.isSeries ? 'Phim bộ' : 'Phim lẻ'}</span><span className="rounded border border-white/40 px-2.5 py-1.5">{anime.isSeries ? `${anime.episodeCount} tập` : 'Trọn bộ'}</span></div>
         <span className="mt-4 w-fit rounded-lg bg-white/10 px-3 py-1.5 text-[11px] font-bold">Hoạt hình</span><p className="mt-5 line-clamp-4 text-sm leading-7 text-slate-200">{anime.description || 'Thông tin phim đang được cập nhật.'}</p>
         <div className="mt-6 flex items-center gap-4"><Link href={`/movies/${anime.slug}`} className="grid h-16 w-16 place-items-center rounded-full bg-gradient-to-br from-amber-100 to-amber-400 text-black shadow-xl"><Play className="ml-1 h-7 w-7 fill-current" /></Link><button onClick={() => void toggleFavorite(anime.id, anime)} className="grid h-12 w-14 place-items-center rounded-l-full border border-white/15 bg-black/20">{favoriteIds.has(anime.id) ? <Check className="text-emerald-400" /> : <Plus />}</button><Link href={`/movies/${anime.slug}`} className="-ml-4 grid h-12 w-14 place-items-center rounded-r-full border border-l-0 border-white/15 bg-black/20"><CircleAlert /></Link></div>
       </div>
@@ -151,32 +142,108 @@ function AnimeSpotlight({ movies, favoriteIds }: { movies: Movie[]; favoriteIds:
 
 function MovieRow({ title, movies, href = '/search', favoriteIds, accent = 'text-amber-300' }: { title: string; movies: Movie[]; href?: string; favoriteIds: Set<string>; accent?: string }) {
   const rowRef = useRef<HTMLDivElement>(null);
-  const [showPrevious, setShowPrevious] = useState(false);
-  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
+  const [canPrev, setCanPrev] = useState(false);
+  const [canNext, setCanNext] = useState(false);
+
+  const updateScrollState = () => {
+    const row = rowRef.current;
+    if (!row) return;
+    const max = row.scrollWidth - row.clientWidth;
+    setCanPrev(row.scrollLeft > 4);
+    setCanNext(max > 4 && row.scrollLeft < max - 4);
+  };
+
+  useEffect(() => {
+    updateScrollState();
+    const row = rowRef.current;
+    if (!row) return;
+    const frame = window.requestAnimationFrame(updateScrollState);
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateScrollState) : null;
+    observer?.observe(row);
+    window.addEventListener('resize', updateScrollState);
+
+    const onWheel = (event: WheelEvent) => {
+      const dominant = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      if (!dominant) return;
+      if (Math.abs(event.deltaY) >= Math.abs(event.deltaX)) {
+        event.preventDefault();
+        row.scrollLeft += dominant;
+        updateScrollState();
+      }
+    };
+    row.addEventListener('wheel', onWheel, { passive: false });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener('resize', updateScrollState);
+      row.removeEventListener('wheel', onWheel);
+    };
+  }, [movies]);
+
   if (!movies.length) return null;
-  const scroll = (direction: number) => rowRef.current?.scrollBy({ left: direction * Math.max(600, rowRef.current.clientWidth * .8), behavior: 'smooth' });
-  const updatePreviousVisibility = () => setShowPrevious((rowRef.current?.scrollLeft ?? 0) > 1);
-  return <section className="mx-auto mt-11 w-full max-w-[1440px] px-4 md:px-8">
-    <div className="mb-5 flex items-center justify-between"><h2 className={`text-xl font-black md:text-2xl ${accent}`}>{title}</h2><Link href={href} className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white">Xem tất cả <ChevronRight className="h-4 w-4" /></Link></div>
-    <div className="relative">{showPrevious && <button onClick={() => scroll(-1)} aria-label="Phim trước" className="absolute -left-3 top-[38%] z-20 hidden h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-xl hover:bg-amber-300 md:flex"><ChevronLeft /></button>}<div ref={rowRef} onScroll={updatePreviousVisibility} className="movie-row flex gap-4 overflow-x-auto pb-3 md:gap-5">{movies.map((movie) => <MovieCard key={movie.id} movie={movie} favorite={favoriteIds.has(movie.id)} selected={selectedMovie?.id === movie.id} onSelect={() => setSelectedMovie((current) => current?.id === movie.id ? null : movie)} />)}</div><button onClick={() => scroll(1)} aria-label="Phim tiếp theo" className="absolute -right-3 top-[38%] z-20 hidden h-11 w-11 items-center justify-center rounded-full bg-white text-black shadow-xl hover:bg-amber-300 md:flex"><ChevronRight /></button></div>
-    {selectedMovie && <div className="relative mt-3 min-h-[310px] overflow-hidden rounded-2xl border border-white/10 bg-[#101116] shadow-[0_24px_70px_rgba(0,0,0,.42)] animate-fade-in sm:min-h-[340px]">
-      <Image src={selectedMovie.backdropUrl || selectedMovie.posterUrl} alt="" fill sizes="(max-width:768px) 100vw, 1400px" className="object-cover object-center opacity-35" />
-      <TrailerMedia key={selectedMovie.id} movie={selectedMovie} className="home-trailer pointer-events-none absolute inset-x-0 top-1/2 hidden aspect-video w-full -translate-y-1/2 border-0 object-cover lg:block" />
-      <div className="absolute inset-0 bg-gradient-to-r from-[#101116] via-[#101116]/75 to-transparent" />
-      <div className="absolute inset-0 bg-gradient-to-t from-[#101116]/85 via-transparent to-black/10" />
-      <button type="button" onClick={() => setSelectedMovie(null)} aria-label="Đóng xem nhanh" className="absolute right-3 top-3 z-20 grid h-9 w-9 place-items-center rounded-full border border-white/10 bg-black/40 text-slate-300 backdrop-blur transition hover:bg-red-600 hover:text-white"><X className="h-4 w-4" /></button>
-      <div className="relative z-10 flex min-h-[310px] items-center gap-5 p-5 sm:min-h-[340px] sm:gap-7 sm:p-7">
-        <div className="relative hidden aspect-[2/3] h-[250px] shrink-0 overflow-hidden rounded-xl border border-white/15 shadow-2xl sm:block"><Image src={selectedMovie.posterUrl} alt={selectedMovie.title} fill sizes="170px" className="object-cover" /></div>
-        <div className="max-w-xl py-8">
-          <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold"><span className="flex items-center gap-1 rounded-md bg-amber-300 px-2.5 py-1.5 text-black"><Star className="h-3 w-3 fill-current" /> {selectedMovie.ratingAvg?.toFixed(1) || '0.0'}</span><span className="rounded-md bg-white/10 px-2.5 py-1.5">{selectedMovie.releaseYear}</span><span className="rounded-md bg-white/10 px-2.5 py-1.5">{selectedMovie.quality || 'HD'}</span><span className="rounded-md bg-white/10 px-2.5 py-1.5">{selectedMovie.isSeries ? 'Phim bộ' : 'Phim lẻ'}</span></div>
-          <h3 className="mt-4 text-2xl font-black text-white sm:text-3xl">{selectedMovie.title}</h3>
-          {selectedMovie.englishTitle && <p className="mt-1 text-sm font-semibold text-amber-300">{selectedMovie.englishTitle}</p>}
-          <p className="mt-4 line-clamp-3 text-sm leading-6 text-slate-300">{selectedMovie.description || 'Thông tin phim đang được cập nhật.'}</p>
-          <div className="mt-6 flex flex-wrap gap-2.5"><Link href={`/watch/${selectedMovie.slug}`} className="flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-200 to-amber-400 px-6 py-3 text-xs font-black text-black transition hover:brightness-110"><Play className="h-4 w-4 fill-current" /> Xem ngay</Link><Link href={`/movies/${selectedMovie.slug}`} className="flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-5 py-3 text-xs font-bold text-white transition hover:bg-white/10"><Info className="h-4 w-4" /> Chi tiết</Link><button type="button" onClick={() => void toggleFavorite(selectedMovie.id, selectedMovie)} className="flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-5 py-3 text-xs font-bold text-white transition hover:bg-white/10">{favoriteIds.has(selectedMovie.id) ? <Check className="h-4 w-4 text-emerald-400" /> : <Plus className="h-4 w-4" />} {favoriteIds.has(selectedMovie.id) ? 'Đã thích' : 'Yêu thích'}</button></div>
+
+  const scrollByPage = (direction: number) => {
+    const row = rowRef.current;
+    if (!row) return;
+    row.scrollBy({ left: direction * Math.max(480, row.clientWidth * 0.85), behavior: 'smooth' });
+  };
+
+  return (
+    <section className="mx-auto mt-11 w-full max-w-[1440px] px-4 md:px-8">
+      <div className="mb-5 flex items-center justify-between">
+        <h2 className={`text-xl font-black md:text-2xl ${accent}`}>{title}</h2>
+        <div className="flex items-center gap-2">
+          <span className="hidden text-[10px] font-semibold uppercase tracking-wider text-slate-500 sm:inline">
+            {movies.length} phim · mũi tên hoặc lăn để xem thêm
+          </span>
+          <Link href={href} className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white">
+            Xem tất cả <ChevronRight className="h-4 w-4" />
+          </Link>
         </div>
       </div>
-    </div>}
-  </section>;
+
+      <div className="relative">
+        {canPrev && (
+          <>
+            <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-[#171820] to-transparent sm:w-16" />
+            <button
+              type="button"
+              onClick={() => scrollByPage(-1)}
+              aria-label="Phim trước"
+              className="absolute -left-1 top-[38%] z-20 grid h-10 w-10 place-items-center rounded-full bg-white text-black shadow-xl transition hover:bg-amber-300 sm:-left-3 sm:h-11 sm:w-11"
+            >
+              <ChevronLeft />
+            </button>
+          </>
+        )}
+
+        <div
+          ref={rowRef}
+          onScroll={updateScrollState}
+          className="movie-row flex min-w-0 touch-pan-x gap-4 overflow-x-auto pb-3 md:gap-5"
+        >
+          {movies.map((movie) => (
+            <MovieCard key={movie.id} movie={movie} favorite={favoriteIds.has(movie.id)} />
+          ))}
+        </div>
+
+        {canNext && (
+          <>
+            <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-[#171820] to-transparent sm:w-16" />
+            <button
+              type="button"
+              onClick={() => scrollByPage(1)}
+              aria-label="Phim tiếp theo"
+              className="absolute -right-1 top-[38%] z-20 grid h-10 w-10 place-items-center rounded-full bg-amber-300 text-black shadow-xl transition hover:brightness-110 sm:-right-3 sm:h-11 sm:w-11"
+            >
+              <ChevronRight />
+            </button>
+          </>
+        )}
+      </div>
+    </section>
+  );
 }
 
 type WatchHistoryItem = ReturnType<typeof useStore.getState>['watchHistory'][number];
@@ -257,19 +324,24 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
 
   return <main className="-mt-20 min-h-screen bg-[#171820] pb-20 text-white">
     {active && <section data-hero-parallax className="relative min-h-[650px] overflow-hidden md:min-h-[760px]">
-      <Image
-        src={active.imageUrl || active.movie.posterUrl}
-        alt={active.title}
-        fill
-        loading="eager"
-        fetchPriority={heroIndex === 0 ? 'high' : 'auto'}
-        decoding="async"
-        sizes="100vw"
-        className="hero-parallax-layer object-cover object-center"
-      />
-      <div className="absolute inset-0 bg-[linear-gradient(90deg,#171820_0%,rgba(23,24,32,.78)_30%,rgba(23,24,32,.12)_72%)]" />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(23,24,32,.15)_0%,rgba(23,24,32,0)_46%,#171820_100%)]" />
-      <div className="relative mx-auto flex min-h-[650px] max-w-[1440px] items-end px-4 pb-28 pt-32 md:min-h-[760px] md:px-8 md:pb-36">
+      <div className="absolute inset-0 pointer-events-none">
+        <Image
+          src={active.imageUrl || active.movie.posterUrl}
+          alt={active.title}
+          fill
+          loading="eager"
+          priority={heroIndex === 0}
+          fetchPriority={heroIndex === 0 ? 'high' : 'auto'}
+          decoding="async"
+          quality={90}
+          sizes="(max-width: 768px) 100vw, 1920px"
+          className="hero-parallax-layer object-cover object-center"
+        />
+      </div>
+      <div className="cinema-pixel-grain" aria-hidden />
+      <div className="pointer-events-none absolute inset-0 z-[1] bg-[linear-gradient(90deg,#171820_0%,rgba(23,24,32,.72)_28%,rgba(23,24,32,.08)_70%)]" />
+      <div className="pointer-events-none absolute inset-0 z-[1] bg-[linear-gradient(180deg,rgba(23,24,32,.12)_0%,rgba(23,24,32,0)_48%,#171820_100%)]" />
+      <div className="relative z-20 mx-auto flex min-h-[650px] max-w-[1440px] items-end px-4 pb-28 pt-32 md:min-h-[760px] md:px-8 md:pb-36">
         <div className="max-w-2xl">
           <p className="mb-4 text-xs font-black uppercase tracking-[.28em] text-amber-300">CINE3D · Phim nổi bật</p>
           <h1 className="text-4xl font-black leading-[.98] drop-shadow-2xl sm:text-6xl lg:text-7xl">{active.title}</h1>
@@ -279,9 +351,9 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
           <div className="mt-7 flex items-center gap-3"><Link href={`/watch/${active.movie.slug}`} className="flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-200 to-amber-400 px-7 py-3.5 text-sm font-black text-black shadow-[0_10px_30px_rgba(251,191,36,.2)] hover:brightness-110"><Play className="h-5 w-5 fill-current" /> Xem ngay</Link><Link href={`/movies/${active.movie.slug}`} className="grid h-12 w-12 place-items-center rounded-full bg-white/15 backdrop-blur hover:bg-white/25"><Info className="h-5 w-5" /></Link><button onClick={() => void toggleFavorite(active.movie.id, active.movie)} className="grid h-12 w-12 place-items-center rounded-full bg-white/15 backdrop-blur hover:bg-white/25"><Plus className="h-5 w-5" /></button></div>
         </div>
       </div>
-      {heroes.length > 1 && <div className="absolute bottom-11 right-4 hidden max-w-[48%] gap-3 md:flex lg:right-10">{heroes.map((banner, index) => {
+      {heroes.length > 1 && <div className="absolute bottom-11 right-4 z-20 hidden max-w-[48%] gap-3 md:flex lg:right-10">{heroes.map((banner, index) => {
         const shouldLoadThumbnail = loadDeferredHeroThumbnails || index === heroIndex || index === (heroIndex + 1) % heroes.length;
-        return <button key={banner.id} onClick={() => setHeroIndex(index)} aria-label={`Chiếu banner ${banner.title}`} className={`relative aspect-video w-28 overflow-hidden rounded-lg border-2 bg-[#252735] transition lg:w-36 ${index === heroIndex ? 'border-amber-300 opacity-100' : 'border-transparent opacity-55 hover:opacity-100'}`}>
+        return <button key={banner.id} onClick={() => setHeroIndex(index)} aria-label={`Chiếu banner ${banner.title}`} className={`relative aspect-video w-28 shrink-0 overflow-hidden rounded-lg border-2 bg-[#252735] transition lg:w-36 ${index === heroIndex ? 'border-amber-300 opacity-100' : 'border-transparent opacity-55 hover:opacity-100'}`}>
           {shouldLoadThumbnail && <Image src={banner.imageUrl || banner.movie.posterUrl} alt="" fill loading="lazy" decoding="async" sizes="144px" className="object-cover" />}
         </button>;
       })}</div>}
@@ -294,6 +366,9 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
     <section className="relative z-10 mx-auto mt-2 w-full max-w-[1440px] px-4 pt-5 md:px-8"><h2 className="mb-5 text-xl font-black text-amber-300 md:text-2xl">Bạn đang quan tâm gì?</h2><div className="movie-row flex gap-3 overflow-x-auto pb-3">{topics.map((topic, index) => <TopicCard key={topic[0]} topic={topic} movie={topicMovies[index]} />)}</div></section>
 
     <MovieRow title="Đề xuất cho bạn" movies={initialData.proposed} favoriteIds={favorites} accent="text-amber-300" />
+
+    {/* High-visibility slot: after first browse, before more rows */}
+    <AdsterraNativeBanner />
 
     {!!initialData.trending.length && <section className="mx-auto mt-12 w-full max-w-[1440px] px-4 md:px-8"><div className="mb-5 flex items-center justify-between"><h2 className="text-xl font-black text-rose-400 md:text-2xl">Top phim hôm nay</h2><Link href="/search?sortBy=views" className="flex items-center gap-1 text-xs font-bold text-slate-400">Xem tất cả <ChevronRight className="h-4 w-4" /></Link></div><div className="movie-row flex gap-5 overflow-x-auto pb-4">{initialData.trending.slice(0, 10).map((movie, index) => <Link key={movie.id} href={`/movies/${movie.slug}`} className="group flex w-[270px] shrink-0 items-end"><span className="relative z-10 -mr-3 text-[92px] font-black leading-none text-transparent [-webkit-text-stroke:2px_rgba(255,255,255,.55)]">{index + 1}</span><span className="relative block aspect-[2/3] w-32 overflow-hidden rounded-lg bg-[#252735]"><Image src={movie.posterUrl} alt={movie.title} fill sizes="128px" className="object-cover transition group-hover:scale-105" /></span><span className="min-w-0 flex-1 pb-2 pl-3"><b className="line-clamp-2 text-sm group-hover:text-amber-300">{movie.title}</b><small className="mt-2 block text-[10px] text-slate-500">{movie.quality} · {movie.releaseYear}</small></span></Link>)}</div></section>}
 

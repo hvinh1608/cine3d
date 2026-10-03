@@ -32,6 +32,7 @@ import {
 } from 'lucide-react-native';
 import { Button, Checkbox, Chip, Divider, IconButton, SegmentedButtons, Text, TextInput } from 'react-native-paper';
 import { AsyncState, MovieRail, Screen, useToast } from '@/components/ui';
+import { AdBanner } from '@/features/ads/AdBanner';
 import type { Comment, Episode, Movie, Playlist, WatchHistory } from '@/domain/models';
 import { movieRepository } from '@/features/movies/data/http-movie-repository';
 import { movieKeys, type CommentSort } from '@/features/movies/domain/movie-repository';
@@ -175,10 +176,12 @@ export function MovieDetailScreen({ slug }: { slug: string }) {
                 {movie.trailerUrl ? <Action icon={<Play color={colors.text} />} label="Trailer" onPress={() => void Linking.openURL(movie.trailerUrl!)} /> : null}
               </View>
               <PeopleLinks movie={movie} />
+              <AdBanner />
               <EpisodeSelector episodes={movie.episodes ?? []} selected={selectedEpisode} onSelect={setSelectedEpisode} />
               <RatingPanel score={rating.data ?? null} disabled={!authenticated || ratingMutation.isPending} onRate={(score) => requireAuth() && ratingMutation.mutate(score)} />
               <MovieRail title="Có thể bạn sẽ thích" movies={related.data ?? []} />
               <Comments movieId={movie.id} authenticated={authenticated} />
+              <AdBanner />
             </View>
           </ScrollView>
         ) : null}

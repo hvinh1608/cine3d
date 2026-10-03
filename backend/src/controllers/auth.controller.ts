@@ -5,7 +5,7 @@ import * as jwt from 'jsonwebtoken';
 import * as crypto from 'crypto';
 import { OAuth2Client } from 'google-auth-library';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { internalError } from '../lib/http-error';
+import { internalError, isStorageFullError } from '../lib/http-error';
 import { hasVipAccess } from '../lib/vip';
 import { emailDeliveryConfigured, sendActionEmail } from '../services/email.service';
 import {
@@ -798,6 +798,15 @@ export const forgotPassword = async (req: AuthenticatedRequest, res: Response) =
 
     return res.json({ message: genericMessage });
   } catch (error: any) {
+    const details = error instanceof Error ? error.message : String(error);
+    if (/unrecognised IP address|unauthorized|authorised_ips/i.test(details)) {
+      console.error('Brevo blocked home IP for forgot-password.', details);
+      return res.status(503).json({
+        message:
+          'Gửi email đang bị Brevo chặn IP máy nhà. Vào https://app.brevo.com/security/authorised_ips thêm IP hiện tại, hoặc tắt IP allowlist.',
+        code: 'EMAIL_IP_BLOCKED',
+      });
+    }
     return internalError(res, 'Máy chủ đang gặp sự cố. Vui lòng thử lại sau.', error);
   }
 };
@@ -984,6 +993,9 @@ export const createQrLoginSession = async (req: AuthenticatedRequest, res: Respo
       status: 'PENDING',
     });
   } catch (error) {
+    if (isStorageFullError(error)) {
+      return res.status(503).json({ message: 'Đăng nhập QR tạm thời không khả dụng. Hãy dùng email hoặc Google.' });
+    }
     return internalError(res, 'Could not create QR login session.', error);
   }
 };

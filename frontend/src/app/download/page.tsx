@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Download, Smartphone, ShieldAlert, RefreshCw, CheckCircle2 } from 'lucide-react';
 import AndroidDownloadQr from '@/components/download/AndroidDownloadQr';
-import { ANDROID_APK_URL } from '@/lib/android-app';
+import { ANDROID_APK_URL, ANDROID_APP_VERSION } from '@/lib/android-app';
 
 export const metadata: Metadata = {
   title: 'Tải ứng dụng Android | CINE3D',
@@ -62,7 +62,9 @@ export default function DownloadAppPage() {
             </div>
 
             <p className="mt-3 text-xs text-slate-500">
-              File: <span className="text-slate-300">cine3d.apk</span> · Android 7.0+ · Package <code className="text-amber-300">vn.cine3d.app</code>
+              File: <span className="text-slate-300">cine3d-{ANDROID_APP_VERSION}.apk</span> · bản {ANDROID_APP_VERSION} · Android 7.0+ · Package <code className="text-amber-300">vn.cine3d.app</code>
+              <br />
+              Đường dẫn: <code className="text-amber-300/90">{ANDROID_APK_URL}</code>
             </p>
           </div>
 
