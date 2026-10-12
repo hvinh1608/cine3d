@@ -28,19 +28,13 @@ export default function CinemaSplash() {
 
   useEffect(() => {
     const path = window.location.pathname;
-    if (path.startsWith('/account') || path.startsWith('/qr-login')) {
-      setPhase('hidden');
+    if (path !== '/' || hasCompletedIntro()) {
       return;
     }
-    if (path !== '/') {
-      setPhase('hidden');
-      return;
-    }
-    if (hasCompletedIntro()) {
-      setPhase('hidden');
-      return;
-    }
-    setPhase('welcome');
+    const frameId = window.requestAnimationFrame(() => {
+      setPhase('welcome');
+    });
+    return () => window.cancelAnimationFrame(frameId);
   }, []);
 
   const enterCinema = useCallback(() => {

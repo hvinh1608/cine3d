@@ -79,15 +79,20 @@ export default function MovieDetailClient({
   const { user, favoriteIds, showToast } = useStore();
   const [movie, setMovie] = useState<MovieDetail | null>(initialData.movie);
   const [related, setRelated] = useState<Movie[]>(initialData.related);
-  const [loading, setLoading] = useState(!initialData.movie && !initialData.loadError);
+  const [loading, setLoading] = useState(!initialData.movie);
   const [error, setError] = useState(initialData.loadError || '');
   const [following, setFollowing] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
   const [showTrailer, setShowTrailer] = useState(false);
   const [activeTab, setActiveTab] = useState<'episodes' | 'gallery' | 'cast' | 'related'>('episodes');
   const [selectedSeason, setSelectedSeason] = useState(initialSeason(initialData.movie));
+  const [prevSyncKey, setPrevSyncKey] = useState(
+    `${slug}:${initialData.movie?.id ?? 'none'}:${initialData.loadError ?? ''}`,
+  );
 
-  useEffect(() => {
+  const currentSyncKey = `${slug}:${initialData.movie?.id ?? 'none'}:${initialData.loadError ?? ''}`;
+  if (currentSyncKey !== prevSyncKey) {
+    setPrevSyncKey(currentSyncKey);
     setMovie(initialData.movie);
     setRelated(initialData.related);
     setError(initialData.loadError || '');
@@ -96,17 +101,21 @@ export default function MovieDetailClient({
     setActiveTab('episodes');
     setFollowing(false);
     setRating(null);
+  }
 
+  useEffect(() => {
     if (!initialData.movie) return;
     void api.post(`/movies/${initialData.movie.id}/view`, null, { timeout: 8_000 }).catch(() => undefined);
-  }, [slug, initialData.movie, initialData.related, initialData.loadError]);
+  }, [slug, initialData.movie]);
 
   useEffect(() => {
     if (initialData.movie) return;
     let alive = true;
-    setLoading(true);
     const load = async (attempt = 0): Promise<void> => {
       try {
+        await Promise.resolve();
+        if (!alive) return;
+        if (attempt === 0) setLoading(true);
         const { data } = await api.get(`/movies/${slug}`, { timeout: 45_000 });
         if (!alive) return;
         const detail = data as MovieDetail;

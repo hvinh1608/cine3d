@@ -9,7 +9,6 @@ const PUBLIC_HTML_CDN = [
 ];
 
 const STATIC_LONG_CACHE = [
-  { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
   { key: 'CDN-Cache-Control', value: 'public, max-age=31536000, immutable' },
   { key: 'Cloudflare-CDN-Cache-Control', value: 'public, max-age=31536000, immutable' },
 ];

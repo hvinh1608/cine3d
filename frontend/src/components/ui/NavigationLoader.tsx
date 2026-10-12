@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname, useSearchParams } from 'next/navigation';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 
 const MAX_OVERLAY_MS = 8_000;
@@ -17,14 +17,14 @@ export default function NavigationLoader() {
   const startedAtRef = useRef(0);
   const hintTimerRef = useRef<number | null>(null);
 
-  const clearHintTimer = () => {
+  const clearHintTimer = useCallback(() => {
     if (hintTimerRef.current !== null) {
       window.clearTimeout(hintTimerRef.current);
       hintTimerRef.current = null;
     }
-  };
+  }, []);
 
-  const startNavigation = () => {
+  const startNavigation = useCallback(() => {
     if (pendingRef.current) return;
     pendingRef.current = true;
     startedAtRef.current = Date.now();
@@ -33,14 +33,14 @@ export default function NavigationLoader() {
     clearHintTimer();
     // Chỉ hiện overlay rõ khi mạng chậm — tránh nháy trên mạng nhanh
     hintTimerRef.current = window.setTimeout(() => setShowHint(true), HINT_AFTER_MS);
-  };
+  }, [clearHintTimer]);
 
-  const stopNavigation = () => {
+  const stopNavigation = useCallback(() => {
     pendingRef.current = false;
     clearHintTimer();
     setShowHint(false);
     setActive(false);
-  };
+  }, [clearHintTimer]);
 
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
@@ -88,7 +88,7 @@ export default function NavigationLoader() {
 
     document.addEventListener('click', onClick, true);
     return () => document.removeEventListener('click', onClick, true);
-  }, []);
+  }, [startNavigation]);
 
   // Route changed → tắt loader
   useEffect(() => {
@@ -102,7 +102,7 @@ export default function NavigationLoader() {
       stopNavigation();
     }, wait);
     return () => window.clearTimeout(hideTimer);
-  }, [routeKey]);
+  }, [routeKey, stopNavigation]);
 
   // Safety timeout
   useEffect(() => {
@@ -114,9 +114,9 @@ export default function NavigationLoader() {
       stopNavigation();
     }, MAX_OVERLAY_MS);
     return () => window.clearTimeout(timer);
-  }, [active]);
+  }, [active, stopNavigation]);
 
-  useEffect(() => () => clearHintTimer(), []);
+  useEffect(() => () => clearHintTimer(), [clearHintTimer]);
 
   if (!active) return null;
 
