@@ -315,7 +315,10 @@ router.get('/countries', async (_req: Request, res: Response) => {
 
 router.get('/actors', async (req: Request, res: Response) => {
   try {
-    const actors = await prisma.actor.findMany({ orderBy: { name: 'asc' } });
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit || '100'), 10) || 100, 1), 500);
+    const page = Math.max(parseInt(String(req.query.page || '1'), 10) || 1, 1);
+    const skip = (page - 1) * limit;
+    const actors = await prisma.actor.findMany({ orderBy: { name: 'asc' }, take: limit, skip });
     return res.json(actors);
   } catch (error: any) {
     return internalError(res, 'Error retrieving actors.', error);
@@ -331,7 +334,10 @@ router.get('/actors/:slug', async (req: Request, res: Response) => {
 
 router.get('/directors', async (req: Request, res: Response) => {
   try {
-    const directors = await prisma.director.findMany({ orderBy: { name: 'asc' } });
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit || '100'), 10) || 100, 1), 500);
+    const page = Math.max(parseInt(String(req.query.page || '1'), 10) || 1, 1);
+    const skip = (page - 1) * limit;
+    const directors = await prisma.director.findMany({ orderBy: { name: 'asc' }, take: limit, skip });
     return res.json(directors);
   } catch (error: any) {
     return internalError(res, 'Error retrieving directors.', error);

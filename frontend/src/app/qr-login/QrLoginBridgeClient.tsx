@@ -5,9 +5,12 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Smartphone } from 'lucide-react';
 
+const VALID_QR_TOKEN_REGEX = /^[a-zA-Z0-9._-]{6,128}$/;
+
 export default function QrLoginBridgePage() {
   const params = useSearchParams();
-  const token = (params.get('t') || '').trim();
+  const rawToken = (params.get('t') || '').trim();
+  const token = VALID_QR_TOKEN_REGEX.test(rawToken) ? rawToken : '';
   const [opened, setOpened] = useState(false);
   const appLink = useMemo(() => (token ? `cine3d://qr-login?t=${encodeURIComponent(token)}` : ''), [token]);
 

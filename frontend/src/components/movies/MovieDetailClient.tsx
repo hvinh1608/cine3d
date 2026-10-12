@@ -36,6 +36,39 @@ function initialSeason(movie: MovieDetail | null) {
   return Math.min(...orders);
 }
 
+function getSafeTrailerEmbedUrl(rawUrl?: string | null): string | null {
+  if (!rawUrl || typeof rawUrl !== 'string') return null;
+  try {
+    const parsed = new URL(rawUrl.trim());
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return null;
+    parsed.protocol = 'https:';
+
+    const host = parsed.hostname.replace(/^www\./i, '').toLowerCase();
+    if (host === 'youtu.be') {
+      const videoId = parsed.pathname.slice(1).split('/')[0];
+      if (/^[a-zA-Z0-9_-]{6,20}$/.test(videoId)) {
+        return `https://www.youtube.com/embed/${videoId}`;
+      }
+    } else if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com') {
+      if (parsed.pathname === '/watch') {
+        const videoId = parsed.searchParams.get('v') || '';
+        if (/^[a-zA-Z0-9_-]{6,20}$/.test(videoId)) {
+          return `https://www.youtube.com/embed/${videoId}`;
+        }
+      } else if (parsed.pathname.startsWith('/shorts/') || parsed.pathname.startsWith('/embed/')) {
+        const videoId = parsed.pathname.split('/')[2] || '';
+        if (/^[a-zA-Z0-9_-]{6,20}$/.test(videoId)) {
+          return `https://www.youtube.com/embed/${videoId}`;
+        }
+      }
+    }
+
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
 export default function MovieDetailClient({
   slug,
   initialData,
@@ -157,6 +190,7 @@ export default function MovieDetailClient({
 
   const isFavorite = favoriteIds.includes(movie.id);
   const firstEpisode = movie.episodes?.[0];
+  const safeTrailerUrl = getSafeTrailerEmbedUrl(movie.trailerUrl);
   const share = async () => {
     const shareUrl = withUtm(`${location.origin}/movies/${movie.slug}`, {
       source: 'share',
@@ -313,7 +347,7 @@ export default function MovieDetailClient({
                     <b>Trạng thái</b>
                     <p className="mt-1 text-sm text-slate-400">{movie.status || 'Đang cập nhật'}</p>
                   </div>
-                  {movie.trailerUrl && (
+                  {safeTrailerUrl && (
                     <button onClick={() => setShowTrailer(true)} className="col-span-full flex items-center justify-center gap-2 rounded-xl border border-white/10 p-4 font-bold hover:bg-white/5">
                       <Play className="h-4 w-4" /> Xem trailer
                     </button>
@@ -393,7 +427,7 @@ export default function MovieDetailClient({
         </div>
       </div>
 
-      {showTrailer && movie.trailerUrl && <div className="fixed inset-0 z-[100] grid place-items-center bg-black/90 p-4 backdrop-blur"><div className="relative aspect-video w-full max-w-5xl overflow-hidden rounded-2xl bg-black"><button onClick={() => setShowTrailer(false)} className="absolute right-3 top-3 z-10 rounded-full bg-black/70 p-2"><X /></button><iframe className="h-full w-full" src={movie.trailerUrl.replace('watch?v=', 'embed/')} title={`Trailer ${movie.title}`} allowFullScreen /></div></div>}
+      {showTrailer && safeTrailerUrl && <div className="fixed inset-0 z-[100] grid place-items-center bg-black/90 p-4 backdrop-blur"><div className="relative aspect-video w-full max-w-5xl overflow-hidden rounded-2xl bg-black"><button onClick={() => setShowTrailer(false)} className="absolute right-3 top-3 z-10 rounded-full bg-black/70 p-2"><X /></button><iframe className="h-full w-full" src={safeTrailerUrl} title={`Trailer ${movie.title}`} sandbox="allow-scripts allow-same-origin allow-presentation" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen /></div></div>}
     </main>
   );
 }

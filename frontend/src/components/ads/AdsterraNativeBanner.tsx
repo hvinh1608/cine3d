@@ -39,6 +39,7 @@ export default function AdsterraNativeBanner({ className = '', variant = 'inline
   const user = useStore((state) => state.user);
   const hasHydrated = useStore((state) => state.hasHydrated);
   const rootRef = useRef<HTMLElement | null>(null);
+  const slotRef = useRef<HTMLDivElement | null>(null);
   const vipFree = hasHydrated && isVipActive(user);
   const hidden =
     vipFree
@@ -50,19 +51,22 @@ export default function AdsterraNativeBanner({ className = '', variant = 'inline
     const root = rootRef.current;
     if (!root) return;
 
-    let injected: HTMLScriptElement | null = null;
+    let injected: HTMLIFrameElement | null = null;
     let cancelled = false;
 
     const inject = () => {
-      if (cancelled || injected) return;
-      document.querySelectorAll(`script[${SCRIPT_MARK}]`).forEach((node) => node.remove());
-      const script = document.createElement('script');
-      script.src = SCRIPT_SRC;
-      script.async = true;
-      script.setAttribute('data-cfasync', 'false');
-      script.setAttribute(SCRIPT_MARK, '1');
-      document.body.appendChild(script);
-      injected = script;
+      if (cancelled || injected || !slotRef.current) return;
+      slotRef.current.replaceChildren();
+      const iframe = document.createElement('iframe');
+      iframe.title = 'Quảng cáo';
+      iframe.setAttribute('sandbox', 'allow-scripts allow-popups allow-popups-to-escape-sandbox');
+      iframe.setAttribute('referrerpolicy', 'no-referrer-when-downgrade');
+      iframe.setAttribute('loading', 'lazy');
+      iframe.setAttribute(SCRIPT_MARK, '1');
+      iframe.className = 'min-h-[120px] w-full border-0 bg-transparent';
+      iframe.srcdoc = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;padding:0;background:transparent;overflow:hidden}</style></head><body><div id="${CONTAINER_ID}"></div><script async data-cfasync="false" src="${SCRIPT_SRC}"></script></body></html>`;
+      slotRef.current.appendChild(iframe);
+      injected = iframe;
     };
 
     // Load when near viewport so impression is more likely "viewable".
@@ -104,6 +108,7 @@ export default function AdsterraNativeBanner({ className = '', variant = 'inline
         <span className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-600">Ad</span>
       </div>
       <div
+        ref={slotRef}
         id={CONTAINER_ID}
         className="min-h-[120px] w-full overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.04] to-transparent p-1 shadow-[0_12px_40px_rgba(0,0,0,.25)]"
       />

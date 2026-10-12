@@ -223,7 +223,10 @@ io.on('connection', (socket) => {
     const room = watchRooms.get(roomId);
     if (!room) return callback({ error: 'Phòng không tồn tại hoặc đã đóng.' });
     const tokenValid = room.isPrivate && verifyRoomAccessToken(roomAccessToken, { roomId, userId: socket.data.user.id, accessKey: room.accessKey });
-    if (room.isPrivate && !tokenValid && room.passwordHash !== roomPasswordHash(typeof password === 'string' ? password : '')) return callback({ error: 'Mật khẩu phòng không đúng.', passwordRequired: true });
+    const candidateHash = Buffer.from(roomPasswordHash(typeof password === 'string' ? password : ''));
+    const storedHash = room.passwordHash ? Buffer.from(room.passwordHash) : null;
+    const passwordMatches = Boolean(storedHash && storedHash.length === candidateHash.length && crypto.timingSafeEqual(storedHash, candidateHash));
+    if (room.isPrivate && !tokenValid && !passwordMatches) return callback({ error: 'Mật khẩu phòng không đúng.', passwordRequired: true });
     if (!room.users.has(socket.id) && room.users.size >= WATCH_ROOM_MAX_USERS) return callback({ error: `Phòng đã đủ ${WATCH_ROOM_MAX_USERS} người.` });
     leaveWatchRoom(socket);
     room.users.set(socket.id, cleanName(name, 'Khách')); room.userIds.set(socket.id, socket.data.user.id); socket.join(roomId); socket.data.roomId = roomId;

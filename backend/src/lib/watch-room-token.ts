@@ -3,7 +3,12 @@ import crypto from 'crypto';
 type RoomAccessPayload = { roomId: string; userId: string; accessKey: string; expiresAt: number };
 
 function signingKey() {
-  return process.env.WATCH_ROOM_TOKEN_SECRET || process.env.JWT_ACCESS_SECRET || 'development-watch-room-secret-change-me';
+  const configured = process.env.WATCH_ROOM_TOKEN_SECRET?.trim() || process.env.JWT_ACCESS_SECRET?.trim();
+  if (configured) return configured;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('WATCH_ROOM_TOKEN_SECRET or JWT_ACCESS_SECRET must be set in production.');
+  }
+  return 'development-watch-room-secret-change-me';
 }
 
 function signature(encodedPayload: string) {

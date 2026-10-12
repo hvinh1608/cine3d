@@ -279,7 +279,10 @@ model Movie {
   @@index([title])
   @@index([countryId])
   @@index([createdAt])
+  @@index([updatedAt])
   @@index([views])
+  @@index([ratingAvg])
+  @@index([isSeries, updatedAt])
   @@index([isVip])
   @@index([vipEarlyAccessUntil])
 }
@@ -368,6 +371,7 @@ model VideoSource {
   downloadEntitlements DownloadEntitlement[]
 
   @@index([episodeId])
+  @@index([lastCheckedAt])
   @@index([healthStatus, lastCheckedAt])
 }
 

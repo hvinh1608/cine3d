@@ -543,6 +543,12 @@ function WatchPageContent() {
     };
   }, [saveProgress]);
 
+  const canvasTaintedRef = useRef(false);
+
+  useEffect(() => {
+    canvasTaintedRef.current = false;
+  }, [activeEpisode?.id, activeSource?.id]);
+
   // Real-time Ambilight color analysis from canvas
   useEffect(() => {
     if (!playing || !videoRef.current || !activeSource || dataSaver || reduceMotion) return;
@@ -553,8 +559,26 @@ function WatchPageContent() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    let isCanvasTainted = canvasTaintedRef.current;
+
+    const applyFallbackAmbilight = () => {
+      const colors = [
+        'rgba(99, 102, 241, 0.15)', // indigo
+        'rgba(239, 68, 68, 0.15)',   // red
+        'rgba(168, 85, 247, 0.15)',  // purple
+        'rgba(6, 182, 212, 0.15)',   // cyan
+      ];
+      const time = Date.now() / 4000;
+      const colorIndex = Math.floor(time) % colors.length;
+      setAmbilightColor(colors[colorIndex]);
+    };
+
     const analyzeFrame = () => {
       if (document.visibilityState !== 'visible') return;
+      if (isCanvasTainted) {
+        applyFallbackAmbilight();
+        return;
+      }
       try {
         ctx.drawImage(video, 0, 0, 10, 10);
         const data = ctx.getImageData(0, 0, 10, 10).data;
@@ -572,21 +596,15 @@ function WatchPageContent() {
         setAmbilightColor(`rgba(${r}, ${g}, ${b}, 0.28)`);
       } catch {
         // Fallback for CORS security restrictions on external domains
-        const colors = [
-          'rgba(99, 102, 241, 0.15)', // indigo
-          'rgba(239, 68, 68, 0.15)',   // red
-          'rgba(168, 85, 247, 0.15)',  // purple
-          'rgba(6, 182, 212, 0.15)',   // cyan
-        ];
-        const time = Date.now() / 4000;
-        const colorIndex = Math.floor(time) % colors.length;
-        setAmbilightColor(colors[colorIndex]);
+        isCanvasTainted = true;
+        canvasTaintedRef.current = true;
+        applyFallbackAmbilight();
       }
     };
 
     const intervalId = setInterval(analyzeFrame, 1000);
     return () => clearInterval(intervalId);
-  }, [playing, activeSource, dataSaver, reduceMotion]);
+  }, [playing, activeEpisode?.id, activeSource, dataSaver, reduceMotion]);
 
   // Player controls handlings
   const togglePlay = () => {
@@ -902,9 +920,17 @@ function WatchPageContent() {
     );
   }
 
+  const safeSubColor = /^#[0-9a-fA-F]{3,8}$/.test(String(subtitleStyle.color || ''))
+    ? subtitleStyle.color
+    : '#ffffff';
+  const rawFontSize = Number(subtitleStyle.fontSize);
+  const safeSubFontSize = Math.min(200, Math.max(50, Number.isFinite(rawFontSize) ? rawFontSize : 100));
+  const rawBackground = Number(subtitleStyle.background);
+  const safeSubBackground = Math.min(100, Math.max(0, Number.isFinite(rawBackground) ? rawBackground : 65));
+
   return (
     <div className={`flex-1 w-full pb-20 transition-all duration-700 ${lightsOff ? 'bg-black/95 z-40' : 'bg-[#191a22]'}`}>
-      <style>{`video::cue { color: ${subtitleStyle.color}; font-size: ${subtitleStyle.fontSize}%; background: rgba(0, 0, 0, ${subtitleStyle.background / 100}); text-shadow: 0 2px 4px #000; }`}</style>
+      <style>{`video::cue { color: ${safeSubColor}; font-size: ${safeSubFontSize}%; background: rgba(0, 0, 0, ${safeSubBackground / 100}); text-shadow: 0 2px 4px #000; }`}</style>
       
       {/* Return to Info Bar */}
       <div className="mx-auto flex max-w-[1440px] flex-col justify-between gap-3 px-4 pb-1 pt-8 text-xs font-semibold text-slate-400 md:px-8 md:text-sm sm:flex-row sm:items-center">

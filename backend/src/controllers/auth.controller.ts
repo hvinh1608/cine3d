@@ -56,20 +56,32 @@ type BotGateResult = { ok: true } | BotGateFailure;
 async function verifyBotGate(token: unknown, req: AuthenticatedRequest): Promise<BotGateResult> {
   if (isNativeClient(req)) {
     const gate = evaluateNativeAuthGate(req.get('x-app-attestation'));
-    if (gate.ok) {
-      if (gate.mode === 'open') {
-        console.warn('[auth] MOBILE_APP_ATTESTATION_TOKEN is unset; allowing native client without Turnstile.');
-      }
+    if (!gate.ok) {
+      return {
+        ok: false,
+        status: 400,
+        code: gate.code,
+        message: gate.code === 'NATIVE_ATTESTATION_MISMATCH'
+          ? 'App attestation không khớp máy chủ. Kiểm tra EXPO_PUBLIC_APP_ATTESTATION_TOKEN và MOBILE_APP_ATTESTATION_TOKEN.'
+          : 'Ứng dụng native cần header X-App-Attestation hợp lệ.',
+      };
+    }
+    if (gate.mode === 'attestation') {
       return { ok: true };
     }
-    return {
-      ok: false,
-      status: 400,
-      code: gate.code,
-      message: gate.code === 'NATIVE_ATTESTATION_MISMATCH'
-        ? 'App attestation không khớp máy chủ. Kiểm tra EXPO_PUBLIC_APP_ATTESTATION_TOKEN và MOBILE_APP_ATTESTATION_TOKEN.'
-        : 'Ứng dụng native cần header X-App-Attestation hợp lệ.',
-    };
+    if (!turnstileSecretKey && process.env.NODE_ENV !== 'production') {
+      console.warn('[auth] MOBILE_APP_ATTESTATION_TOKEN is unset; allowing native client without Turnstile in dev.');
+      return { ok: true };
+    }
+    if (!turnstileSecretKey) {
+      return {
+        ok: false,
+        status: 400,
+        code: 'NATIVE_ATTESTATION_REQUIRED',
+        message: 'Ứng dụng native cần header X-App-Attestation hợp lệ.',
+      };
+    }
+    console.warn('[auth] MOBILE_APP_ATTESTATION_TOKEN is unset; falling back to Turnstile verification for native client.');
   }
 
   if (!turnstileSecretKey) {

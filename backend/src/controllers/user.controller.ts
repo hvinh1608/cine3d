@@ -38,9 +38,13 @@ export const updateProfile = async (req: AuthenticatedRequest, res: Response) =>
     return res.status(400).json({ message: 'Username must be between 3 and 40 characters.' });
   }
   if (avatar) {
+    if (typeof avatar !== 'string' || avatar.includes('..') || avatar.includes('/uploads/avatars/')) {
+      return res.status(400).json({ message: 'Avatar phải là URL HTTPS hợp lệ.' });
+    }
     try {
       const parsed = new URL(avatar);
       if (parsed.protocol !== 'https:' && !(parsed.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(parsed.hostname))) throw new Error('Invalid protocol');
+      if (parsed.pathname.includes('..') || parsed.pathname.includes('/uploads/avatars/')) throw new Error('Invalid avatar path');
     } catch {
       return res.status(400).json({ message: 'Avatar phải là URL HTTPS hợp lệ.' });
     }
@@ -332,8 +336,8 @@ export const getViewingInsights = async (req: AuthenticatedRequest, res: Respons
     if (hasRequestedProfile(req) && !profileId) return res.status(403).json({ message: 'Hồ sơ không hợp lệ.' });
     const include = { movie: { include: { movieGenres: { include: { genre: true } } } } } as const;
     const history = profileId
-      ? await prisma.profileWatchHistory.findMany({ where: { profileId }, include })
-      : await prisma.watchHistory.findMany({ where: { userId: req.user.id }, include });
+      ? await prisma.profileWatchHistory.findMany({ where: { profileId }, orderBy: { updatedAt: 'desc' }, take: 250, include })
+      : await prisma.watchHistory.findMany({ where: { userId: req.user.id }, orderBy: { updatedAt: 'desc' }, take: 250, include });
     const totalSeconds = history.reduce((sum, item) => sum + Math.min(item.watchedTime, item.duration || item.watchedTime), 0);
     const completedMovies = history.filter((item) => item.duration > 0 && item.watchedTime / item.duration >= 0.9).length;
     const genreCounts = new Map<string, number>();
@@ -574,14 +578,16 @@ export const uploadAvatar = async (req: AuthenticatedRequest, res: Response) => 
 
       // Dọn file avatar cũ thuộc cơ chế lưu filesystem trước đây.
       if (dbUser.avatar && dbUser.avatar.includes('/uploads/avatars/')) {
-        const oldFilename = dbUser.avatar.split('/uploads/avatars/')[1];
-        if (oldFilename) {
-          const oldFilePath = path.join(__dirname, '../../uploads/avatars', oldFilename);
-          fs.unlink(oldFilePath, (unlinkErr) => {
+        const oldFilename = dbUser.avatar.split('/uploads/avatars/')[1]?.split('?')[0];
+        const safeFilename = oldFilename ? path.basename(oldFilename) : '';
+        const uploadDir = path.resolve(__dirname, '../../uploads/avatars');
+        const resolvedPath = safeFilename ? path.resolve(uploadDir, safeFilename) : '';
+        if (safeFilename && resolvedPath.startsWith(path.resolve(uploadDir) + path.sep)) {
+          fs.unlink(resolvedPath, (unlinkErr) => {
             if (unlinkErr) {
-              console.warn(`Không thể xóa file avatar cũ: ${oldFilePath}. Lỗi: ${unlinkErr.message}`);
+              console.warn(`Không thể xóa file avatar cũ: ${resolvedPath}. Lỗi: ${unlinkErr.message}`);
             } else {
-              console.log(`Đã dọn dẹp file avatar cũ: ${oldFilename}`);
+              console.log(`Đã dọn dẹp file avatar cũ: ${safeFilename}`);
             }
           });
         }

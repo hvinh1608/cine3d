@@ -50,16 +50,8 @@ function Particles() {
     pointsRef.current.rotation.y = time * 0.03;
     pointsRef.current.rotation.x = Math.sin(time * 0.05) * 0.05;
 
-    // Gentle floating wave effect
-    const positionsAttr = pointsRef.current.geometry.attributes.position;
-    for (let i = 0; i < positionsAttr.count; i++) {
-      const y = positionsAttr.getY(i);
-      // Floating upwards, reset if it goes too high
-      let newY = y + 0.003;
-      if (newY > 7.5) newY = -7.5;
-      positionsAttr.setY(i, newY);
-    }
-    positionsAttr.needsUpdate = true;
+    // Gentle floating wave effect on GPU without re-uploading buffer attributes every frame
+    pointsRef.current.position.y = ((pointsRef.current.position.y + 0.003 + 7.5) % 15) - 7.5;
   });
 
   return (

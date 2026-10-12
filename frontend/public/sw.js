@@ -63,7 +63,7 @@ self.addEventListener('fetch', (event) => {
           }
           return response;
         })
-        .catch(() => offlineResponse());
+        .catch(() => new Response('', { status: 504, statusText: 'Gateway Timeout' }));
     }),
   );
 });
@@ -88,7 +88,15 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = new URL(event.notification.data?.url || '/', self.location.origin).href;
+  let target = `${self.location.origin}/`;
+  try {
+    const parsedUrl = new URL(event.notification.data?.url || '/', self.location.origin);
+    if (parsedUrl.origin === self.location.origin) {
+      target = parsedUrl.href;
+    }
+  } catch {
+    /* fallback to origin root */
+  }
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
       const existing = clients.find((client) => client.url === target);

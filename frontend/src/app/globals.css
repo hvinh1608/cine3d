@@ -61,17 +61,24 @@
 
 body {
   background-color: var(--background);
+  color: var(--foreground);
+  font-family: 'Outfit Variable', 'Outfit', sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -20;
+  pointer-events: none;
   background-image: 
     radial-gradient(at 0% 0%, rgba(245, 158, 11, 0.06) 0px, transparent 42%),
     radial-gradient(at 55% 0%, rgba(71, 85, 105, 0.16) 0px, transparent 48%),
     radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.08) 0px, transparent 45%),
     linear-gradient(180deg, #23252f 0px, #191a22 360px, #15161d 100%);
   background-size: 100% 100%;
-  background-attachment: fixed;
-  color: var(--foreground);
-  font-family: 'Outfit Variable', 'Outfit', sans-serif;
-  overflow-x: hidden;
-  -webkit-font-smoothing: antialiased;
 }
 
 /* Reveal content progressively as it enters the viewport. The ready class is

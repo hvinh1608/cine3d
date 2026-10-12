@@ -35,4 +35,4 @@ COPY --from=build /app/dist ./dist
 
 EXPOSE 5000
 
-CMD ["npm", "start"]
+CMD ["sh", "-c", "node scripts/deploy-db.js && npx prisma db seed && exec node dist/index.js"]

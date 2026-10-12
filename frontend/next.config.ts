@@ -47,7 +47,6 @@ const nextConfig: NextConfig = {
       { source: '/search', headers: PUBLIC_HTML_CDN },
       { source: '/schedule', headers: PUBLIC_HTML_CDN },
       { source: '/download', headers: PUBLIC_HTML_CDN },
-      { source: '/vip', headers: PUBLIC_HTML_CDN },
       { source: '/movies/:path*', headers: PUBLIC_HTML_CDN },
       { source: '/the-loai/:path*', headers: PUBLIC_HTML_CDN },
       { source: '/quoc-gia/:path*', headers: PUBLIC_HTML_CDN },

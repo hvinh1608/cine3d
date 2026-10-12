@@ -225,36 +225,118 @@ function scheduleAvatarEnrichment(
 }
 
 async function syncEpisodes(db: Prisma.TransactionClient, movieId: string, episodes: AppMovie['episodes']) {
+  if (!episodes.length) return;
+
   // Merge upstream episodes and sources. Never delete admin-managed playback data.
+  const existingEpisodes = await db.episode.findMany({
+    where: { movieId },
+    select: {
+      id: true,
+      episodeOrder: true,
+      title: true,
+      seasonNumber: true,
+      videoSources: { select: { url: true } },
+    },
+  });
+  const existingByOrder = new Map(existingEpisodes.map((ep) => [ep.episodeOrder, ep]));
+
+  const episodesToCreate: {
+    movieId: string;
+    title: string;
+    episodeOrder: number;
+    seasonNumber: number;
+  }[] = [];
+  const episodesToUpdate: { id: string; title: string; seasonNumber: number }[] = [];
+  const seenOrders = new Set<number>();
+
   for (const ep of episodes) {
-    const stored = await db.episode.upsert({
-      where: { movieId_episodeOrder: { movieId, episodeOrder: ep.episodeOrder } },
-      update: { title: ep.title, seasonNumber: ep.seasonNumber || 1 },
-      create: {
+    if (seenOrders.has(ep.episodeOrder)) continue;
+    seenOrders.add(ep.episodeOrder);
+    const seasonNumber = ep.seasonNumber || 1;
+    const stored = existingByOrder.get(ep.episodeOrder);
+    if (!stored) {
+      episodesToCreate.push({
         movieId,
         title: ep.title,
         episodeOrder: ep.episodeOrder,
-        seasonNumber: ep.seasonNumber || 1,
-      },
-    });
-
-    if (ep.videoSources.length) {
-      const existingSources = await db.videoSource.findMany({
-        where: { episodeId: stored.id },
-        select: { url: true },
+        seasonNumber,
       });
-      const existingUrls = new Set(existingSources.map((source) => source.url));
-      const newSources = ep.videoSources.filter((source) => !existingUrls.has(source.url));
-      if (newSources.length) await db.videoSource.createMany({
-        data: newSources.map((src) => ({
-          episodeId: stored.id,
-          server: src.server,
-          quality: src.quality,
-          url: src.url,
-          type: src.type,
-        })),
+    } else if (stored.title !== ep.title || stored.seasonNumber !== seasonNumber) {
+      episodesToUpdate.push({
+        id: stored.id,
+        title: ep.title,
+        seasonNumber,
       });
     }
+  }
+
+  if (episodesToCreate.length) {
+    await db.episode.createMany({
+      data: episodesToCreate,
+      skipDuplicates: true,
+    });
+  }
+
+  for (const ep of episodesToUpdate) {
+    await db.episode.update({
+      where: { id: ep.id },
+      data: { title: ep.title, seasonNumber: ep.seasonNumber },
+    });
+  }
+
+  const episodeIdByOrder = new Map<number, string>(
+    existingEpisodes.map((ep) => [ep.episodeOrder, ep.id])
+  );
+  if (episodesToCreate.length) {
+    const createdEpisodes = await db.episode.findMany({
+      where: {
+        movieId,
+        episodeOrder: { in: episodesToCreate.map((ep) => ep.episodeOrder) },
+      },
+      select: { id: true, episodeOrder: true },
+    });
+    for (const ep of createdEpisodes) {
+      episodeIdByOrder.set(ep.episodeOrder, ep.id);
+    }
+  }
+
+  const existingUrlsByOrder = new Map<number, Set<string>>(
+    existingEpisodes.map((ep) => [ep.episodeOrder, new Set(ep.videoSources.map((source) => source.url))])
+  );
+  const newSourcesData: {
+    episodeId: string;
+    server: string;
+    quality: string;
+    url: string;
+    type: string;
+  }[] = [];
+
+  for (const ep of episodes) {
+    if (!ep.videoSources.length) continue;
+    const episodeId = episodeIdByOrder.get(ep.episodeOrder);
+    if (!episodeId) continue;
+    let existingUrls = existingUrlsByOrder.get(ep.episodeOrder);
+    if (!existingUrls) {
+      existingUrls = new Set<string>();
+      existingUrlsByOrder.set(ep.episodeOrder, existingUrls);
+    }
+    for (const src of ep.videoSources) {
+      if (existingUrls.has(src.url)) continue;
+      existingUrls.add(src.url);
+      newSourcesData.push({
+        episodeId,
+        server: src.server,
+        quality: src.quality,
+        url: src.url,
+        type: src.type,
+      });
+    }
+  }
+
+  if (newSourcesData.length) {
+    await db.videoSource.createMany({
+      data: newSourcesData,
+    });
   }
 }
 

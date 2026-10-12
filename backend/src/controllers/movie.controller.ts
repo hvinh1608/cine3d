@@ -332,7 +332,8 @@ export const getReleaseSchedule = async (_req: Request, res: Response) => {
 
 export const getMovieBySlug = async (req: Request, res: Response) => {
   const { slug } = req.params;
-  const detailCacheKey = `movies:detail:v2:${slug}`;
+  const canAccessVip = await viewerCanAccessVip(req);
+  const detailCacheKey = `movies:detail:v2:${slug}:${canAccessVip ? 'vip' : 'free'}`;
 
   try {
     const cached = await cacheGet<Record<string, unknown>>(detailCacheKey);
@@ -340,7 +341,7 @@ export const getMovieBySlug = async (req: Request, res: Response) => {
 
     // Upsert into DB so favorites/comments get a stable UUID
     const movie = await ensureMovieInDb(slug);
-    const payload = shapeMovieForViewer(movie, await viewerCanAccessVip(req));
+    const payload = shapeMovieForViewer(movie, canAccessVip);
     void cacheSet(detailCacheKey, payload, 60_000);
     return res.json(payload);
   } catch (error: any) {
@@ -349,7 +350,7 @@ export const getMovieBySlug = async (req: Request, res: Response) => {
     if (legacySeasonAlias !== slug) {
       try {
         const aliasedMovie = await ensureMovieInDb(legacySeasonAlias);
-        const payload = shapeMovieForViewer(aliasedMovie, await viewerCanAccessVip(req));
+        const payload = shapeMovieForViewer(aliasedMovie, canAccessVip);
         void cacheSet(detailCacheKey, payload, 60_000);
         return res.json(payload);
       } catch {
@@ -384,7 +385,7 @@ export const getMovieBySlug = async (req: Request, res: Response) => {
         ...movie,
         isVip: dbMovie?.isVip || false,
         vipEarlyAccessUntil: dbMovie?.vipEarlyAccessUntil || null,
-      }, await viewerCanAccessVip(req));
+      }, canAccessVip);
       void cacheSet(detailCacheKey, payload, 60_000);
       return res.json(payload);
     } catch (inner: any) {
@@ -488,7 +489,13 @@ export const getBanners = async (req: Request, res: Response) => {
 
 /** Home payload in one round trip; shared KKPhim calls are also cached by the client. */
 export const getHome = async (_req: Request, res: Response) => {
+  const homeCacheKey = 'movies:home:v1';
   try {
+    const cachedHome = await cacheGet<Record<string, unknown>>(homeCacheKey);
+    if (cachedHome) {
+      res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300');
+      return res.json(cachedHome);
+    }
     const [homeResult, newResult, proposedResult, trendingResult, chinaResult, koreaResult, vietnamResult] = await Promise.allSettled([
       fetchKkphimHome(),
       fetchNewMovies(1),
@@ -613,8 +620,7 @@ export const getHome = async (_req: Request, res: Response) => {
       };
     };
 
-    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300');
-    return res.json({
+    const payload = {
       banners: bannerMovies.slice(0, 8).map((rawMovie, index) => {
         const movie = withHomeExtras(rawMovie);
         return ({
@@ -643,7 +649,10 @@ export const getHome = async (_req: Request, res: Response) => {
       },
       partial: failures.length > 0,
       source: homeToday.items.length ? 'kkphim-home+catalog' : 'kkphim-catalog',
-    });
+    };
+    void cacheSet(homeCacheKey, payload, 60_000);
+    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300');
+    return res.json(payload);
   } catch (error: any) {
     if (error instanceof KkphimError) {
       try {
