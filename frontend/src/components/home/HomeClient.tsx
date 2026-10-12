@@ -162,22 +162,10 @@ function MovieRow({ title, movies, href = '/search', favoriteIds, accent = 'text
     observer?.observe(row);
     window.addEventListener('resize', updateScrollState);
 
-    const onWheel = (event: WheelEvent) => {
-      const dominant = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-      if (!dominant) return;
-      if (Math.abs(event.deltaY) >= Math.abs(event.deltaX)) {
-        event.preventDefault();
-        row.scrollLeft += dominant;
-        updateScrollState();
-      }
-    };
-    row.addEventListener('wheel', onWheel, { passive: false });
-
     return () => {
       window.cancelAnimationFrame(frame);
       observer?.disconnect();
       window.removeEventListener('resize', updateScrollState);
-      row.removeEventListener('wheel', onWheel);
     };
   }, [movies]);
 
@@ -195,7 +183,7 @@ function MovieRow({ title, movies, href = '/search', favoriteIds, accent = 'text
         <h2 className={`text-xl font-black md:text-2xl ${accent}`}>{title}</h2>
         <div className="flex items-center gap-2">
           <span className="hidden text-[10px] font-semibold uppercase tracking-wider text-slate-500 sm:inline">
-            {movies.length} phim · mũi tên hoặc lăn để xem thêm
+            {movies.length} phim · dùng mũi tên để xem thêm
           </span>
           <Link href={href} className="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white">
             Xem tất cả <ChevronRight className="h-4 w-4" />
