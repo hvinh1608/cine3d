@@ -76,8 +76,7 @@ const MARKETING_SEGMENTS = [
   { value: 'HAS_PUSH', label: 'Đã bật Push' },
 ] as const;
 
-const isUserVipActive = (user: AdminUser) => {
-  const now = Date.now();
+const isUserVipActive = (user: AdminUser, now: number) => {
   if (user.vipStartsAt && new Date(user.vipStartsAt).getTime() > now) return false;
   return user.vipExpiresAt ? new Date(user.vipExpiresAt).getTime() > now : user.isVip;
 };
@@ -88,6 +87,7 @@ const requestMessage = (error: unknown, fallback: string) =>
 export default function AdminPage() {
   const router = useRouter();
   const { user, accessToken, showToast } = useStore();
+  const [currentTime] = useState(() => Date.now());
 
   // Route security
   useEffect(() => {
@@ -1932,15 +1932,15 @@ export default function AdminPage() {
                             <button
                               onClick={() => openVipEditor(u)}
                               className={`px-3 py-1 rounded-lg text-xs font-black transition-colors cursor-pointer ${
-                                isUserVipActive(u)
+                                isUserVipActive(u, currentTime)
                                   ? 'bg-amber-500/20 text-amber-500 border border-amber-500/20 hover:bg-amber-500 hover:text-white'
                                   : 'bg-slate-800 text-slate-400 border border-transparent hover:bg-amber-500/20 hover:text-amber-400'
                               }`}
                             >
                               <Star className="w-3 h-3 inline mr-1" />
-                              {isUserVipActive(u) ? 'VIP' : 'Thường'}
+                              {isUserVipActive(u, currentTime) ? 'VIP' : 'Thường'}
                             </button>
-                            {u.vipStartsAt && new Date(u.vipStartsAt).getTime() > Date.now() && <span className="ml-2 text-[9px] text-cyan-400">từ {new Date(u.vipStartsAt).toLocaleString('vi-VN')}</span>}
+                            {u.vipStartsAt && new Date(u.vipStartsAt).getTime() > currentTime && <span className="ml-2 text-[9px] text-cyan-400">từ {new Date(u.vipStartsAt).toLocaleString('vi-VN')}</span>}
                             {u.vipExpiresAt && <span className="ml-2 text-[9px] text-slate-500">đến {new Date(u.vipExpiresAt).toLocaleString('vi-VN')}</span>}
                           </>
                         ) : (
