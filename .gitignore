@@ -57,6 +57,7 @@ frontend/public/apk/*.apk
 mobile/*.apk
 
 # Local-only / generated junk
+tools/
 backend/env
 backend/.env.bak.*
 tmp_movie.json
