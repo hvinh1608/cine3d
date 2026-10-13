@@ -11,6 +11,12 @@ export function movieImageUrl(src: string, width = 1600, quality: number | strin
     ) {
       return '/invincible-atom-eve-poster.jpg';
     }
+    if (
+      (source.hostname === 'phimimg.com' || source.hostname.includes('danviet'))
+      && (source.pathname.includes('danviet') || source.pathname.includes('final--poster-phu-sa'))
+    ) {
+      return 'https://phimimg.com/uploads/movies/20260819/phu-sa-thumb.webp';
+    }
     if (CLOUDINARY_FETCH_HOSTS.has(source.hostname)) {
       // Allow retina hero widths; keep a sane upper bound for bandwidth.
       const safeWidth = Math.min(Math.max(width, 64), 1920);
