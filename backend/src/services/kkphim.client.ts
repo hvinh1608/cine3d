@@ -3,7 +3,7 @@ import { cacheGet, cacheSet } from '../lib/cache';
 const BASE_URL = (process.env.KKPHIM_API_URL || 'https://phimapi.com').replace(/\/$/, '');
 const DEFAULT_CDN = 'https://phimimg.com';
 const TIMEOUT_MS = Number(process.env.KKPHIM_TIMEOUT_MS) || 10000;
-const CACHE_TTL_MS = Number(process.env.KKPHIM_CACHE_TTL_MS) || 60_000;
+const CACHE_TTL_MS = Number(process.env.KKPHIM_CACHE_TTL_MS) || 300_000;
 const META_CACHE_TTL_MS = Number(process.env.KKPHIM_META_CACHE_TTL_MS) || 3_600_000;
 const STALE_CACHE_TTL_MS = Number(process.env.KKPHIM_STALE_CACHE_TTL_MS) || 24 * 3_600_000;
 const RETRY_BASE_DELAY_MS = Number(process.env.KKPHIM_RETRY_BASE_DELAY_MS) || 250;

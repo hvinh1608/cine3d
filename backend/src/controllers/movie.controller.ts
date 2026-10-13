@@ -263,7 +263,7 @@ export const getMovies = async (req: Request, res: Response) => {
       totalPages,
       movies,
     };
-    void cacheSet(listCacheKey, payload, search ? 45_000 : 30_000);
+    void cacheSet(listCacheKey, payload, search ? 120_000 : 300_000);
     return res.json(payload);
   } catch (error: any) {
     if (error instanceof KkphimError) {
@@ -342,7 +342,7 @@ export const getMovieBySlug = async (req: Request, res: Response) => {
     // Upsert into DB so favorites/comments get a stable UUID
     const movie = await ensureMovieInDb(slug);
     const payload = shapeMovieForViewer(movie, canAccessVip);
-    void cacheSet(detailCacheKey, payload, 60_000);
+    void cacheSet(detailCacheKey, payload, 600_000);
     return res.json(payload);
   } catch (error: any) {
     // Older bookmarks used `...-1`; KKPhim now exposes seasons as `...-phan-1`.
@@ -351,7 +351,7 @@ export const getMovieBySlug = async (req: Request, res: Response) => {
       try {
         const aliasedMovie = await ensureMovieInDb(legacySeasonAlias);
         const payload = shapeMovieForViewer(aliasedMovie, canAccessVip);
-        void cacheSet(detailCacheKey, payload, 60_000);
+        void cacheSet(detailCacheKey, payload, 600_000);
         return res.json(payload);
       } catch {
         // Continue to the normal upstream fallback and preserve the original 404.
@@ -386,7 +386,7 @@ export const getMovieBySlug = async (req: Request, res: Response) => {
         isVip: dbMovie?.isVip || false,
         vipEarlyAccessUntil: dbMovie?.vipEarlyAccessUntil || null,
       }, canAccessVip);
-      void cacheSet(detailCacheKey, payload, 60_000);
+      void cacheSet(detailCacheKey, payload, 600_000);
       return res.json(payload);
     } catch (inner: any) {
       const status = inner instanceof KkphimError ? inner.status : 500;
@@ -493,7 +493,7 @@ export const getHome = async (_req: Request, res: Response) => {
   try {
     const cachedHome = await cacheGet<Record<string, unknown>>(homeCacheKey);
     if (cachedHome) {
-      res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300');
+      res.setHeader('Cache-Control', 'public, max-age=120, s-maxage=300, stale-while-revalidate=600');
       return res.json(cachedHome);
     }
     const [homeResult, newResult, proposedResult, trendingResult, chinaResult, koreaResult, vietnamResult] = await Promise.allSettled([
@@ -650,8 +650,8 @@ export const getHome = async (_req: Request, res: Response) => {
       partial: failures.length > 0,
       source: homeToday.items.length ? 'kkphim-home+catalog' : 'kkphim-catalog',
     };
-    void cacheSet(homeCacheKey, payload, 60_000);
-    res.setHeader('Cache-Control', 'public, max-age=60, s-maxage=60, stale-while-revalidate=300');
+    void cacheSet(homeCacheKey, payload, 600_000);
+    res.setHeader('Cache-Control', 'public, max-age=120, s-maxage=300, stale-while-revalidate=600');
     return res.json(payload);
   } catch (error: any) {
     if (error instanceof KkphimError) {
