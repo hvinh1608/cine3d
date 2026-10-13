@@ -310,7 +310,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
     }
   };
 
-  return <main className="-mt-20 min-h-screen bg-[#171820] pb-20 text-white">
+  return <div className="-mt-20 min-h-screen bg-[#171820] pb-20 text-white">
     {active && <section data-hero-parallax className="relative min-h-[650px] overflow-hidden md:min-h-[760px]">
       <div className="absolute inset-0 pointer-events-none">
         <Image
@@ -366,5 +366,5 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
     <MovieRow title="Phim Hàn Quốc mới" movies={initialData.korea} href="/quoc-gia/han-quoc" favoriteIds={favorites} accent="text-pink-300" />
     <MovieRow title="Phim Việt Nam mới" movies={initialData.vietnam} href="/quoc-gia/viet-nam" favoriteIds={favorites} accent="text-emerald-300" />
     <CommunityHub fallbackHot={initialData.trending} fallbackFavorite={initialData.proposed} />
-  </main>;
+  </div>;
 }

@@ -113,7 +113,6 @@ body::before {
    per scroll frame. */
 .hero-parallax-layer {
   transform: translate3d(0, var(--hero-parallax-offset, 0px), 0) scale(1.03);
-  transition: transform 80ms linear;
   will-change: transform;
   image-rendering: auto;
 }

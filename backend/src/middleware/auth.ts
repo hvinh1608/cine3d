@@ -38,6 +38,26 @@ export function decodeAccessToken(token: string): AccessTokenPayload {
   return decoded as AccessTokenPayload;
 }
 
+type CachedUser = {
+  id: string;
+  email: string;
+  username: string;
+  role: string;
+  isLocked: boolean;
+  cachedAt: number;
+};
+
+const userAuthCache = new Map<string, CachedUser>();
+const USER_AUTH_CACHE_TTL_MS = 60_000;
+
+export function invalidateUserAuthCache(userId?: string) {
+  if (userId) {
+    userAuthCache.delete(userId);
+  } else {
+    userAuthCache.clear();
+  }
+}
+
 export const authenticateToken = async (
   req: AuthenticatedRequest,
   res: Response,
@@ -61,13 +81,58 @@ export const authenticateToken = async (
     });
   }
 
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      select: { id: true, email: true, username: true, isLocked: true, role: { select: { name: true } } },
-    });
-    if (!user || user.isLocked) {
+  const now = Date.now();
+  const cached = userAuthCache.get(decoded.id);
+  if (cached && now - cached.cachedAt < USER_AUTH_CACHE_TTL_MS) {
+    if (cached.isLocked) {
       return res.status(403).json({ message: 'Tài khoản không khả dụng hoặc đã bị khóa.' });
+    }
+    req.user = { id: cached.id, email: cached.email, username: cached.username, role: cached.role };
+    return next();
+  }
+
+  const fetchUserWithRetry = async () => {
+    try {
+      return await prisma.user.findUnique({
+        where: { id: decoded.id },
+        select: { id: true, email: true, username: true, isLocked: true, role: { select: { name: true } } },
+      });
+    } catch {
+      // If it's a transient connection error / cold start, retry once after a short delay
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      return await prisma.user.findUnique({
+        where: { id: decoded.id },
+        select: { id: true, email: true, username: true, isLocked: true, role: { select: { name: true } } },
+      });
+    }
+  };
+
+  try {
+    const user = await fetchUserWithRetry();
+    if (!user || user.isLocked) {
+      if (user?.isLocked) {
+        userAuthCache.set(decoded.id, {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          role: user.role.name,
+          isLocked: true,
+          cachedAt: now,
+        });
+      }
+      return res.status(403).json({ message: 'Tài khoản không khả dụng hoặc đã bị khóa.' });
+    }
+    userAuthCache.set(decoded.id, {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      role: user.role.name,
+      isLocked: false,
+      cachedAt: now,
+    });
+    if (userAuthCache.size > 2000) {
+      const oldestKey = userAuthCache.keys().next().value;
+      if (oldestKey) userAuthCache.delete(oldestKey);
     }
     req.user = { id: user.id, email: user.email, username: user.username, role: user.role.name };
     next();
