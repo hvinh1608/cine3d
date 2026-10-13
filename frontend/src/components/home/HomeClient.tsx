@@ -339,9 +339,9 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
           <div className="mt-7 flex items-center gap-3"><Link href={`/watch/${active.movie.slug}`} className="flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-200 to-amber-400 px-7 py-3.5 text-sm font-black text-black shadow-[0_10px_30px_rgba(251,191,36,.2)] hover:brightness-110"><Play className="h-5 w-5 fill-current" /> Xem ngay</Link><Link href={`/movies/${active.movie.slug}`} className="grid h-12 w-12 place-items-center rounded-full bg-white/15 backdrop-blur hover:bg-white/25"><Info className="h-5 w-5" /></Link><button onClick={() => void toggleFavorite(active.movie.id, active.movie)} className="grid h-12 w-12 place-items-center rounded-full bg-white/15 backdrop-blur hover:bg-white/25"><Plus className="h-5 w-5" /></button></div>
         </div>
       </div>
-      {heroes.length > 1 && <div className="absolute bottom-11 right-4 z-20 hidden max-w-[48%] gap-3 md:flex lg:right-10">{heroes.map((banner, index) => {
+      {heroes.length > 1 && <div className="absolute bottom-8 right-4 z-20 hidden w-full max-w-[56%] justify-end gap-2.5 md:flex lg:bottom-11 lg:right-8 lg:max-w-[60%] xl:right-10 xl:max-w-[924px] xl:gap-3">{heroes.map((banner, index) => {
         const shouldLoadThumbnail = loadDeferredHeroThumbnails || index === heroIndex || index === (heroIndex + 1) % heroes.length;
-        return <button key={banner.id} onClick={() => setHeroIndex(index)} aria-label={`Chiếu banner ${banner.title}`} className={`relative aspect-video w-28 shrink-0 overflow-hidden rounded-lg border-2 bg-[#252735] transition lg:w-36 ${index === heroIndex ? 'border-amber-300 opacity-100' : 'border-transparent opacity-55 hover:opacity-100'}`}>
+        return <button key={banner.id} onClick={() => setHeroIndex(index)} aria-label={`Chiếu banner ${banner.title}`} className={`relative aspect-video min-w-0 flex-1 max-w-36 overflow-hidden rounded-lg border-2 bg-[#252735] transition ${index === heroIndex ? 'border-amber-300 opacity-100' : 'border-transparent opacity-55 hover:opacity-100'}`}>
           {shouldLoadThumbnail && <Image src={banner.imageUrl || banner.movie.posterUrl} alt="" fill loading="lazy" decoding="async" sizes="144px" className="object-cover" />}
         </button>;
       })}</div>}

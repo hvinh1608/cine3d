@@ -1,0 +1,13 @@
+mobile
+backend
+*.apk
+.git
+.vercel
+**/.next
+**/node_modules
+**/android
+**/ios
+**/dist
+**/.gradle
+**/.expo
+frontend/public/Generated image 1.png

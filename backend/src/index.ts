@@ -16,6 +16,7 @@ import { hasVipAccess } from './lib/vip';
 import { cacheDelete, cacheSet, cacheStatus } from './lib/cache';
 import { issueRoomAccessToken, verifyRoomAccessToken } from './lib/watch-room-token';
 import { ensureAppVersionPolicies } from './lib/app-version-policy';
+import { startAutoMovieSync, stopAutoMovieSync } from './services/movie-sync.cron';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -360,10 +361,12 @@ server.listen(PORT, () => {
   void ensureAppVersionPolicies()
     .then(() => console.log('App version policies ensured.'))
     .catch((error) => console.warn('Could not ensure app version policies.', error));
+  startAutoMovieSync();
 });
 
 async function shutdown(signal: string) {
   console.log(`${signal} received; shutting down.`);
+  stopAutoMovieSync();
   clearInterval(watchRoomCleanup);
   clearInterval(analyticsCleanup);
   clearInterval(releaseNotificationTimer);
