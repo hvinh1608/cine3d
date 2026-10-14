@@ -636,7 +636,7 @@ export default function Navbar() {
 
       {/* MOBILE DRAWER */}
       {mobileMenuOpen && (
-        <div className="absolute left-0 top-full flex w-full flex-col space-y-4 border-b border-white/10 bg-black/95 p-5 backdrop-blur-xl animate-fade-in xl:hidden">
+        <div className="absolute left-0 top-full flex w-full flex-col space-y-4 border-b border-white/10 bg-black/95 p-5 backdrop-blur-xl animate-fade-in xl:hidden max-h-[calc(100dvh-68px)] overflow-y-auto overscroll-contain pb-8">
           {/* Mobile Search */}
           <form data-search-form onSubmit={handleSearchSubmit} className="relative w-full">
             <input

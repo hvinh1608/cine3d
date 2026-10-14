@@ -645,10 +645,10 @@ export default function AccountPage() {
       <div className="flex flex-col space-y-6">
         
         {/* Tab Headers */}
-        <div className="flex flex-wrap border-b border-white/10 gap-x-6 gap-y-2 text-xs md:text-sm font-bold">
+        <div className="flex items-center gap-x-4 sm:gap-x-6 overflow-x-auto movie-row border-b border-white/10 text-xs md:text-sm font-bold flex-nowrap pb-0.5">
           <button
             onClick={() => setActiveTab('profile')}
-            className={`pb-3 flex items-center space-x-1.5 transition-colors border-b-2 ${
+            className={`pb-3 flex shrink-0 whitespace-nowrap items-center space-x-1.5 transition-colors border-b-2 ${
               activeTab === 'profile' ? 'border-red-500 text-white' : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -658,7 +658,7 @@ export default function AccountPage() {
 
           <button
             onClick={() => setActiveTab('experience')}
-            className={`pb-3 flex items-center space-x-1.5 transition-colors border-b-2 ${
+            className={`pb-3 flex shrink-0 whitespace-nowrap items-center space-x-1.5 transition-colors border-b-2 ${
               activeTab === 'experience' ? 'border-purple-500 text-white' : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -668,7 +668,7 @@ export default function AccountPage() {
           
           <button
             onClick={() => setActiveTab('favorites')}
-            className={`pb-3 flex items-center space-x-1.5 transition-colors border-b-2 ${
+            className={`pb-3 flex shrink-0 whitespace-nowrap items-center space-x-1.5 transition-colors border-b-2 ${
               activeTab === 'favorites' ? 'border-red-500 text-white' : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -676,11 +676,19 @@ export default function AccountPage() {
             <span>Phim Yêu Thích ({favorites.length})</span>
           </button>
 
-          <button onClick={() => setActiveTab('insights')} className={`flex items-center space-x-1.5 border-b-2 pb-3 transition-colors ${activeTab === 'insights' ? 'border-amber-400 text-white' : 'border-transparent text-slate-400 hover:text-slate-200'}`}><Trophy className="h-4 w-4" /><span>Thành Tích</span></button>
+          <button
+            onClick={() => setActiveTab('insights')}
+            className={`pb-3 flex shrink-0 whitespace-nowrap items-center space-x-1.5 transition-colors border-b-2 ${
+              activeTab === 'insights' ? 'border-amber-400 text-white' : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Trophy className="h-4 w-4" />
+            <span>Thành Tích</span>
+          </button>
 
           <button
             onClick={() => setActiveTab('watchlist')}
-            className={`pb-3 flex items-center space-x-1.5 transition-colors border-b-2 ${
+            className={`pb-3 flex shrink-0 whitespace-nowrap items-center space-x-1.5 transition-colors border-b-2 ${
               activeTab === 'watchlist' ? 'border-red-500 text-white' : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -690,7 +698,7 @@ export default function AccountPage() {
 
           <button
             onClick={() => setActiveTab('history')}
-            className={`pb-3 flex items-center space-x-1.5 transition-colors border-b-2 ${
+            className={`pb-3 flex shrink-0 whitespace-nowrap items-center space-x-1.5 transition-colors border-b-2 ${
               activeTab === 'history' ? 'border-red-500 text-white' : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -806,7 +814,7 @@ export default function AccountPage() {
           )}
 
           {activeTab === 'favorites' && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-5">
               {favorites.map((movie) => (
                 <div key={movie.id} className="relative aspect-[2/3] rounded-2xl overflow-hidden group shadow-lg border border-white/5 bg-slate-950">
                   <Link href={`/movies/${movie.slug}`} className="absolute inset-0 z-0">
@@ -816,13 +824,17 @@ export default function AccountPage() {
                   {/* Remove favorite button */}
                   <button
                     onClick={() => handleRemoveFavorite(movie.id)}
-                    className="absolute top-2 right-2 z-30 p-1.5 rounded-full bg-black/60 hover:bg-red-600 text-slate-300 hover:text-white transition-colors cursor-pointer opacity-0 group-hover:opacity-100 duration-200"
+                    className="absolute top-2 right-2 z-30 p-1.5 rounded-full bg-black/60 hover:bg-red-600 text-slate-300 hover:text-white transition-colors cursor-pointer opacity-100 sm:opacity-0 sm:group-hover:opacity-100 duration-200"
                     title="Xóa yêu thích"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
 
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent flex flex-col justify-end p-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-2.5 sm:hidden">
+                    <span className="text-[11px] font-bold text-white line-clamp-1">{movie.title}</span>
+                  </div>
+
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent hidden sm:flex flex-col justify-end p-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                     <span className="text-xs font-bold text-white mb-2 line-clamp-2 text-left">{movie.title}</span>
                     <Link
                       href={`/movies/${movie.slug}`}
@@ -842,7 +854,7 @@ export default function AccountPage() {
           )}
 
           {activeTab === 'watchlist' && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3.5 sm:gap-5">
               {watchlist.map((movie) => (
                 <div key={movie.id} className="relative aspect-[2/3] rounded-2xl overflow-hidden group shadow-lg border border-white/5 bg-slate-950">
                   <Link href={`/movies/${movie.slug}`} className="absolute inset-0 z-0">
@@ -852,13 +864,17 @@ export default function AccountPage() {
                   {/* Remove watchlist button */}
                   <button
                     onClick={() => handleRemoveWatchlist(movie.id)}
-                    className="absolute top-2 right-2 z-30 p-1.5 rounded-full bg-black/60 hover:bg-red-600 text-slate-300 hover:text-white transition-colors cursor-pointer opacity-0 group-hover:opacity-100 duration-200"
+                    className="absolute top-2 right-2 z-30 p-1.5 rounded-full bg-black/60 hover:bg-red-600 text-slate-300 hover:text-white transition-colors cursor-pointer opacity-100 sm:opacity-0 sm:group-hover:opacity-100 duration-200"
                     title="Xóa khỏi danh sách xem sau"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
 
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent flex flex-col justify-end p-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-2.5 sm:hidden">
+                    <span className="text-[11px] font-bold text-white line-clamp-1">{movie.title}</span>
+                  </div>
+
+                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/45 to-transparent hidden sm:flex flex-col justify-end p-4 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                     <span className="text-xs font-bold text-white mb-2 line-clamp-2 text-left">{movie.title}</span>
                     <Link
                       href={`/movies/${movie.slug}`}
@@ -892,7 +908,7 @@ export default function AccountPage() {
                     {/* Hover remove history button */}
                     <button
                       onClick={() => handleRemoveHistory(item.id)}
-                      className="absolute top-3 right-3 z-30 p-1.5 rounded-full bg-black/60 hover:bg-red-600 text-slate-300 hover:text-white transition-colors cursor-pointer opacity-0 group-hover:opacity-100 duration-200"
+                      className="absolute top-3 right-3 z-30 p-1.5 rounded-full bg-black/60 hover:bg-red-600 text-slate-300 hover:text-white transition-colors cursor-pointer opacity-100 sm:opacity-0 sm:group-hover:opacity-100 duration-200"
                       title="Xóa lịch sử xem"
                     >
                       <Trash2 className="w-3.5 h-3.5" />

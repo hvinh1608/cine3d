@@ -301,7 +301,7 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
                 onChange={(event) => setDraftQuery(event.target.value)}
                 placeholder="Nhập tên phim hoặc tên gốc..."
                 autoComplete="off"
-                className="h-13 w-full rounded-2xl border border-white/10 bg-black/40 pl-12 pr-11 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-red-500/70 focus:bg-black/60 focus:ring-4 focus:ring-red-500/10 md:text-base"
+                className="h-12 w-full rounded-2xl border border-white/10 bg-black/40 pl-12 pr-11 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-red-500/70 focus:bg-black/60 focus:ring-4 focus:ring-red-500/10 sm:h-13 md:text-base"
               />
               {draftQuery && (
                 <button type="button" onClick={() => setDraftQuery('')} aria-label="Xóa từ khóa" className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-white">
@@ -309,13 +309,15 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
                 </button>
               )}
             </label>
-            <button type="submit" className="flex h-13 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-red-600 to-rose-500 px-7 text-sm font-black text-white shadow-[0_10px_30px_rgba(220,38,38,0.25)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_35px_rgba(220,38,38,0.35)] active:translate-y-0">
-              <SearchIcon className="h-4 w-4" /> Tìm kiếm
-            </button>
-            <button type="button" onClick={() => setShowFilters((open) => !open)} aria-expanded={showFilters} className={`flex h-13 items-center justify-center gap-2 rounded-2xl border px-5 text-sm font-bold transition ${showFilters || activeFilters.length ? 'border-red-500/40 bg-red-500/10 text-red-300' : 'border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.07]'}`}>
-              <SlidersHorizontal className="h-4 w-4" /> Bộ lọc
-              {activeFilters.length > 0 && <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] text-white">{activeFilters.length}</span>}
-            </button>
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-3">
+              <button type="submit" className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-red-600 to-rose-500 px-4 text-sm font-black text-white shadow-[0_10px_30px_rgba(220,38,38,0.25)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_35px_rgba(220,38,38,0.35)] active:translate-y-0 sm:h-13 sm:px-7">
+                <SearchIcon className="h-4 w-4" /> Tìm kiếm
+              </button>
+              <button type="button" onClick={() => setShowFilters((open) => !open)} aria-expanded={showFilters} className={`flex h-12 items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-bold transition sm:h-13 sm:px-5 ${showFilters || activeFilters.length ? 'border-red-500/40 bg-red-500/10 text-red-300' : 'border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.07]'}`}>
+                <SlidersHorizontal className="h-4 w-4" /> Bộ lọc
+                {activeFilters.length > 0 && <span className="grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] text-white">{activeFilters.length}</span>}
+              </button>
+            </div>
           </form>
 
           {showFilters && (
@@ -392,11 +394,11 @@ function SearchPageContent({ initialData }: { initialData: SearchInitialData }) 
             </div>
 
             {totalPages > 1 && (
-              <nav aria-label="Phân trang phim" className="mt-12 flex flex-wrap items-center justify-center gap-2">
+              <nav aria-label="Phân trang phim" className="mt-12 flex flex-wrap items-center justify-center gap-1 sm:gap-2">
                 <PageButton label="Trang trước" disabled={currentPage === 1} onClick={() => goToPage(currentPage - 1)}><ChevronLeft className="h-4 w-4" /><span className="hidden sm:inline">Trước</span></PageButton>
                 {paginationItems.map((item) => typeof item === 'number' ? (
-                  <button key={item} type="button" onClick={() => goToPage(item)} aria-current={item === currentPage ? 'page' : undefined} className={`grid h-10 min-w-10 place-items-center rounded-xl border px-3 text-sm font-black transition ${item === currentPage ? 'border-red-500 bg-red-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.3)]' : 'border-white/10 bg-white/[0.02] text-slate-400 hover:border-red-500/40 hover:text-white'}`}>{item}</button>
-                ) : <span key={item} className="px-1 text-slate-600">…</span>)}
+                  <button key={item} type="button" onClick={() => goToPage(item)} aria-current={item === currentPage ? 'page' : undefined} className={`grid h-9 min-w-9 place-items-center rounded-xl border px-2.5 text-xs font-black transition sm:h-10 sm:min-w-10 sm:px-3 sm:text-sm ${item === currentPage ? 'border-red-500 bg-red-600 text-white shadow-[0_0_20px_rgba(220,38,38,0.3)]' : 'border-white/10 bg-white/[0.02] text-slate-400 hover:border-red-500/40 hover:text-white'}`}>{item}</button>
+                ) : <span key={item} className="px-0.5 text-slate-600 sm:px-1">…</span>)}
                 <PageButton label="Trang sau" disabled={currentPage === totalPages} onClick={() => goToPage(currentPage + 1)}><span className="hidden sm:inline">Sau</span><ChevronRight className="h-4 w-4" /></PageButton>
               </nav>
             )}

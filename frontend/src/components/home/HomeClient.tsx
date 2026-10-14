@@ -125,17 +125,17 @@ function AnimeSpotlight({ movies, favoriteIds }: { movies: Movie[]; favoriteIds:
     return () => window.clearInterval(timer);
   }, [movies.length]);
   if (!anime) return null;
-  return <section className="mx-auto mb-24 mt-14 w-full max-w-[1440px] px-4 md:px-8">
-    <div className="mb-5 flex items-center justify-between"><h2 className="text-xl font-black text-violet-300 md:text-2xl">Kho tàng Anime mới nhất</h2><Link href="/search?type=hoathinh" className="flex items-center gap-1 text-xs font-bold text-slate-400">Xem tất cả <ChevronRight className="h-4 w-4" /></Link></div>
-    <div className="relative min-h-[500px] overflow-visible rounded-[28px] border border-white/[.08] bg-[#20222e] shadow-[0_30px_90px_rgba(0,0,0,.42)] md:h-[540px]">
-      <div className="absolute inset-0 overflow-hidden rounded-[28px]"><Image src={anime.backdropUrl || anime.posterUrl} alt={anime.title} fill sizes="1440px" className="object-cover object-center md:object-[65%_center]" /><div className="absolute inset-0 bg-gradient-to-r from-[#20222e] via-[#20222e]/90 to-transparent md:via-[43%] md:to-[78%]" /><div className="absolute inset-0 bg-gradient-to-t from-[#20222e] via-transparent to-black/20" /><div className="absolute inset-0 opacity-[.1] [background-image:radial-gradient(rgba(255,255,255,.6)_.7px,transparent_.7px)] [background-size:4px_4px]" /></div>
-      <div className="relative z-10 flex min-h-[500px] max-w-2xl flex-col justify-center px-6 pb-36 pt-10 md:h-full md:px-12 md:pb-40 lg:px-14">
-        <h3 className="text-3xl font-black md:text-4xl">{anime.title}</h3>{anime.englishTitle && <p className="mt-2 text-base text-amber-300">{anime.englishTitle}</p>}
-        <div className="mt-5 flex flex-wrap gap-2 text-[11px] font-bold"><span className="rounded border border-amber-300 px-2.5 py-1.5">★ {anime.ratingAvg?.toFixed(1) || '0.0'}</span><span className="rounded bg-white px-2.5 py-1.5 text-black">T16</span><span className="rounded border border-white/40 px-2.5 py-1.5">{anime.releaseYear}</span><span className="rounded border border-white/40 px-2.5 py-1.5">{anime.isSeries ? 'Phim bộ' : 'Phim lẻ'}</span><span className="rounded border border-white/40 px-2.5 py-1.5">{anime.isSeries ? `${anime.episodeCount} tập` : 'Trọn bộ'}</span></div>
-        <span className="mt-4 w-fit rounded-lg bg-white/10 px-3 py-1.5 text-[11px] font-bold">Hoạt hình</span><p className="mt-5 line-clamp-4 text-sm leading-7 text-slate-200">{anime.description || 'Thông tin phim đang được cập nhật.'}</p>
-        <div className="mt-6 flex items-center gap-4"><Link href={`/movies/${anime.slug}`} className="grid h-16 w-16 place-items-center rounded-full bg-gradient-to-br from-amber-100 to-amber-400 text-black shadow-xl"><Play className="ml-1 h-7 w-7 fill-current" /></Link><button onClick={() => void toggleFavorite(anime.id, anime)} className="grid h-12 w-14 place-items-center rounded-l-full border border-white/15 bg-black/20">{favoriteIds.has(anime.id) ? <Check className="text-emerald-400" /> : <Plus />}</button><Link href={`/movies/${anime.slug}`} className="-ml-4 grid h-12 w-14 place-items-center rounded-r-full border border-l-0 border-white/15 bg-black/20"><CircleAlert /></Link></div>
+  return <section className="mx-auto mb-20 sm:mb-24 mt-10 sm:mt-14 w-full max-w-[1440px] px-4 md:px-8">
+    <div className="mb-5 flex items-center justify-between"><h2 className="text-lg font-black text-violet-300 sm:text-xl md:text-2xl">Kho tàng Anime mới nhất</h2><Link href="/search?type=hoathinh" className="flex items-center gap-1 text-xs font-bold text-slate-400">Xem tất cả <ChevronRight className="h-4 w-4" /></Link></div>
+    <div className="relative min-h-[460px] sm:min-h-[500px] overflow-visible rounded-[24px] sm:rounded-[28px] border border-white/[.08] bg-[#20222e] shadow-[0_30px_90px_rgba(0,0,0,.42)] md:h-[540px]">
+      <div className="absolute inset-0 overflow-hidden rounded-[24px] sm:rounded-[28px]"><Image src={anime.backdropUrl || anime.posterUrl} alt={anime.title} fill sizes="1440px" className="object-cover object-center md:object-[65%_center]" /><div className="absolute inset-0 bg-gradient-to-r from-[#20222e] via-[#20222e]/90 to-transparent md:via-[43%] md:to-[78%]" /><div className="absolute inset-0 bg-gradient-to-t from-[#20222e] via-transparent to-black/20" /><div className="absolute inset-0 opacity-[.1] [background-image:radial-gradient(rgba(255,255,255,.6)_.7px,transparent_.7px)] [background-size:4px_4px]" /></div>
+      <div className="relative z-10 flex min-h-[460px] sm:min-h-[500px] max-w-2xl flex-col justify-center px-4 pb-32 pt-8 sm:px-8 sm:pb-36 md:h-full md:px-12 md:pb-40 lg:px-14">
+        <h3 className="text-2xl font-black sm:text-3xl md:text-4xl">{anime.title}</h3>{anime.englishTitle && <p className="mt-1 sm:mt-2 text-sm sm:text-base text-amber-300">{anime.englishTitle}</p>}
+        <div className="mt-4 sm:mt-5 flex flex-wrap gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] font-bold"><span className="rounded border border-amber-300 px-2 sm:px-2.5 py-1 sm:py-1.5">★ {anime.ratingAvg?.toFixed(1) || '0.0'}</span><span className="rounded bg-white px-2 sm:px-2.5 py-1 sm:py-1.5 text-black">T16</span><span className="rounded border border-white/40 px-2 sm:px-2.5 py-1 sm:py-1.5">{anime.releaseYear}</span><span className="rounded border border-white/40 px-2 sm:px-2.5 py-1 sm:py-1.5">{anime.isSeries ? 'Phim bộ' : 'Phim lẻ'}</span><span className="rounded border border-white/40 px-2 sm:px-2.5 py-1 sm:py-1.5">{anime.isSeries ? `${anime.episodeCount} tập` : 'Trọn bộ'}</span></div>
+        <span className="mt-3 sm:mt-4 w-fit rounded-lg bg-white/10 px-2.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-[11px] font-bold">Hoạt hình</span><p className="mt-3 sm:mt-5 line-clamp-3 sm:line-clamp-4 text-xs sm:text-sm leading-6 sm:leading-7 text-slate-200">{anime.description || 'Thông tin phim đang được cập nhật.'}</p>
+        <div className="mt-5 sm:mt-6 flex items-center gap-3 sm:gap-4"><Link href={`/movies/${anime.slug}`} className="grid h-14 w-14 sm:h-16 sm:w-16 place-items-center rounded-full bg-gradient-to-br from-amber-100 to-amber-400 text-black shadow-xl"><Play className="ml-0.5 sm:ml-1 h-6 w-6 sm:h-7 sm:w-7 fill-current" /></Link><button onClick={() => void toggleFavorite(anime.id, anime)} className="grid h-11 w-12 sm:h-12 sm:w-14 place-items-center rounded-l-full border border-white/15 bg-black/20">{favoriteIds.has(anime.id) ? <Check className="text-emerald-400" /> : <Plus />}</button><Link href={`/movies/${anime.slug}`} className="-ml-3 sm:-ml-4 grid h-11 w-12 sm:h-12 sm:w-14 place-items-center rounded-r-full border border-l-0 border-white/15 bg-black/20"><CircleAlert /></Link></div>
       </div>
-      <div className="movie-row absolute -bottom-14 left-[5%] right-[2%] z-20 flex gap-3 overflow-x-auto px-2 py-2 md:gap-4">{movies.map((item, itemIndex) => <button key={item.id} onClick={() => setIndex(itemIndex)} className={`relative aspect-[2/3] h-[96px] shrink-0 overflow-hidden rounded-xl border-[3px] bg-slate-900 shadow-xl transition hover:-translate-y-1 md:h-[120px] ${index === itemIndex ? '-translate-y-1 border-white ring-2 ring-amber-300' : 'border-[#303340] opacity-85'}`}><Image src={item.posterUrl} alt={item.title} fill sizes="80px" className="object-cover" /></button>)}</div>
+      <div className="movie-row absolute -bottom-12 sm:-bottom-14 left-3 right-3 sm:left-[5%] sm:right-[2%] z-20 flex gap-2.5 overflow-x-auto px-1 py-2 sm:gap-4">{movies.map((item, itemIndex) => <button key={item.id} onClick={() => setIndex(itemIndex)} className={`relative aspect-[2/3] h-[84px] sm:h-[96px] md:h-[120px] shrink-0 overflow-hidden rounded-xl border-[3px] bg-slate-900 shadow-xl transition hover:-translate-y-1 ${index === itemIndex ? '-translate-y-1 border-white ring-2 ring-amber-300' : 'border-[#303340] opacity-85'}`}><Image src={item.posterUrl} alt={item.title} fill sizes="80px" className="object-cover" /></button>)}</div>
     </div>
   </section>;
 }
@@ -194,12 +194,12 @@ function MovieRow({ title, movies, href = '/search', favoriteIds, accent = 'text
       <div className="relative">
         {canPrev && (
           <>
-            <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-12 bg-gradient-to-r from-[#171820] to-transparent sm:w-16" />
+            <div className="pointer-events-none absolute inset-y-0 left-0 z-10 hidden sm:block w-12 bg-gradient-to-r from-[#171820] to-transparent sm:w-16" />
             <button
               type="button"
               onClick={() => scrollByPage(-1)}
               aria-label="Phim trước"
-              className="absolute -left-1 top-[38%] z-20 grid h-10 w-10 place-items-center rounded-full bg-white text-black shadow-xl transition hover:bg-amber-300 sm:-left-3 sm:h-11 sm:w-11"
+              className="absolute -left-1 top-[38%] z-20 hidden sm:grid h-10 w-10 place-items-center rounded-full bg-white text-black shadow-xl transition hover:bg-amber-300 sm:-left-3 sm:h-11 sm:w-11"
             >
               <ChevronLeft />
             </button>
@@ -218,12 +218,12 @@ function MovieRow({ title, movies, href = '/search', favoriteIds, accent = 'text
 
         {canNext && (
           <>
-            <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-12 bg-gradient-to-l from-[#171820] to-transparent sm:w-16" />
+            <div className="pointer-events-none absolute inset-y-0 right-0 z-10 hidden sm:block w-12 bg-gradient-to-l from-[#171820] to-transparent sm:w-16" />
             <button
               type="button"
               onClick={() => scrollByPage(1)}
               aria-label="Phim tiếp theo"
-              className="absolute -right-1 top-[38%] z-20 grid h-10 w-10 place-items-center rounded-full bg-amber-300 text-black shadow-xl transition hover:brightness-110 sm:-right-3 sm:h-11 sm:w-11"
+              className="absolute -right-1 top-[38%] z-20 hidden sm:grid h-10 w-10 place-items-center rounded-full bg-amber-300 text-black shadow-xl transition hover:brightness-110 sm:-right-3 sm:h-11 sm:w-11"
             >
               <ChevronRight />
             </button>
@@ -311,7 +311,7 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
   };
 
   return <div className="-mt-20 min-h-screen bg-[#171820] pb-20 text-white">
-    {active && <section data-hero-parallax className="relative min-h-[650px] overflow-hidden md:min-h-[760px]">
+    {active && <section data-hero-parallax className="relative min-h-[520px] sm:min-h-[620px] md:min-h-[760px] overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
         <Image
           src={active.imageUrl || active.movie.posterUrl}
@@ -329,22 +329,40 @@ export default function HomeClient({ initialData }: { initialData: HomeInitialDa
       <div className="cinema-pixel-grain" aria-hidden />
       <div className="pointer-events-none absolute inset-0 z-[1] bg-[linear-gradient(90deg,#171820_0%,rgba(23,24,32,.72)_28%,rgba(23,24,32,.08)_70%)]" />
       <div className="pointer-events-none absolute inset-0 z-[1] bg-[linear-gradient(180deg,rgba(23,24,32,.12)_0%,rgba(23,24,32,0)_48%,#171820_100%)]" />
-      <div className="relative z-20 mx-auto flex min-h-[650px] max-w-[1440px] items-end px-4 pb-28 pt-32 md:min-h-[760px] md:px-8 md:pb-36">
+      <div className="relative z-20 mx-auto flex min-h-[520px] sm:min-h-[620px] max-w-[1440px] items-end px-4 pb-16 pt-24 sm:pb-28 sm:pt-32 md:min-h-[760px] md:px-8 md:pb-36">
         <div className="max-w-2xl">
-          <p className="mb-4 text-xs font-black uppercase tracking-[.28em] text-amber-300">CINE3D · Phim nổi bật</p>
-          <h1 className="text-4xl font-black leading-[.98] drop-shadow-2xl sm:text-6xl lg:text-7xl">{active.title}</h1>
-          {active.movie.englishTitle && <p className="mt-3 text-lg font-semibold text-amber-200">{active.movie.englishTitle}</p>}
-          <div className="mt-5 flex flex-wrap items-center gap-2 text-[11px] font-bold"><span className="flex items-center gap-1 rounded bg-amber-300 px-2.5 py-1.5 text-black"><Star className="h-3 w-3 fill-current" /> {Number(active.movie.ratingAvg || 0).toFixed(1)}</span><span className="rounded border border-white/30 px-2.5 py-1.5">{active.movie.releaseYear}</span><span className="rounded border border-white/30 px-2.5 py-1.5">{active.movie.quality || 'HD'}</span><span className="rounded border border-white/30 px-2.5 py-1.5">{active.movie.isSeries ? 'Phim bộ' : 'Phim lẻ'}</span>{active.movie.movieGenres?.slice(0, 2).map(({ genre }) => <span key={genre.slug} className="rounded-full bg-white/10 px-3 py-1.5">{genre.name}</span>)}</div>
-          <p className="mt-5 line-clamp-3 max-w-xl text-sm leading-7 text-slate-300 drop-shadow">{active.description || active.movie.description}</p>
-          <div className="mt-7 flex items-center gap-3"><Link href={`/watch/${active.movie.slug}`} className="flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-200 to-amber-400 px-7 py-3.5 text-sm font-black text-black shadow-[0_10px_30px_rgba(251,191,36,.2)] hover:brightness-110"><Play className="h-5 w-5 fill-current" /> Xem ngay</Link><Link href={`/movies/${active.movie.slug}`} className="grid h-12 w-12 place-items-center rounded-full bg-white/15 backdrop-blur hover:bg-white/25"><Info className="h-5 w-5" /></Link><button onClick={() => void toggleFavorite(active.movie.id, active.movie)} className="grid h-12 w-12 place-items-center rounded-full bg-white/15 backdrop-blur hover:bg-white/25"><Plus className="h-5 w-5" /></button></div>
+          <p className="mb-2 sm:mb-4 text-[10px] sm:text-xs font-black uppercase tracking-[.28em] text-amber-300">CINE3D · Phim nổi bật</p>
+          <h1 className="text-3xl font-black leading-tight drop-shadow-2xl sm:text-6xl lg:text-7xl break-words">{active.title}</h1>
+          {active.movie.englishTitle && <p className="mt-2 sm:mt-3 text-sm sm:text-lg font-semibold text-amber-200">{active.movie.englishTitle}</p>}
+          <div className="mt-4 sm:mt-5 flex flex-wrap items-center gap-1.5 sm:gap-2 text-[10px] sm:text-[11px] font-bold"><span className="flex items-center gap-1 rounded bg-amber-300 px-2 sm:px-2.5 py-1 sm:py-1.5 text-black"><Star className="h-3 w-3 fill-current" /> {Number(active.movie.ratingAvg || 0).toFixed(1)}</span><span className="rounded border border-white/30 px-2 sm:px-2.5 py-1 sm:py-1.5">{active.movie.releaseYear}</span><span className="rounded border border-white/30 px-2 sm:px-2.5 py-1 sm:py-1.5">{active.movie.quality || 'HD'}</span><span className="rounded border border-white/30 px-2 sm:px-2.5 py-1 sm:py-1.5">{active.movie.isSeries ? 'Phim bộ' : 'Phim lẻ'}</span>{active.movie.movieGenres?.slice(0, 2).map(({ genre }) => <span key={genre.slug} className="rounded-full bg-white/10 px-2.5 sm:px-3 py-1 sm:py-1.5">{genre.name}</span>)}</div>
+          <p className="mt-3 sm:mt-5 line-clamp-2 sm:line-clamp-3 max-w-xl text-xs sm:text-sm leading-6 sm:leading-7 text-slate-300 drop-shadow">{active.description || active.movie.description}</p>
+          <div className="mt-5 sm:mt-7 flex flex-wrap items-center gap-2.5 sm:gap-3"><Link href={`/watch/${active.movie.slug}`} className="flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-200 to-amber-400 px-6 sm:px-7 py-3 sm:py-3.5 text-xs sm:text-sm font-black text-black shadow-[0_10px_30px_rgba(251,191,36,.2)] hover:brightness-110"><Play className="h-4 w-4 sm:h-5 sm:w-5 fill-current" /> Xem ngay</Link><Link href={`/movies/${active.movie.slug}`} className="grid h-11 w-11 sm:h-12 sm:w-12 place-items-center rounded-full bg-white/15 backdrop-blur hover:bg-white/25"><Info className="h-4 w-4 sm:h-5 sm:w-5" /></Link><button onClick={() => void toggleFavorite(active.movie.id, active.movie)} className="grid h-11 w-11 sm:h-12 sm:w-12 place-items-center rounded-full bg-white/15 backdrop-blur hover:bg-white/25"><Plus className="h-4 w-4 sm:h-5 sm:w-5" /></button></div>
         </div>
       </div>
-      {heroes.length > 1 && <div className="absolute bottom-8 right-4 z-20 hidden w-full max-w-[56%] justify-end gap-2.5 md:flex lg:bottom-11 lg:right-8 lg:max-w-[60%] xl:right-10 xl:max-w-[924px] xl:gap-3">{heroes.map((banner, index) => {
-        const shouldLoadThumbnail = loadDeferredHeroThumbnails || index === heroIndex || index === (heroIndex + 1) % heroes.length;
-        return <button key={banner.id} onClick={() => setHeroIndex(index)} aria-label={`Chiếu banner ${banner.title}`} className={`relative aspect-video min-w-0 flex-1 max-w-36 overflow-hidden rounded-lg border-2 bg-[#252735] transition ${index === heroIndex ? 'border-amber-300 opacity-100' : 'border-transparent opacity-55 hover:opacity-100'}`}>
-          {shouldLoadThumbnail && <Image src={banner.imageUrl || banner.movie.posterUrl} alt="" fill loading="lazy" decoding="async" sizes="144px" className="object-cover" />}
-        </button>;
-      })}</div>}
+      {heroes.length > 1 && (
+        <>
+          <div className="absolute bottom-4 left-4 z-20 flex items-center gap-1.5 md:hidden">
+            {heroes.map((banner, index) => (
+              <button
+                key={banner.id}
+                onClick={() => setHeroIndex(index)}
+                aria-label={`Chiếu banner ${banner.title}`}
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  index === heroIndex ? 'w-6 bg-amber-300' : 'w-1.5 bg-white/40'
+                }`}
+              />
+            ))}
+          </div>
+          <div className="absolute bottom-8 right-4 z-20 hidden w-full max-w-[56%] justify-end gap-2.5 md:flex lg:bottom-11 lg:right-8 lg:max-w-[60%] xl:right-10 xl:max-w-[924px] xl:gap-3">
+            {heroes.map((banner, index) => {
+              const shouldLoadThumbnail = loadDeferredHeroThumbnails || index === heroIndex || index === (heroIndex + 1) % heroes.length;
+              return <button key={banner.id} onClick={() => setHeroIndex(index)} aria-label={`Chiếu banner ${banner.title}`} className={`relative aspect-video min-w-0 flex-1 max-w-36 overflow-hidden rounded-lg border-2 bg-[#252735] transition ${index === heroIndex ? 'border-amber-300 opacity-100' : 'border-transparent opacity-55 hover:opacity-100'}`}>
+                {shouldLoadThumbnail && <Image src={banner.imageUrl || banner.movie.posterUrl} alt="" fill loading="lazy" decoding="async" sizes="144px" className="object-cover" />}
+              </button>;
+            })}
+          </div>
+        </>
+      )}
     </section>}
 
     {initialData.loadError && <div className="mx-auto max-w-[1440px] px-4 md:px-8"><p className="rounded-xl border border-amber-300/20 bg-amber-300/5 p-4 text-sm text-amber-200">{initialData.loadError}</p></div>}

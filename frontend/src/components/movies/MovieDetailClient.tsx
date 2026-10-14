@@ -249,8 +249,8 @@ export default function MovieDetailClient({
         <div className="relative z-20 mx-auto flex min-h-[440px] max-w-[1440px] items-end px-4 pb-7 pt-28 md:min-h-[520px] md:px-8 lg:px-12">
           <div className="max-w-xl pb-5 drop-shadow-2xl">
             <p className="mb-3 text-xs font-bold uppercase tracking-[.3em] text-amber-300">CINE3D giới thiệu</p>
-            <h1 className="text-4xl font-black leading-none md:text-6xl">{movie.title}</h1>
-            {movie.englishTitle && <p className="mt-3 text-base text-slate-300 md:text-lg">{movie.englishTitle}</p>}
+            <h1 className="text-3xl font-black leading-tight break-words sm:text-5xl md:text-6xl">{movie.title}</h1>
+            {movie.englishTitle && <p className="mt-3 text-sm text-slate-300 md:text-lg">{movie.englishTitle}</p>}
           </div>
         </div>
       </section>
@@ -280,23 +280,25 @@ export default function MovieDetailClient({
           </aside>
 
           <section className="min-w-0">
-            <div className="flex flex-col gap-6 border-b border-white/5 pb-6 xl:flex-row xl:items-center">
-              <Link href={`/watch/${movie.slug}${firstEpisode ? `?ep=${firstEpisode.episodeOrder}` : ''}`} className="inline-flex w-fit items-center gap-3 rounded-full bg-gradient-to-r from-amber-300 to-yellow-200 px-7 py-4 text-sm font-black text-slate-950 shadow-[0_8px_30px_rgba(251,191,36,.24)] transition hover:scale-[1.02]"><Play className="h-5 w-5 fill-current" /> Xem ngay</Link>
-              <div className="flex flex-wrap items-center gap-2">
-                <ActionButton label={isFavorite ? 'Đã thích' : 'Yêu thích'} active={isFavorite} onClick={() => void toggleFavorite(movie.id, movie)} icon={<Heart className={`h-5 w-5 ${isFavorite ? 'fill-current' : ''}`} />} />
-                <ActionButton label="Theo dõi" active={following} onClick={() => void toggleFollow()} icon={<BellRing className={`h-5 w-5 ${following ? 'fill-current' : ''}`} />} />
-                <ActionButton label="Thêm vào" icon={<ListPlus className="h-5 w-5" />} onClick={() => showToast('Bạn có thể quản lý playlist trong trang tài khoản.', 'info')} />
-                <ActionButton label="Chia sẻ" icon={<Share2 className="h-5 w-5" />} onClick={() => void share()} />
-                <ActionButton label="Bình luận" icon={<MessageCircle className="h-5 w-5" />} onClick={() => document.getElementById('movie-comments')?.scrollIntoView({ behavior: 'smooth' })} />
+            <div className="flex flex-col gap-4 border-b border-white/5 pb-6 sm:flex-row sm:items-center sm:justify-between xl:flex-row xl:items-center">
+              <Link href={`/watch/${movie.slug}${firstEpisode ? `?ep=${firstEpisode.episodeOrder}` : ''}`} className="inline-flex w-full items-center justify-center gap-3 rounded-full bg-gradient-to-r from-amber-300 to-yellow-200 px-7 py-3.5 text-sm font-black text-slate-950 shadow-[0_8px_30px_rgba(251,191,36,.24)] transition hover:scale-[1.02] sm:w-fit"><Play className="h-5 w-5 fill-current" /> Xem ngay</Link>
+              <div className="flex items-center justify-between gap-3 sm:justify-end">
+                <div className="flex max-w-full items-center gap-1.5 overflow-x-auto movie-row pb-1 sm:gap-2">
+                  <ActionButton label={isFavorite ? 'Đã thích' : 'Yêu thích'} active={isFavorite} onClick={() => void toggleFavorite(movie.id, movie)} icon={<Heart className={`h-5 w-5 ${isFavorite ? 'fill-current' : ''}`} />} />
+                  <ActionButton label="Theo dõi" active={following} onClick={() => void toggleFollow()} icon={<BellRing className={`h-5 w-5 ${following ? 'fill-current' : ''}`} />} />
+                  <ActionButton label="Thêm vào" icon={<ListPlus className="h-5 w-5" />} onClick={() => showToast('Bạn có thể quản lý playlist trong trang tài khoản.', 'info')} />
+                  <ActionButton label="Chia sẻ" icon={<Share2 className="h-5 w-5" />} onClick={() => void share()} />
+                  <ActionButton label="Bình luận" icon={<MessageCircle className="h-5 w-5" />} onClick={() => document.getElementById('movie-comments')?.scrollIntoView({ behavior: 'smooth' })} />
+                </div>
+                <div className="shrink-0 flex items-center gap-1 rounded-full bg-[#252735] px-3 py-2"><Star className="h-4 w-4 fill-amber-300 text-amber-300" /><b className="text-sm">{movie.ratingAvg?.toFixed(1) || '0.0'}</b><span className="text-[10px] text-slate-500">/10</span></div>
               </div>
-              <div className="ml-auto flex items-center gap-1 rounded-full bg-[#252735] px-3 py-2"><Star className="h-4 w-4 fill-amber-300 text-amber-300" /><b className="text-sm">{movie.ratingAvg?.toFixed(1) || '0.0'}</b><span className="text-[10px] text-slate-500">/10</span></div>
             </div>
 
-            <nav className="flex gap-7 overflow-x-auto border-b border-white/5 pt-2 text-sm font-bold text-slate-400">
-              {([['episodes', 'Tập phim'], ['gallery', 'Thông tin'], ['cast', 'Diễn viên'], ['related', 'Đề xuất']] as const).map(([key, label]) => <button key={key} onClick={() => setActiveTab(key)} className={`whitespace-nowrap border-b-2 px-1 py-5 transition ${activeTab === key ? 'border-amber-300 text-amber-300' : 'border-transparent hover:text-white'}`}>{label}</button>)}
+            <nav className="flex gap-5 sm:gap-7 overflow-x-auto movie-row border-b border-white/5 pt-2 text-sm font-bold text-slate-400">
+              {([['episodes', 'Tập phim'], ['gallery', 'Thông tin'], ['cast', 'Diễn viên'], ['related', 'Đề xuất']] as const).map(([key, label]) => <button key={key} onClick={() => setActiveTab(key)} className={`whitespace-nowrap border-b-2 px-1 py-4 sm:py-5 transition ${activeTab === key ? 'border-amber-300 text-amber-300' : 'border-transparent hover:text-white'}`}>{label}</button>)}
             </nav>
 
-            <div className="min-h-52 py-7">
+            <div className="min-h-52 py-6 sm:py-7">
               {activeTab === 'episodes' && (
                 <div>
                   {seasons.length ? (
@@ -323,17 +325,19 @@ export default function MovieDetailClient({
                           <h3 className="py-2 pl-7 text-lg font-bold">{episodeSectionLabel}</h3>
                         )}
                       </div>
-                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-6">
+                      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 xl:grid-cols-6 sm:gap-3">
                         {selectedEpisodes.map((episode) => (
                           <Link
                             key={episode.id}
                             href={`/watch/${movie.slug}?ep=${episode.episodeOrder}`}
-                            className="flex items-center justify-center gap-2 rounded-md bg-[#282a38] px-3 py-3 text-xs font-semibold text-slate-300 transition hover:bg-amber-300 hover:text-black"
+                            className="flex items-center justify-center gap-1.5 rounded-md bg-[#282a38] px-2 py-2.5 text-xs font-semibold text-slate-300 transition hover:bg-amber-300 hover:text-black"
                           >
-                            <Play className="h-3 w-3 fill-current" />
-                            {isSingleFeature
-                              ? (episode.title && episode.title !== `Tập ${episode.episodeOrder}` ? episode.title : 'Xem phim')
-                              : (episode.title || `Tập ${episode.episodeOrder}`)}
+                            <Play className="h-3 w-3 shrink-0 fill-current" />
+                            <span className="truncate">
+                              {isSingleFeature
+                                ? (episode.title && episode.title !== `Tập ${episode.episodeOrder}` ? episode.title : 'Xem phim')
+                                : (episode.title || `Tập ${episode.episodeOrder}`)}
+                            </span>
                           </Link>
                         ))}
                       </div>
@@ -427,8 +431,23 @@ export default function MovieDetailClient({
 
             <AdsterraNativeBanner className="!max-w-none !px-0" />
 
-            <div className="mb-8 rounded-xl border border-white/5 bg-[#20222d] p-5">
-              <div className="flex flex-wrap items-center gap-3"><span className="mr-2 text-sm font-bold">Đánh giá phim</span>{[1,2,3,4,5,6,7,8,9,10].map((score) => <button key={score} onClick={() => void rate(score)} className="transition hover:scale-125" aria-label={`Đánh giá ${score} điểm`}><Star className={`h-5 w-5 ${rating && score <= rating ? 'fill-amber-300 text-amber-300' : 'text-slate-600'}`} /></button>)}{rating && <span className="text-xs font-bold text-amber-300">{rating}/10</span>}</div>
+            <div className="mb-8 rounded-xl border border-white/5 bg-[#20222d] p-4 sm:p-5">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <span className="mr-1 sm:mr-2 text-sm font-bold">Đánh giá phim</span>
+                <div className="flex max-w-full items-center gap-1 overflow-x-auto movie-row py-1 sm:gap-2">
+                  {[1,2,3,4,5,6,7,8,9,10].map((score) => (
+                    <button
+                      key={score}
+                      onClick={() => void rate(score)}
+                      className="p-1 touch-manipulation transition hover:scale-125 active:scale-95"
+                      aria-label={`Đánh giá ${score} điểm`}
+                    >
+                      <Star className={`h-4 w-4 sm:h-5 sm:w-5 ${rating && score <= rating ? 'fill-amber-300 text-amber-300' : 'text-slate-600'}`} />
+                    </button>
+                  ))}
+                </div>
+                {rating && <span className="text-xs font-bold text-amber-300">{rating}/10</span>}
+              </div>
             </div>
 
             <div id="movie-comments"><MovieComments movieId={movie.id} /></div>
@@ -436,7 +455,27 @@ export default function MovieDetailClient({
         </div>
       </div>
 
-      {showTrailer && safeTrailerUrl && <div className="fixed inset-0 z-[100] grid place-items-center bg-black/90 p-4 backdrop-blur"><div className="relative aspect-video w-full max-w-5xl overflow-hidden rounded-2xl bg-black"><button onClick={() => setShowTrailer(false)} className="absolute right-3 top-3 z-10 rounded-full bg-black/70 p-2"><X /></button><iframe className="h-full w-full" src={safeTrailerUrl} title={`Trailer ${movie.title}`} sandbox="allow-scripts allow-same-origin allow-presentation" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen /></div></div>}
+      {showTrailer && safeTrailerUrl && (
+        <div className="fixed inset-0 z-[100] grid place-items-center bg-black/90 p-2 sm:p-4 backdrop-blur">
+          <div className="relative aspect-video w-full max-w-5xl overflow-hidden rounded-2xl bg-black">
+            <button
+              onClick={() => setShowTrailer(false)}
+              className="absolute right-2.5 top-2.5 z-10 rounded-full bg-black/70 p-2 text-white hover:bg-black/90 touch-manipulation"
+              aria-label="Đóng trailer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <iframe
+              className="h-full w-full"
+              src={safeTrailerUrl}
+              title={`Trailer ${movie.title}`}
+              sandbox="allow-scripts allow-same-origin allow-presentation"
+              referrerPolicy="strict-origin-when-cross-origin"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      )}
     </main>
   );
 }

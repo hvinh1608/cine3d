@@ -104,7 +104,7 @@ export default function TranslationVoteBanner() {
     <div
       ref={bannerRef}
       style={position ? { left: position.left, top: position.top } : undefined}
-      className={`fixed ${position ? '' : 'right-3 md:right-6 top-[42%]'} z-40 w-[128px] md:w-[148px] select-none ${isDragging ? '' : 'transition-all duration-700 ease-out'} ${
+      className={`fixed ${position ? '' : 'right-2 sm:right-3 md:right-6 top-[38%] md:top-[42%]'} z-40 w-[114px] sm:w-[132px] md:w-[148px] select-none ${isDragging ? '' : 'transition-all duration-700 ease-out'} ${
         isVisible ? 'translate-x-0 opacity-100' : 'translate-x-96 opacity-0'
       }`}
     >
@@ -127,7 +127,7 @@ export default function TranslationVoteBanner() {
           </button>
           <button
             onClick={handleClose}
-            className="absolute -top-6 -right-3.5 z-50 flex h-[26px] w-[26px] items-center justify-center bg-transparent text-amber-400 drop-shadow-[0_0_10px_rgba(245,158,11,0.35)] transition-colors hover:text-white cursor-pointer"
+            className="absolute -top-6 -right-3.5 z-50 flex h-8 w-8 items-center justify-center bg-transparent text-amber-400 drop-shadow-[0_0_10px_rgba(245,158,11,0.35)] transition-colors hover:text-white cursor-pointer touch-manipulation"
             aria-label="Đóng banner"
           >
             <X className="h-5 w-5 stroke-[3px]" />

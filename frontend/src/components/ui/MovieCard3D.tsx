@@ -163,6 +163,20 @@ export default function MovieCard3D({ movie, onToggleFavorite, isFavorited = fal
         )}
       </Link>
 
+      {/* Mobile badges: visible always on touchscreens (< sm) */}
+      <div className="absolute top-2.5 left-2.5 right-2.5 z-10 flex items-center justify-between pointer-events-none sm:hidden">
+        {movie.quality && (
+          <span className="bg-red-600/90 text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded shadow-md backdrop-blur-sm">
+            {movie.quality}
+          </span>
+        )}
+        {movie.isSeries && (
+          <span className="ml-auto bg-purple-600/90 text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded shadow-md backdrop-blur-sm">
+            {movie.episodeCount ? `${movie.episodeCount} Tập` : 'Phim Bộ'}
+          </span>
+        )}
+      </div>
+
       {/* Glassmorphism details overlay (pops out on Z axis) */}
       <div
         style={{

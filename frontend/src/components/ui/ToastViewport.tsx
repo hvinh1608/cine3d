@@ -23,7 +23,7 @@ export default function ToastViewport() {
       : 'border-cyan-500/40 text-cyan-100';
 
   return (
-    <div className="fixed bottom-6 left-1/2 z-[100] w-[min(92vw,420px)] -translate-x-1/2" role="status" aria-live="polite">
+    <div className="fixed bottom-[calc(5.25rem+env(safe-area-inset-bottom))] md:bottom-6 left-1/2 z-[100] w-[min(92vw,420px)] -translate-x-1/2 px-2" role="status" aria-live="polite">
       <div className={`flex items-center gap-3 rounded-2xl border bg-slate-950/95 px-4 py-3 shadow-2xl backdrop-blur-xl ${tone}`}>
         <Icon className="h-5 w-5 shrink-0" />
         <p className="flex-1 text-sm font-semibold">{toast.message}</p>

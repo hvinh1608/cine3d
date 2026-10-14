@@ -1507,8 +1507,8 @@ function WatchPageContent() {
         </div>
       </div>
 
-      <div className={`mx-auto grid max-w-[1440px] gap-8 px-4 md:px-8 ${theaterMode ? 'grid-cols-1' : 'lg:grid-cols-[minmax(0,1fr)_300px]'}`}>
-        <div className="min-w-0">
+      <div className={`mx-auto flex flex-col gap-8 px-4 pb-12 md:px-8 ${theaterMode ? 'lg:grid lg:grid-cols-1' : 'lg:grid lg:grid-cols-[minmax(0,1fr)_300px]'} max-w-[1440px]`}>
+        <div className="order-1 min-w-0 lg:col-start-1 lg:row-start-1">
           <WatchMovieInfo
             movie={movie}
             activeEpisode={activeEpisode}
@@ -1522,19 +1522,24 @@ function WatchPageContent() {
             onReportPlayback={() => void reportPlayback()}
             onCopyLink={() => { void navigator.clipboard.writeText(window.location.href); showToast('Đã sao chép liên kết xem phim.', 'success'); }}
           />
-          <MovieComments movieId={movie.id} currentTime={currentTime} onSeek={(seconds) => { if (videoRef.current) videoRef.current.currentTime = seconds; }} />
         </div>
 
         {/* SIDE BAR: EPISODES & SERVER SELECT */}
         {!theaterMode && (
-          <WatchSidebar
-            movie={movie}
-            activeEpisode={activeEpisode}
-            activeSource={activeSource}
-            user={user}
-            onSourceChange={changePlaybackSource}
-          />
+          <div className="order-2 lg:col-start-2 lg:row-start-1 lg:row-span-2">
+            <WatchSidebar
+              movie={movie}
+              activeEpisode={activeEpisode}
+              activeSource={activeSource}
+              user={user}
+              onSourceChange={changePlaybackSource}
+            />
+          </div>
         )}
+
+        <div className="order-3 min-w-0 lg:col-start-1 lg:row-start-2">
+          <MovieComments movieId={movie.id} currentTime={currentTime} onSeek={(seconds) => { if (videoRef.current) videoRef.current.currentTime = seconds; }} />
+        </div>
       </div>
     </div>
   );

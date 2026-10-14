@@ -65,11 +65,11 @@ export default function Footer() {
   };
 
   return (
-    <footer className="relative z-10 mt-auto overflow-hidden border-t border-white/[0.07] bg-[#07070d] text-slate-400">
+    <footer className="relative z-10 mt-auto overflow-hidden border-t border-white/[0.07] bg-[#07070d] text-slate-400 pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:pb-0">
       <div className="pointer-events-none absolute -left-20 top-0 h-72 w-72 rounded-full bg-amber-500/[0.04] blur-3xl" />
       <div className="pointer-events-none absolute right-0 top-0 h-80 w-80 rounded-full bg-red-600/[0.04] blur-3xl" />
 
-      <div className="relative mx-auto grid w-full max-w-[1500px] gap-12 px-5 py-12 sm:px-8 lg:grid-cols-[minmax(0,1.35fr)_minmax(390px,0.85fr)] lg:gap-16 lg:px-10 lg:py-16">
+      <div className="relative mx-auto grid w-full max-w-[1500px] gap-8 px-4 py-8 sm:gap-12 sm:px-8 sm:py-12 lg:grid-cols-[minmax(0,1.35fr)_minmax(390px,0.85fr)] lg:gap-16 lg:px-10 lg:py-16">
         <section className="flex min-w-0 flex-col">
           <div className="mb-8 flex w-fit items-center gap-2 rounded-full border border-red-500/20 bg-red-500/10 px-4 py-2 text-xs font-bold text-red-200 sm:text-sm">
             <span className="grid h-6 w-6 place-items-center rounded-full bg-red-600 text-yellow-300" aria-hidden>
@@ -193,20 +193,22 @@ export default function Footer() {
               </div>
             </div>
 
-            <a
-              href={ANDROID_APK_URL}
-              aria-label="Quét hoặc nhấn để tải CINE3D APK"
-              className="mx-auto block rounded-2xl border border-white/15 bg-white p-2.5 shadow-[0_0_35px_rgba(245,158,11,0.1)] transition hover:scale-[1.02]"
-            >
-              <BrandedQrCode
-                value={ANDROID_APK_URL}
-                size={148}
-                title={`Mã QR tải CINE3D APK ${ANDROID_APP_VERSION}`}
-              />
-            </a>
+            <div className="hidden sm:block">
+              <a
+                href={ANDROID_APK_URL}
+                aria-label="Quét hoặc nhấn để tải CINE3D APK"
+                className="mx-auto block rounded-2xl border border-white/15 bg-white p-2.5 shadow-[0_0_35px_rgba(245,158,11,0.1)] transition hover:scale-[1.02]"
+              >
+                <BrandedQrCode
+                  value={ANDROID_APK_URL}
+                  size={148}
+                  title={`Mã QR tải CINE3D APK ${ANDROID_APP_VERSION}`}
+                />
+              </a>
+            </div>
           </div>
 
-          <div className="mt-5 flex items-center justify-center gap-2 border-t border-white/[0.07] pt-4 text-xs text-slate-500">
+          <div className="mt-5 hidden sm:flex items-center justify-center gap-2 border-t border-white/[0.07] pt-4 text-xs text-slate-500">
             <ScanLine className="h-4 w-4 text-amber-400" /> {locale === 'en' ? 'Scan the QR code with your phone camera' : 'Quét QR bằng camera điện thoại để tải nhanh'}
           </div>
         </section>

@@ -273,19 +273,19 @@ export default function VipPage() {
         </div>,
         document.body,
       )}
-      <section className="relative overflow-hidden rounded-[2rem] border border-amber-300/20 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.22),transparent_34%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(2,6,23,0.98)_55%,rgba(76,29,149,0.35))] p-7 shadow-[0_30px_100px_rgba(0,0,0,0.45)] md:p-12">
+      <section className="relative overflow-hidden rounded-[2rem] border border-amber-300/20 bg-[radial-gradient(circle_at_top_left,rgba(251,191,36,0.22),transparent_34%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(2,6,23,0.98)_55%,rgba(76,29,149,0.35))] p-5 sm:p-8 md:p-12 shadow-[0_30px_100px_rgba(0,0,0,0.45)]">
         <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-amber-300/10 blur-3xl" />
-        <div className="relative z-10 grid items-center gap-10 text-center lg:grid-cols-[1.25fr_.75fr] lg:text-left">
+        <div className="relative z-10 grid items-center gap-8 lg:grid-cols-[1.25fr_.75fr] lg:gap-10 text-center lg:text-left">
           <div>
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/10 px-4 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-amber-300">
+            <div className="mb-4 sm:mb-5 inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-300/10 px-3.5 py-1.5 sm:px-4 sm:py-2 text-[10px] font-black uppercase tracking-[0.28em] text-amber-300">
               <Crown className="h-4 w-4" /> CINE3D Premium
             </div>
-            <h1 className="text-4xl font-black leading-tight text-white md:text-6xl">Xem phim không giới hạn.<br /><span className="bg-gradient-to-r from-amber-200 via-yellow-400 to-orange-400 bg-clip-text text-transparent">Trọn vẹn từng khoảnh khắc.</span></h1>
-            <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-300 md:text-base">
+            <h1 className="text-2xl font-black leading-tight text-white sm:text-4xl md:text-6xl break-words">Xem phim không giới hạn.<br /><span className="bg-gradient-to-r from-amber-200 via-yellow-400 to-orange-400 bg-clip-text text-transparent">Trọn vẹn từng khoảnh khắc.</span></h1>
+            <p className="mt-4 sm:mt-5 max-w-2xl text-xs sm:text-sm leading-6 sm:leading-7 text-slate-300 md:text-base">
               Mở khóa kho nội dung độc quyền, chất lượng hình ảnh cao nhất và trải nghiệm xem phim liền mạch trên mọi thiết bị.
             </p>
           </div>
-          <div className="mx-auto w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.055] p-6 text-left backdrop-blur-xl">
+          <div className="mx-auto w-full max-w-md rounded-3xl border border-white/10 bg-white/[0.055] p-4 sm:p-6 text-left backdrop-blur-xl">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-400">Quyền lợi Premium</p>
             <div className="mt-5 max-h-[28rem] space-y-3.5 overflow-y-auto pr-1">
               {VIP_BENEFITS.map((benefit) => {

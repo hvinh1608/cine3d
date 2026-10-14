@@ -334,11 +334,11 @@ export default function WatchTogetherPage() {
       <span className={`rounded-full px-3 py-1 text-xs ${connected ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'}`}>{connected ? 'Đã kết nối' : 'Đang kết nối lại...'}</span>
     </div>
 
-    <div className="flex flex-wrap items-end justify-between gap-3 rounded-2xl border border-white/10 bg-[#252832] p-4 md:p-5">
-      <div><h1 className="text-2xl font-black">{movie?.title || 'Phòng xem chung'}</h1><p className="text-sm text-slate-400">Mã phòng: <b className="text-amber-300">{roomId}</b></p></div>
+    <div className="flex flex-col gap-3.5 sm:flex-row sm:items-end sm:justify-between rounded-2xl border border-white/10 bg-[#252832] p-4 md:p-5">
+      <div className="min-w-0"><h1 className="text-xl sm:text-2xl font-black break-words">{movie?.title || 'Phòng xem chung'}</h1><p className="mt-1 text-xs sm:text-sm text-slate-400">Mã phòng: <b className="text-amber-300">{roomId}</b></p></div>
       <div className="flex gap-2">
-        <button onClick={copyInvite} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-white/5"><Copy className="h-3.5 w-3.5" /> Sao chép link</button>
-        {isHost && <button onClick={closeRoom} className="inline-flex items-center gap-1.5 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/10"><XCircle className="h-3.5 w-3.5" /> Đóng phòng</button>}
+        <button onClick={copyInvite} className="inline-flex flex-1 sm:flex-initial items-center justify-center gap-1.5 rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-slate-300 hover:bg-white/5"><Copy className="h-3.5 w-3.5" /> Sao chép link</button>
+        {isHost && <button onClick={closeRoom} className="inline-flex flex-1 sm:flex-initial items-center justify-center gap-1.5 rounded-lg border border-red-500/30 px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-500/10"><XCircle className="h-3.5 w-3.5" /> Đóng phòng</button>}
       </div>
     </div>
 
